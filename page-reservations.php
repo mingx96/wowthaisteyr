@@ -6,36 +6,55 @@ get_header();
 
 $booking_submitted = false;
 $booking_error = '';
+$notification_sent = true;
+$now = wowthai_pickup_now();
+$today = $now->format('Y-m-d');
+$booking_date = $today;
+$booking_time = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_nonce'])) {
-    if (wp_verify_nonce($_POST['wowthai_reservation_nonce'], 'wowthai_make_reservation')) {
-        $name = sanitize_text_field($_POST['res_name'] ?? '');
-        $email = sanitize_email($_POST['res_email'] ?? '');
-        $phone = sanitize_text_field($_POST['res_phone'] ?? '');
-        $date = sanitize_text_field($_POST['res_date'] ?? '');
-        $time = sanitize_text_field($_POST['res_time'] ?? '');
-        $party = intval($_POST['res_party'] ?? 2);
-        $notes = sanitize_textarea_field($_POST['res_notes'] ?? '');
+    $nonce = is_string($_POST['wowthai_reservation_nonce'])
+        ? sanitize_text_field(wp_unslash($_POST['wowthai_reservation_nonce'])) : '';
+    if (wp_verify_nonce($nonce, 'wowthai_make_reservation')) {
+        $name = sanitize_text_field(wp_unslash(is_string($_POST['res_name'] ?? null) ? $_POST['res_name'] : ''));
+        $email = sanitize_email(wp_unslash(is_string($_POST['res_email'] ?? null) ? $_POST['res_email'] : ''));
+        $phone = sanitize_text_field(wp_unslash(is_string($_POST['res_phone'] ?? null) ? $_POST['res_phone'] : ''));
+        $date = sanitize_text_field(wp_unslash(is_string($_POST['res_date'] ?? null) ? $_POST['res_date'] : ''));
+        $time = sanitize_text_field(wp_unslash(is_string($_POST['res_time'] ?? null) ? $_POST['res_time'] : ''));
+        $party = isset($_POST['res_party']) && is_scalar($_POST['res_party']) ? absint($_POST['res_party']) : 0;
+        $notes = sanitize_textarea_field(wp_unslash(is_string($_POST['res_notes'] ?? null) ? $_POST['res_notes'] : ''));
+        $booking_date = $date;
+        $booking_time = $time;
 
-        if (!empty($name) && !empty($phone) && !empty($date) && !empty($time)) {
-            // Save reservation as post
-            $res_id = wp_insert_post([
-                'post_title' => "Reservierung: $name ($party Personen am $date um $time Uhr)",
-                'post_content' => $notes,
-                'post_status' => 'publish',
-                'post_type' => 'post', // or custom post type
-            ]);
-
-            // Send notification email to restaurant
-            $to = get_option('admin_email');
-            $subject = "Neue Tischreservierung: $name ($party Personen am $date um $time)";
-            $message = "Name: $name\nTelefon: $phone\nE-Mail: $email\nDatum: $date\nUhrzeit: $time Uhr\nPersonen: $party\nAnmerkungen: $notes\n";
-            wp_mail($to, $subject, $message);
-
-            $booking_submitted = true;
+        if (empty($name) || empty($phone) || !in_array($party, [1, 2, 3, 4, 5, 6, 7, 8, 10], true)) {
+            $booking_error = 'Bitte geben Sie Ihren Namen, Ihre Telefonnummer und die Personenzahl an.';
+        } elseif ($email && !is_email($email)) {
+            $booking_error = 'Bitte geben Sie eine gültige E-Mail-Adresse ein.';
+        } elseif (!wowthai_validate_reservation_time($date, $time, $now)) {
+            $booking_error = 'Dieser Termin liegt außerhalb unserer Reservierungszeiten oder ist bereits vergangen. Bitte wählen Sie einen anderen Termin.';
         } else {
-            $booking_error = 'Bitte füllen Sie alle erforderlichen Felder aus (Name, Telefon, Datum, Uhrzeit).';
+            // Keep guest details out of public posts and search results.
+            $details = "Name: $name\nTelefon: $phone\nE-Mail: $email\nDatum: $date\nUhrzeit: $time Uhr\nPersonen: $party\nAnmerkungen: $notes";
+            $res_id = wp_insert_post([
+                'post_title' => "Tischanfrage: $date um $time Uhr ($party Personen)",
+                'post_content' => $details,
+                'post_status' => 'private',
+                'post_type' => 'wowthai_reservation',
+            ], true);
+
+            if (is_wp_error($res_id) || !$res_id) {
+                $booking_error = 'Ihre Anfrage konnte nicht gespeichert werden. Bitte rufen Sie uns an.';
+            } else {
+                $notification_sent = wp_mail(
+                    get_option('admin_email'),
+                    "Neue Tischanfrage: $party Personen am $date um $time Uhr",
+                    $details
+                );
+                $booking_submitted = true;
+            }
         }
+    } else {
+        $booking_error = 'Die Sitzung ist abgelaufen. Bitte laden Sie die Seite neu und versuchen Sie es erneut.';
     }
 }
 ?>
@@ -64,14 +83,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
     <div class="reservation-panel" id="reservation-root" aria-live="polite">
       <?php if ($booking_submitted): ?>
         <div class="booking-success">
-          <h2>Vielen Dank für Ihre Reservierung!</h2>
-          <p>Wir haben Ihre Anfrage für <strong><?php echo esc_html($date); ?> um <?php echo esc_html($time); ?> Uhr</strong> für <strong><?php echo esc_html($party); ?> Personen</strong> erhalten.</p>
-          <p>Wir freuen uns darauf, Sie bald im Restaurant begrüßen zu dürfen!</p>
+          <h2>Vielen Dank für Ihre Tischanfrage!</h2>
+          <p>Wir haben Ihre Anfrage für <strong><?php echo esc_html($date); ?> um <?php echo esc_html($time); ?> Uhr</strong> für <strong><?php echo esc_html($party); ?> Personen</strong> erhalten. Der Tisch ist erst nach unserer Bestätigung reserviert.</p>
+          <?php if (!$notification_sent): ?>
+            <p>Die E-Mail-Benachrichtigung konnte nicht zugestellt werden. Bitte rufen Sie uns zur Bestätigung an: <a href="tel:+43725274973">+43 7252 74973</a>.</p>
+          <?php endif; ?>
           <a class="button button-dark" href="<?php echo esc_url(home_url('/menu/')); ?>">Schon jetzt Speisekarte ansehen ↗</a>
         </div>
       <?php else: ?>
         <h2 class="booking-title">Tisch online reservieren</h2>
-        <p class="booking-copy">Füllen Sie das Formular aus – wir reservieren Ihren Tisch umgehend.</p>
+        <p class="booking-copy">Füllen Sie das Formular aus. Wir bestätigen Ihre Tischanfrage persönlich.</p>
 
         <?php if ($booking_error): ?>
           <p class="booking-error"><?php echo esc_html($booking_error); ?></p>
@@ -82,27 +103,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
 
           <div class="field">
             <label for="res_date">Datum *</label>
-            <input type="date" id="res_date" name="res_date" required min="<?php echo date('Y-m-d'); ?>" value="<?php echo date('Y-m-d'); ?>">
+            <input type="date" id="res_date" name="res_date" required min="<?php echo esc_attr($today); ?>" max="<?php echo esc_attr($now->modify('+90 days')->format('Y-m-d')); ?>" data-earliest="<?php echo esc_attr($now->modify('+30 minutes')->format('Y-m-d H:i')); ?>" value="<?php echo esc_attr($booking_date); ?>">
           </div>
 
           <div class="field">
             <label for="res_time">Uhrzeit *</label>
             <select id="res_time" name="res_time" required>
-              <option value="11:30">11:30 Uhr</option>
-              <option value="12:00">12:00 Uhr</option>
-              <option value="12:30">12:30 Uhr</option>
-              <option value="13:00">13:00 Uhr</option>
-              <option value="13:30">13:30 Uhr</option>
-              <option value="14:00">14:00 Uhr</option>
-              <option value="17:00">17:00 Uhr</option>
-              <option value="17:30">17:30 Uhr</option>
-              <option value="18:00" selected>18:00 Uhr</option>
-              <option value="18:30">18:30 Uhr</option>
-              <option value="19:00">19:00 Uhr</option>
-              <option value="19:30">19:30 Uhr</option>
-              <option value="20:00">20:00 Uhr</option>
-              <option value="20:30">20:30 Uhr</option>
-              <option value="21:00">21:00 Uhr</option>
+              <?php foreach (wowthai_reservation_times($now) as $slot): ?>
+                <option value="<?php echo esc_attr($slot); ?>" <?php selected($booking_time, $slot); ?>><?php echo esc_html($slot); ?> Uhr</option>
+              <?php endforeach; ?>
             </select>
           </div>
 
@@ -142,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
           </div>
 
           <div class="booking-submit">
-            <button type="submit" class="button button-dark">Tisch verbindlich reservieren →</button>
+            <button type="submit" class="button button-dark">Tisch anfragen →</button>
           </div>
         </form>
       <?php endif; ?>

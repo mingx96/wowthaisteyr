@@ -143,15 +143,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Add Item to Cart
-  async function addToCart(productId, quantity = 1, variantId = '', variantName = '', price = '') {
+  async function addToCart(productId, quantity = 1, variantId = '') {
     try {
       const body = new URLSearchParams({
         action: 'wowthai_add_to_cart',
         product_id: productId,
         quantity: quantity,
         variant_id: variantId,
-        variant_name: variantName,
-        variant_price: price,
         nonce: nonce
       });
       const res = await fetch(ajaxUrl, {
@@ -252,11 +250,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-add-modal')?.addEventListener('click', () => {
       const checked = sheetRoot.querySelector('input[name="dish_variant"]:checked');
       const vId = checked ? checked.value : '';
-      const vName = checked ? checked.dataset.name : '';
-      const vPrice = checked ? checked.dataset.price : '';
       const qty = parseInt(document.getElementById('dish-qty')?.value || '1', 10);
       close();
-      addToCart(dish.id, qty, vId, vName, vPrice);
+      addToCart(dish.id, qty, vId);
     });
   }
 
@@ -338,31 +334,76 @@ document.addEventListener('DOMContentLoaded', () => {
   // Update current year in footers
   document.querySelectorAll('[data-year]').forEach(el => el.textContent = String(new Date().getFullYear()));
 
+  // Show only reservation times that the restaurant can accept on the chosen day.
+  const reservationDate = document.getElementById('res_date');
+  const reservationTime = document.getElementById('res_time');
+  if (reservationDate && reservationTime) {
+    const slotsBetween = (start, end) => {
+      const toMinutes = value => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
+      const result = [];
+      for (let minute = toMinutes(start); minute <= toMinutes(end); minute += 30) {
+        result.push(`${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`);
+      }
+      return result;
+    };
+    const updateReservationTimes = () => {
+      const date = reservationDate.value;
+      const previous = reservationTime.value;
+      const sunday = date && new Date(`${date}T12:00:00Z`).getUTCDay() === 0;
+      const slots = (sunday
+        ? slotsBetween('11:30', '19:00')
+        : [...slotsBetween('11:30', '14:00'), ...slotsBetween('17:00', '21:00')]
+      ).filter(time => `${date} ${time}` >= reservationDate.dataset.earliest);
+      reservationTime.replaceChildren(...slots.map(time => {
+        const option = document.createElement('option');
+        option.value = time;
+        option.textContent = `${time} Uhr`;
+        return option;
+      }));
+      if (slots.includes(previous)) reservationTime.value = previous;
+    };
+    reservationDate.addEventListener('change', updateReservationTimes);
+    updateReservationTimes();
+  }
+
   // Checkout Timing Selector Handler (Segmented Control: ASAP vs For Later)
   function initCheckoutTiming() {
     const btnAsap = document.getElementById('btn-asap');
     const btnLater = document.getElementById('btn-later');
     const asapBox = document.getElementById('asap-box');
     const laterBox = document.getElementById('later-box');
-    const finalInput = document.getElementById('final_abholzeit');
+    const modeInput = document.getElementById('pickup_mode');
     const dateSelect = document.getElementById('pickup_date_select');
     const timeSelect = document.getElementById('pickup_time_select');
 
-    if (!btnAsap || !btnLater || !finalInput) return;
+    if (!btnAsap || !btnLater || !modeInput || modeInput.dataset.initialized === 'yes') return;
+    modeInput.dataset.initialized = 'yes';
 
-    function updatePreorderValue() {
+    function updatePreorderSlots() {
       if (!dateSelect || !timeSelect) return;
-      const dayLabel = dateSelect.options[dateSelect.selectedIndex].text.replace(/\s*\([^)]*\)/, '');
-      const timeVal = timeSelect.value;
-      finalInput.value = `${dayLabel} um ${timeVal} Uhr`;
+      const previous = timeSelect.value;
+      let slots = [];
+      try {
+        slots = JSON.parse(dateSelect.selectedOptions[0]?.dataset.slots || '[]');
+      } catch (e) {
+        slots = [];
+      }
+      timeSelect.replaceChildren(...slots.map(slot => {
+        const option = document.createElement('option');
+        option.value = slot;
+        option.textContent = `${slot} Uhr`;
+        return option;
+      }));
+      if (slots.includes(previous)) timeSelect.value = previous;
     }
 
     btnAsap.addEventListener('click', () => {
+      if (btnAsap.disabled) return;
       btnAsap.classList.add('active');
       btnLater.classList.remove('active');
       if (asapBox) asapBox.style.display = 'flex';
       if (laterBox) laterBox.style.display = 'none';
-      finalInput.value = 'Schnellstmöglich (ca. 25–35 Min.)';
+      modeInput.value = 'asap';
     });
 
     btnLater.addEventListener('click', () => {
@@ -370,11 +411,12 @@ document.addEventListener('DOMContentLoaded', () => {
       btnAsap.classList.remove('active');
       if (asapBox) asapBox.style.display = 'none';
       if (laterBox) laterBox.style.display = 'block';
-      updatePreorderValue();
+      modeInput.value = 'later';
+      updatePreorderSlots();
     });
 
-    dateSelect?.addEventListener('change', updatePreorderValue);
-    timeSelect?.addEventListener('change', updatePreorderValue);
+    dateSelect?.addEventListener('change', updatePreorderSlots);
+    updatePreorderSlots();
   }
 
   initCheckoutTiming();

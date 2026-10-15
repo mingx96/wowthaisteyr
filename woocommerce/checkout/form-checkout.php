@@ -15,13 +15,10 @@ if ( ! $checkout->is_registration_enabled() && $checkout->is_registration_requir
     return;
 }
 
-$now = current_time('timestamp');
-$asap_timestamp = $now + (30 * 60);
-$asap_time_formatted = date('H:i', $asap_timestamp);
-$today_label = date_i18n('l, j. F', $now);
-$tomorrow_label = date_i18n('l, j. F', $now + 86400);
-
-$slots = ['11:30', '11:45', '12:00', '12:15', '12:30', '12:45', '13:00', '13:15', '13:30', '14:00', '17:30', '17:45', '18:00', '18:15', '18:30', '18:45', '19:00', '19:15', '19:30', '20:00', '20:30', '21:00'];
+$now = wowthai_pickup_now();
+$asap_ready = wowthai_pickup_asap_time($now);
+$pickup_dates = wowthai_pickup_dates($now);
+$initial_mode = $asap_ready ? 'asap' : 'later';
 ?>
 
 <div class="checkout-intro-bar">
@@ -46,12 +43,12 @@ $slots = ['11:30', '11:45', '12:00', '12:15', '12:30', '12:45', '13:00', '13:15'
       </div>
 
       <div class="timing-segmented-control" role="tablist">
-        <button type="button" class="seg-btn active" id="btn-asap" data-mode="asap">
+        <button type="button" class="seg-btn<?php echo $asap_ready ? ' active' : ''; ?>" id="btn-asap" data-mode="asap" <?php disabled(!$asap_ready); ?>>
           <span class="seg-icon">⚡</span>
           <span class="seg-label">Schnellstmöglich</span>
           <span class="seg-pill">ca. 25–35 Min.</span>
         </button>
-        <button type="button" class="seg-btn" id="btn-later" data-mode="later">
+        <button type="button" class="seg-btn<?php echo !$asap_ready ? ' active' : ''; ?>" id="btn-later" data-mode="later">
           <span class="seg-icon">🕒</span>
           <span class="seg-label">Später abholen</span>
           <span class="seg-pill">Vorbestellung</span>
@@ -59,33 +56,34 @@ $slots = ['11:30', '11:45', '12:00', '12:15', '12:30', '12:45', '13:00', '13:15'
       </div>
 
       <!-- ASAP Status Box -->
-      <div class="asap-status-box" id="asap-box">
+      <div class="asap-status-box" id="asap-box"<?php echo !$asap_ready ? ' style="display: none;"' : ''; ?>>
         <span class="asap-status-dot"></span>
-        <span>Küche bereit · Fertig zur Abholung um ca. <strong><?php echo esc_html($asap_time_formatted); ?> Uhr</strong></span>
+        <span>Küche bereit · Fertig zur Abholung um ca. <strong><?php echo $asap_ready ? esc_html($asap_ready->format('H:i')) : ''; ?> Uhr</strong></span>
       </div>
 
       <!-- Preorder Selectors Box -->
-      <div class="preorder-select-box" id="later-box" style="display: none;">
+      <div class="preorder-select-box" id="later-box"<?php echo $asap_ready ? ' style="display: none;"' : ''; ?>>
         <div class="preorder-grid">
           <div class="preorder-item">
             <label for="pickup_date_select">Abholtag:</label>
-            <select id="pickup_date_select" class="input-select">
-              <option value="heute">Heute (<?php echo esc_html($today_label); ?>)</option>
-              <option value="morgen">Morgen (<?php echo esc_html($tomorrow_label); ?>)</option>
+            <select id="pickup_date_select" name="pickup_date" class="input-select">
+              <?php foreach ($pickup_dates as $date): ?>
+                <option value="<?php echo esc_attr($date['value']); ?>" data-slots="<?php echo esc_attr(wp_json_encode($date['slots'])); ?>"><?php echo esc_html($date['label']); ?></option>
+              <?php endforeach; ?>
             </select>
           </div>
           <div class="preorder-item">
             <label for="pickup_time_select">Uhrzeit:</label>
-            <select id="pickup_time_select" class="input-select">
-              <?php foreach ($slots as $s): ?>
-                <option value="<?php echo esc_attr($s); ?>"><?php echo esc_html($s); ?> Uhr</option>
+            <select id="pickup_time_select" name="pickup_time" class="input-select">
+              <?php foreach (($pickup_dates[0]['slots'] ?? []) as $slot): ?>
+                <option value="<?php echo esc_attr($slot); ?>"><?php echo esc_html($slot); ?> Uhr</option>
               <?php endforeach; ?>
             </select>
           </div>
         </div>
       </div>
 
-      <input type="hidden" name="abholzeit" id="final_abholzeit" value="Schnellstmöglich (ca. 25–35 Min.)">
+      <input type="hidden" name="pickup_mode" id="pickup_mode" value="<?php echo esc_attr($initial_mode); ?>">
     </div>
 
     <!-- BLOCK 2: Kontaktdaten -->

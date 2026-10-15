@@ -26,7 +26,7 @@ add_action('after_setup_theme', 'wowthai_theme_setup');
 // 2. Enqueue Styles & Scripts
 function wowthai_enqueue_scripts() {
     $theme_uri = get_template_directory_uri();
-    $version = '1.0.5';
+    $version = '1.0.6';
 
     // Fonts & Base Styles
     wp_enqueue_style('wowthai-fonts', $theme_uri . '/assets/css/fonts.css', [], $version);
@@ -44,6 +44,9 @@ function wowthai_enqueue_scripts() {
     ]);
 }
 add_action('wp_enqueue_scripts', 'wowthai_enqueue_scripts');
+
+require_once get_template_directory() . '/inc/pickup.php';
+require_once get_template_directory() . '/inc/reservations.php';
 
 // 3. Helper to format cart data for AJAX response
 function wowthai_get_cart_payload() {
@@ -86,25 +89,69 @@ function wowthai_ajax_get_cart() {
 add_action('wp_ajax_wowthai_get_cart', 'wowthai_ajax_get_cart');
 add_action('wp_ajax_nopriv_wowthai_get_cart', 'wowthai_ajax_get_cart');
 
-// 5. AJAX: Add to Cart with custom options/price
+// 5. AJAX: Add to Cart with product-owned options and prices.
+function wowthai_get_trusted_variant($product_id, $variant_id) {
+    if (get_post_meta($product_id, '_wowthai_has_variants', true) !== 'yes') {
+        return null;
+    }
+
+    $variants = get_post_meta($product_id, '_wowthai_variants', true);
+    if (!is_array($variants)) {
+        return null;
+    }
+
+    foreach ($variants as $variant) {
+        if (!is_array($variant) || !isset($variant['id'], $variant['name'], $variant['price'])) {
+            continue;
+        }
+        if ((string) $variant['id'] !== (string) $variant_id || !is_numeric($variant['price']) || (float) $variant['price'] <= 0) {
+            continue;
+        }
+        return [
+            'id' => (string) $variant['id'],
+            'name' => sanitize_text_field($variant['name']),
+            'price' => (float) wc_format_decimal($variant['price']),
+        ];
+    }
+
+    return null;
+}
+
+function wowthai_require_menu_variant($passed, $product_id, $quantity, $variation_id = 0, $variations = [], $cart_item_data = []) {
+    if (get_post_meta($product_id, '_wowthai_has_variants', true) !== 'yes') {
+        return $passed;
+    }
+
+    if (!wowthai_get_trusted_variant($product_id, $cart_item_data['wowthai_variant_id'] ?? '')) {
+        wc_add_notice('Bitte wählen Sie die Variante dieses Gerichts über die Speisekarte.', 'error');
+        return false;
+    }
+
+    return $passed;
+}
+add_filter('woocommerce_add_to_cart_validation', 'wowthai_require_menu_variant', 10, 6);
+
 function wowthai_ajax_add_to_cart() {
     check_ajax_referer('wowthai_cart_nonce', 'nonce');
 
-    $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
-    $quantity = isset($_POST['quantity']) ? max(1, intval($_POST['quantity'])) : 1;
-    $variant_id = isset($_POST['variant_id']) ? sanitize_text_field($_POST['variant_id']) : '';
-    $variant_name = isset($_POST['variant_name']) ? sanitize_text_field($_POST['variant_name']) : '';
-    $variant_price = isset($_POST['variant_price']) ? floatval($_POST['variant_price']) : 0;
-
-    if (!$product_id) {
+    $product_id = isset($_POST['product_id']) && is_scalar($_POST['product_id']) ? absint($_POST['product_id']) : 0;
+    $quantity = isset($_POST['quantity']) && is_scalar($_POST['quantity']) ? min(50, max(1, absint($_POST['quantity']))) : 1;
+    $variant_id = isset($_POST['variant_id']) && is_string($_POST['variant_id']) ? sanitize_text_field(wp_unslash($_POST['variant_id'])) : '';
+    $product = wc_get_product($product_id);
+    if (!$product || !$product->is_purchasable() || !$product->is_in_stock()) {
         wp_send_json_error(['message' => 'Ungültiges Produkt']);
     }
 
     $cart_item_data = [];
-    if (!empty($variant_id)) {
-        $cart_item_data['wowthai_variant_id'] = $variant_id;
-        $cart_item_data['wowthai_variant_name'] = $variant_name;
-        $cart_item_data['wowthai_variant_price'] = $variant_price;
+    if (get_post_meta($product_id, '_wowthai_has_variants', true) === 'yes') {
+        $variant = wowthai_get_trusted_variant($product_id, $variant_id);
+        if (!$variant) {
+            wp_send_json_error(['message' => 'Bitte wählen Sie eine gültige Variante.']);
+        }
+        $cart_item_data['wowthai_variant_id'] = $variant['id'];
+        $cart_item_data['wowthai_variant_name'] = $variant['name'];
+    } elseif ($variant_id !== '') {
+        wp_send_json_error(['message' => 'Dieses Produkt hat keine Variante.']);
     }
 
     $added = WC()->cart->add_to_cart($product_id, $quantity, 0, [], $cart_item_data);
@@ -118,15 +165,28 @@ function wowthai_ajax_add_to_cart() {
 add_action('wp_ajax_wowthai_add_to_cart', 'wowthai_ajax_add_to_cart');
 add_action('wp_ajax_nopriv_wowthai_add_to_cart', 'wowthai_ajax_add_to_cart');
 
-// 6. Custom price calculation when variant is selected
+// 6. Re-check cart prices on every calculation, including restored cart sessions.
 function wowthai_custom_cart_item_price($cart) {
     if (is_admin() && !defined('DOING_AJAX')) return;
-    if (did_action('woocommerce_before_calculate_totals') >= 2) return;
 
-    foreach ($cart->get_cart() as $cart_item) {
-        if (!empty($cart_item['wowthai_variant_price']) && $cart_item['wowthai_variant_price'] > 0) {
-            $cart_item['data']->set_price($cart_item['wowthai_variant_price']);
+    foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
+        $product_id = (int) $cart_item['product_id'];
+        if (get_post_meta($product_id, '_wowthai_has_variants', true) !== 'yes') {
+            // An old/tampered cart item cannot override a normal product's price.
+            unset($cart->cart_contents[$cart_item_key]['wowthai_variant_price']);
+            continue;
         }
+
+        $variant_id = isset($cart_item['wowthai_variant_id']) ? $cart_item['wowthai_variant_id'] : '';
+        $variant = wowthai_get_trusted_variant($product_id, $variant_id);
+        if (!$variant) {
+            $cart->remove_cart_item($cart_item_key);
+            continue;
+        }
+
+        $cart->cart_contents[$cart_item_key]['wowthai_variant_name'] = $variant['name'];
+        unset($cart->cart_contents[$cart_item_key]['wowthai_variant_price']);
+        $cart_item['data']->set_price($variant['price']);
     }
 }
 add_action('woocommerce_before_calculate_totals', 'wowthai_custom_cart_item_price', 20, 1);
@@ -142,6 +202,25 @@ function wowthai_display_cart_item_variant($item_data, $cart_item) {
     return $item_data;
 }
 add_filter('woocommerce_get_item_data', 'wowthai_display_cart_item_variant', 10, 2);
+
+function wowthai_redirect_legacy_pages() {
+    $path = wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+    $path = untrailingslashit($path);
+    if ($path === '/speisekarte') {
+        wp_safe_redirect(home_url('/menu/'), 301);
+        exit;
+    }
+    if ($path === '/tisch-reservieren') {
+        wp_safe_redirect(home_url('/reservations/'), 301);
+        exit;
+    }
+    if (function_exists('is_shop') && is_shop()) {
+        wp_safe_redirect(home_url('/menu/'), 301);
+        exit;
+    }
+}
+add_action('template_redirect', 'wowthai_redirect_legacy_pages', 1);
+add_filter('woocommerce_return_to_shop_redirect', function () { return home_url('/menu/'); });
 
 // 8. Save variant name into order line item meta
 function wowthai_add_order_item_meta($item, $cart_item_key, $values, $order) {
@@ -261,13 +340,16 @@ function wowthai_autofill_checkout_fields() {
     $_POST['billing_address_1'] = 'Selbstabholung City Point Steyr';
     $_POST['billing_postcode'] = '4400';
     $_POST['billing_state'] = '';
-    
-    // Ensure abholzeit is populated
-    if (empty($_POST['abholzeit'])) {
-        $_POST['abholzeit'] = 'Schnellstmöglich (ca. 25–35 Min.)';
-    }
 }
 add_action('woocommerce_checkout_process', 'wowthai_autofill_checkout_fields', 5);
+
+function wowthai_validate_checkout_pickup() {
+    $pickup = wowthai_validate_pickup_request($_POST);
+    if (is_wp_error($pickup)) {
+        wc_add_notice($pickup->get_error_message(), 'error');
+    }
+}
+add_action('woocommerce_checkout_process', 'wowthai_validate_checkout_pickup', 6);
 
 // Ensure posted data always has country and pickup address during update_order_review AJAX
 function wowthai_filter_checkout_posted_data($data) {
@@ -311,8 +393,10 @@ function wowthai_save_pickup_time_order_meta($order, $data) {
     $order->set_billing_address_1('Selbstabholung City Point Steyr');
     $order->set_billing_postcode('4400');
 
-    $pickup_time = !empty($_POST['abholzeit']) ? sanitize_text_field($_POST['abholzeit']) : 'Schnellstmöglich (ca. 25–35 Min.)';
-    $order->update_meta_data('Abholzeit', $pickup_time);
+    $pickup_time = wowthai_validate_pickup_request($_POST);
+    if (!is_wp_error($pickup_time)) {
+        $order->update_meta_data('Abholzeit', $pickup_time);
+    }
 }
 add_action('woocommerce_checkout_create_order', 'wowthai_save_pickup_time_order_meta', 10, 2);
 
@@ -339,7 +423,7 @@ function wowthai_get_menu_structure() {
     ];
 
     $sushi_cats = [
-        'Vorpseise Sushi', 'Set', 'Maki &amp; Sashimi', 'Maki & Sashimi',
+        'Vorpseise Sushi', 'Set', 'Maki & Sashimi',
         'Special Rolls', 'Bowl'
     ];
 
@@ -370,7 +454,7 @@ function wowthai_get_menu_structure() {
             if (!empty($products)) {
                 $output['sushi'][] = [
                     'term_id' => $term->term_id,
-                    'name' => $term->name,
+                    'name' => $term->name === 'Vorpseise Sushi' ? 'Vorspeise Sushi' : $term->name,
                     'slug' => $term->slug,
                     'products' => $products
                 ];
