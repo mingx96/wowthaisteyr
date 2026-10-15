@@ -765,6 +765,18 @@ document.addEventListener('DOMContentLoaded', () => {
       dishButton.click();
     }
   }
+
+  // Modern web accessibility: Escape key closes active modal or drawer
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      if (sheetRoot && sheetRoot.innerHTML !== '') {
+        sheetRoot.innerHTML = '';
+      } else if (cartRoot && cartRoot.innerHTML !== '') {
+        renderCartDrawer(false);
+      }
+    }
+  });
+
   // Initial cart load
   fetchCart();
 });
