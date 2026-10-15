@@ -436,3 +436,6 @@ function wowthai_get_products_in_cat($term_id) {
 
 // 14. Restaurant Order Management & Kitchen Console in WP-Admin
 require_once get_template_directory() . '/inc/admin-orders.php';
+
+// 15. Tischanfragen & Reservierungsverwaltung in WP-Admin (Resmio/Wix Style)
+require_once get_template_directory() . '/inc/admin-reservations.php';

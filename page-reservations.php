@@ -18,21 +18,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
         $notes = sanitize_textarea_field($_POST['res_notes'] ?? '');
 
         if (!empty($name) && !empty($phone) && !empty($date) && !empty($time)) {
-            // Save reservation as post
+            // Save as native Tischanfrage
+            $formatted_date = date_i18n('D, d. M Y', strtotime($date));
             $res_id = wp_insert_post([
-                'post_title' => "Reservierung: $name ($party Personen am $date um $time Uhr)",
+                'post_title'   => "$name · $party Pers. · $date $time",
                 'post_content' => $notes,
-                'post_status' => 'publish',
-                'post_type' => 'post', // or custom post type
+                'post_status'  => 'publish',
+                'post_type'    => 'tischanfrage',
             ]);
 
-            // Send notification email to restaurant
-            $to = get_option('admin_email');
-            $subject = "Neue Tischreservierung: $name ($party Personen am $date um $time)";
-            $message = "Name: $name\nTelefon: $phone\nE-Mail: $email\nDatum: $date\nUhrzeit: $time Uhr\nPersonen: $party\nAnmerkungen: $notes\n";
-            wp_mail($to, $subject, $message);
+            if ($res_id && !is_wp_error($res_id)) {
+                update_post_meta($res_id, '_res_name', $name);
+                update_post_meta($res_id, '_res_phone', $phone);
+                update_post_meta($res_id, '_res_email', $email);
+                update_post_meta($res_id, '_res_date', $date);
+                update_post_meta($res_id, '_res_time', $time);
+                update_post_meta($res_id, '_res_party', $party);
+                update_post_meta($res_id, '_res_notes', $notes);
+                update_post_meta($res_id, '_res_status', 'pending');
 
-            $booking_submitted = true;
+                // Send notification email to restaurant
+                $to = get_option('admin_email');
+                $dashboard_url = admin_url('edit.php?post_type=tischanfrage');
+                $subject = "🔔 Neue Tischanfrage: $name ($party Personen am $date um $time Uhr)";
+                $message = "Neue Tischanfrage bei WOW Thai Steyr eingetroffen:\n\n"
+                         . "Name:        $name\n"
+                         . "Personen:    $party Personen\n"
+                         . "Datum:       $formatted_date ($date)\n"
+                         . "Uhrzeit:     $time Uhr\n"
+                         . "Telefon:     $phone\n"
+                         . "E-Mail:      " . ($email ?: 'Keine Angabe') . "\n"
+                         . "Anmerkungen: " . ($notes ?: 'Keine') . "\n\n"
+                         . "In der Administration ansehen & mit 1-Klick bestätigen:\n"
+                         . "$dashboard_url\n";
+
+                wp_mail($to, $subject, $message, ['Content-Type: text/plain; charset=UTF-8']);
+
+                $booking_submitted = true;
+            } else {
+                $booking_error = 'Fehler beim Speichern der Anfrage. Bitte versuchen Sie es erneut oder rufen Sie uns direkt an.';
+            }
         } else {
             $booking_error = 'Bitte füllen Sie alle erforderlichen Felder aus (Name, Telefon, Datum, Uhrzeit).';
         }
