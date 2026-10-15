@@ -191,6 +191,15 @@ ul.woocommerce-error::before {
   background: #1c1813;
   color: #fff;
 }
+.seg-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.seg-btn:disabled:hover {
+  border-color: var(--line);
+  background: #141210;
+  color: #d8d0c2;
+}
 .seg-btn.active {
   border-color: var(--green);
   background: #221c14;

@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div>
                       <h3>${esc(item.name)}</h3>
                       ${item.variant_name ? `<p><small>${esc(item.variant_name)}</small></p>` : ''}
+                      ${(item.modifier_names || []).map(choice => `<p><small>${esc(choice.group)}: ${esc(choice.name)}</small></p>`).join('')}
                       <strong>${esc(item.line_total)}</strong>
                     </div>
                     <div class="cart-line-actions">
@@ -143,15 +144,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Add Item to Cart
-  async function addToCart(productId, quantity = 1, variantId = '', variantName = '', price = '') {
+  async function addToCart(productId, quantity = 1, variantId = '', modifierIds = []) {
     try {
       const body = new URLSearchParams({
         action: 'wowthai_add_to_cart',
         product_id: productId,
         quantity: quantity,
         variant_id: variantId,
-        variant_name: variantName,
-        variant_price: price,
+        modifier_ids: JSON.stringify(modifierIds),
         nonce: nonce
       });
       const res = await fetch(ajaxUrl, {
@@ -209,7 +209,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function openDishModal(dish) {
     if (!sheetRoot) return;
     const variants = dish.variants || [];
-    let selectedVariant = variants[0] || null;
+    const modifierGroups = dish.modifierGroups || [];
+    const formatPrice = amount => new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR' }).format(Number(amount));
 
     sheetRoot.innerHTML = `
       <div class="modal-wrap" id="dish-modal-wrap">
@@ -219,10 +220,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <button type="button" class="icon-close" id="dish-modal-close" aria-label="Schließen">&times;</button>
           </div>
           ${dish.description ? `<p class="modal-description">${esc(dish.description)}</p>` : ''}
-          <div class="choice-group">
+          ${variants.length ? `<div class="choice-group">
             <div class="choice-head">
-              <strong>Option wählen</strong>
-              <span>Bitte wählen Sie eine Variante</span>
+              <strong>Variante wählen</strong>
+              <span>Preis je Variante</span>
             </div>
             ${variants.map((v, idx) => `
               <label class="choice-option">
@@ -231,7 +232,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 <small>${esc(v.formatted)}</small>
               </label>
             `).join('')}
-          </div>
+          </div>` : ''}
+          ${modifierGroups.map(group => {
+            const single = Number(group.max) === 1;
+            return `<fieldset class="choice-group modifier-group" data-group-id="${esc(group.id)}" data-min="${esc(group.min)}" data-max="${esc(group.max)}">
+              <legend>${esc(group.name)} ${Number(group.min) > 0 ? '<span class="required-mark">*</span>' : '<span class="optional-mark">(optional)</span>'}</legend>
+              ${single && Number(group.min) === 0 ? `<label class="choice-option"><input type="radio" name="modifier_${esc(group.id)}" value="" checked><span>Kein Extra</span></label>` : ''}
+              ${(group.options || []).map(option => `<label class="choice-option">
+                <input type="${single ? 'radio' : 'checkbox'}" name="modifier_${esc(group.id)}" value="${esc(option.id)}">
+                <span>${esc(option.name)}</span>
+                <small>${Number(option.price) > 0 ? `+${esc(formatPrice(option.price))}` : 'Inklusive'}</small>
+              </label>`).join('')}
+            </fieldset>`;
+          }).join('')}
+          <p class="sheet-validation" id="dish-validation" role="alert" hidden></p>
           <div class="sheet-bottom">
             <input type="number" id="dish-qty" value="1" min="1" max="50" aria-label="Menge">
             <button type="button" class="button button-dark" id="btn-add-modal">In den Warenkorb</button>
@@ -252,11 +266,20 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-add-modal')?.addEventListener('click', () => {
       const checked = sheetRoot.querySelector('input[name="dish_variant"]:checked');
       const vId = checked ? checked.value : '';
-      const vName = checked ? checked.dataset.name : '';
-      const vPrice = checked ? checked.dataset.price : '';
       const qty = parseInt(document.getElementById('dish-qty')?.value || '1', 10);
+      const selected = [];
+      for (const group of sheetRoot.querySelectorAll('.modifier-group')) {
+        const ids = [...group.querySelectorAll('input:checked')].map(input => input.value).filter(Boolean);
+        if (ids.length < Number(group.dataset.min) || ids.length > Number(group.dataset.max)) {
+          const message = document.getElementById('dish-validation');
+          message.textContent = `Bitte wählen Sie eine gültige Option für ${group.querySelector('legend')?.textContent.trim() || 'dieses Gericht'}.`;
+          message.hidden = false;
+          return;
+        }
+        selected.push(...ids);
+      }
       close();
-      addToCart(dish.id, qty, vId, vName, vPrice);
+      addToCart(dish.id, qty, vId, selected);
     });
   }
 
@@ -268,13 +291,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const productId = btn.dataset.productId;
     const hasVariants = btn.dataset.hasVariants === 'yes';
+    const hasModifiers = btn.dataset.hasModifiers === 'yes';
 
-    if (hasVariants) {
+    if (hasVariants || hasModifiers) {
       try {
         const variants = JSON.parse(btn.dataset.variants || '[]');
+        const modifierGroups = JSON.parse(btn.dataset.modifierGroups || '[]');
         const title = btn.dataset.title || '';
         const description = btn.dataset.description || '';
-        openDishModal({ id: productId, title, description, variants });
+        openDishModal({ id: productId, title, description, variants, modifierGroups });
       } catch (err) {
         console.error('Variant parse error:', err);
       }
@@ -338,31 +363,76 @@ document.addEventListener('DOMContentLoaded', () => {
   // Update current year in footers
   document.querySelectorAll('[data-year]').forEach(el => el.textContent = String(new Date().getFullYear()));
 
+  // Show only reservation times that the restaurant can accept on the chosen day.
+  const reservationDate = document.getElementById('res_date');
+  const reservationTime = document.getElementById('res_time');
+  if (reservationDate && reservationTime) {
+    const slotsBetween = (start, end) => {
+      const toMinutes = value => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
+      const result = [];
+      for (let minute = toMinutes(start); minute <= toMinutes(end); minute += 30) {
+        result.push(`${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`);
+      }
+      return result;
+    };
+    const updateReservationTimes = () => {
+      const date = reservationDate.value;
+      const previous = reservationTime.value;
+      const sunday = date && new Date(`${date}T12:00:00Z`).getUTCDay() === 0;
+      const slots = (sunday
+        ? slotsBetween('11:30', '19:00')
+        : [...slotsBetween('11:30', '14:00'), ...slotsBetween('17:00', '21:00')]
+      ).filter(time => `${date} ${time}` >= reservationDate.dataset.earliest);
+      reservationTime.replaceChildren(...slots.map(time => {
+        const option = document.createElement('option');
+        option.value = time;
+        option.textContent = `${time} Uhr`;
+        return option;
+      }));
+      if (slots.includes(previous)) reservationTime.value = previous;
+    };
+    reservationDate.addEventListener('change', updateReservationTimes);
+    updateReservationTimes();
+  }
+
   // Checkout Timing Selector Handler (Segmented Control: ASAP vs For Later)
   function initCheckoutTiming() {
     const btnAsap = document.getElementById('btn-asap');
     const btnLater = document.getElementById('btn-later');
     const asapBox = document.getElementById('asap-box');
     const laterBox = document.getElementById('later-box');
-    const finalInput = document.getElementById('final_abholzeit');
+    const modeInput = document.getElementById('pickup_mode');
     const dateSelect = document.getElementById('pickup_date_select');
     const timeSelect = document.getElementById('pickup_time_select');
 
-    if (!btnAsap || !btnLater || !finalInput) return;
+    if (!btnAsap || !btnLater || !modeInput || modeInput.dataset.initialized === 'yes') return;
+    modeInput.dataset.initialized = 'yes';
 
-    function updatePreorderValue() {
+    function updatePreorderSlots() {
       if (!dateSelect || !timeSelect) return;
-      const dayLabel = dateSelect.options[dateSelect.selectedIndex].text.replace(/\s*\([^)]*\)/, '');
-      const timeVal = timeSelect.value;
-      finalInput.value = `${dayLabel} um ${timeVal} Uhr`;
+      const previous = timeSelect.value;
+      let slots = [];
+      try {
+        slots = JSON.parse(dateSelect.selectedOptions[0]?.dataset.slots || '[]');
+      } catch (e) {
+        slots = [];
+      }
+      timeSelect.replaceChildren(...slots.map(slot => {
+        const option = document.createElement('option');
+        option.value = slot;
+        option.textContent = `${slot} Uhr`;
+        return option;
+      }));
+      if (slots.includes(previous)) timeSelect.value = previous;
     }
 
     btnAsap.addEventListener('click', () => {
+      if (btnAsap.disabled) return;
       btnAsap.classList.add('active');
       btnLater.classList.remove('active');
       if (asapBox) asapBox.style.display = 'flex';
       if (laterBox) laterBox.style.display = 'none';
-      finalInput.value = 'Schnellstmöglich (ca. 25–35 Min.)';
+      modeInput.value = 'asap';
     });
 
     btnLater.addEventListener('click', () => {
@@ -370,11 +440,12 @@ document.addEventListener('DOMContentLoaded', () => {
       btnAsap.classList.remove('active');
       if (asapBox) asapBox.style.display = 'none';
       if (laterBox) laterBox.style.display = 'block';
-      updatePreorderValue();
+      modeInput.value = 'later';
+      updatePreorderSlots();
     });
 
-    dateSelect?.addEventListener('change', updatePreorderValue);
-    timeSelect?.addEventListener('change', updatePreorderValue);
+    dateSelect?.addEventListener('change', updatePreorderSlots);
+    updatePreorderSlots();
   }
 
   initCheckoutTiming();
@@ -518,4 +589,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initial cart load
   fetchCart();
+
+  // Open the correct selector when a WooCommerce product link lands on the menu.
+  const requestedDish = new URLSearchParams(window.location.search).get('dish');
+  if (requestedDish && /^\d+$/.test(requestedDish)) {
+    const dishButton = document.querySelector(`.dish-control[data-product-id="${requestedDish}"]`);
+    if (dishButton) {
+      const section = dishButton.closest('.menu-section');
+      const menuType = section?.dataset.menuType;
+      if (menuType && menuType !== 'restaurant') {
+        document.querySelector(`.menu-tab[data-menu="${menuType}"]`)?.click();
+      }
+      dishButton.scrollIntoView({ block: 'center' });
+      dishButton.click();
+    }
+  }
 });

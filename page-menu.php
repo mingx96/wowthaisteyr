@@ -66,14 +66,21 @@ $menu_data = wowthai_get_menu_structure();
                   <?php endforeach; ?>
                 </div>
               <?php endif; ?>
+              <?php if ($p['has_variants']): ?>
+                <p class="dish-option-hint"><?php echo esc_html(count($p['variants'])); ?> Varianten mit eigenem Preis</p>
+              <?php elseif (!empty($p['modifier_groups'])): ?>
+                <p class="dish-option-hint">Zusatzoptionen verfügbar</p>
+              <?php endif; ?>
               <div class="dish-actions">
                 <button type="button" class="dish-control"
                   data-product-id="<?php echo esc_attr($p['id']); ?>"
                   data-has-variants="<?php echo $p['has_variants'] ? 'yes' : 'no'; ?>"
+                  data-has-modifiers="<?php echo !empty($p['modifier_groups']) ? 'yes' : 'no'; ?>"
                   data-title="<?php echo esc_attr($p['title']); ?>"
                   data-description="<?php echo esc_attr($p['description']); ?>"
-                  data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
-                  <?php echo $p['has_variants'] ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
+                  data-variants="<?php echo esc_attr(wp_json_encode($p['variants'])); ?>"
+                  data-modifier-groups="<?php echo esc_attr(wp_json_encode($p['modifier_groups'])); ?>">
+                  <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Optionen & Preise wählen ↗' : 'In den Warenkorb +'; ?>
                 </button>
               </div>
             </article>
@@ -109,14 +116,21 @@ $menu_data = wowthai_get_menu_structure();
                   <?php endforeach; ?>
                 </div>
               <?php endif; ?>
+              <?php if ($p['has_variants']): ?>
+                <p class="dish-option-hint"><?php echo esc_html(count($p['variants'])); ?> Varianten mit eigenem Preis</p>
+              <?php elseif (!empty($p['modifier_groups'])): ?>
+                <p class="dish-option-hint">Zusatzoptionen verfügbar</p>
+              <?php endif; ?>
               <div class="dish-actions">
                 <button type="button" class="dish-control"
                   data-product-id="<?php echo esc_attr($p['id']); ?>"
                   data-has-variants="<?php echo $p['has_variants'] ? 'yes' : 'no'; ?>"
+                  data-has-modifiers="<?php echo !empty($p['modifier_groups']) ? 'yes' : 'no'; ?>"
                   data-title="<?php echo esc_attr($p['title']); ?>"
                   data-description="<?php echo esc_attr($p['description']); ?>"
-                  data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
-                  <?php echo $p['has_variants'] ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
+                  data-variants="<?php echo esc_attr(wp_json_encode($p['variants'])); ?>"
+                  data-modifier-groups="<?php echo esc_attr(wp_json_encode($p['modifier_groups'])); ?>">
+                  <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Optionen & Preise wählen ↗' : 'In den Warenkorb +'; ?>
                 </button>
               </div>
             </article>
