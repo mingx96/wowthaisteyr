@@ -35,9 +35,7 @@ function wowthai_register_tischanfrage_cpt() {
         'public'             => false,
         'publicly_queryable' => false,
         'show_ui'            => true,
-        'show_in_menu'       => true,
-        'menu_position'      => 56, // Direkt unter WooCommerce
-        'menu_icon'          => 'dashicons-calendar-alt',
+        'show_in_menu'       => 'woocommerce', // Eingebettet in das WooCommerce Menü
         'query_var'          => false,
         'rewrite'            => false,
         'capability_type'    => 'post',
@@ -49,6 +47,22 @@ function wowthai_register_tischanfrage_cpt() {
     register_post_type( 'tischanfrage', $args );
 }
 add_action( 'init', 'wowthai_register_tischanfrage_cpt' );
+
+// 1b. Badge für das WooCommerce-Untermenü anpassen
+function wowthai_adjust_tischanfrage_submenu() {
+    global $submenu;
+    if ( isset( $submenu['woocommerce'] ) ) {
+        $pending_count = wowthai_get_pending_res_count();
+        $badge = $pending_count > 0 ? sprintf( ' <span class="awaiting-mod count-%1$d" style="background:#e6a100;color:#fff;border-radius:10px;padding:2px 7px;font-size:10px;font-weight:700;"><span class="pending-count">%1$d</span></span>', $pending_count ) : '';
+        foreach ( $submenu['woocommerce'] as &$item ) {
+            if ( $item[2] === 'edit.php?post_type=tischanfrage' ) {
+                $item[0] = '📅 Tischanfragen' . $badge;
+                break;
+            }
+        }
+    }
+}
+add_action( 'admin_menu', 'wowthai_adjust_tischanfrage_submenu', 999 );
 
 // 2. Hilfsfunktion: Anzahl ausstehender Anfragen ermitteln
 function wowthai_get_pending_res_count() {

@@ -2,10 +2,10 @@
 /**
  * WOW Thai Steyr - Restaurant Order Management for WooCommerce Admin (HPOS & Legacy CPT)
  * Provides:
- * - Quick Action Buttons: "✓ Annehmen" (Accept), "✕ Ablehnen" (Reject), "🥡 Abholbereit" (Ready), "✓ Fertig" (Complete)
- * - Abholzeit (Pickup Time) & Kitchen Countdown Badge
+ * - Quick Action Buttons on the RIGHT side: "✓ Annehmen" (Accept), "✕ Ablehnen" (Reject), "🥡 Abholbereit" (Ready), "✓ Abgeholt" (Complete)
+ * - Abholzeit (Pickup Time) & Kitchen Status
  * - Món ăn đã gọi (Bestellte Speisen) inline summary column
- * - Audio Chime Alert on new incoming orders
+ * - Top Reservierungs-Box (Hộp Tischanfragen ngay trên đầu trang Orders)
  * - Kitchen Console Meta Box on single order screen
  * - Realtime Auto-Refresh for busy shift management
  */
@@ -18,13 +18,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 function wowthai_add_order_admin_columns( $columns ) {
     $new_columns = [];
     foreach ( $columns as $key => $title ) {
-        $new_columns[ $key ] = $title;
-        // Direkt nach der Bestellnummer die Abholzeit & Status einfügen
+        // Direkt nach der Bestellnummer Abholzeit & Speisen einfügen
         if ( $key === 'order_number' ) {
-            $new_columns['wowthai_pickup'] = '🕒 Abholzeit & Status';
-            $new_columns['wowthai_items']  = '🍲 Bestellte Speisen';
+            $new_columns[ $key ] = $title;
+            $new_columns['wowthai_pickup'] = '🕒 Abholzeit';
+            $new_columns['wowthai_items']  = '🍲 Speisen';
+            continue;
         }
+        $new_columns[ $key ] = $title;
     }
+    // Quick Actions ganz nach rechts (rechts außen)
+    $new_columns['wowthai_quick_actions'] = '⚡ Schnell-Aktionen';
     return $new_columns;
 }
 add_filter( 'manage_woocommerce_page_wc-orders_columns', 'wowthai_add_order_admin_columns', 25 );
@@ -46,7 +50,7 @@ function wowthai_render_order_admin_column( $column, $order ) {
     $ready_time    = $order->get_meta( '_wowthai_ready_time' );
     $note          = $order->get_customer_note();
 
-    // SPALTE 1: ABHOLZEIT & SCHNELL-STATUS
+    // SPALTE 1: ABHOLZEIT & STATUS-BADGE (ÜBERSICHTLICH & AUFGERÄUMT)
     if ( $column === 'wowthai_pickup' ) {
         echo '<div class="wowthai-col-pickup">';
 
@@ -64,15 +68,15 @@ function wowthai_render_order_admin_column( $column, $order ) {
 
         // Status-Indikator der Küche
         if ( $status === 'cancelled' ) {
-            echo '<div class="kitchen-status cancelled">✕ Storniert / Abgelehnt</div>';
+            echo '<div class="kitchen-status cancelled">✕ Storniert</div>';
         } elseif ( $status === 'completed' ) {
-            echo '<div class="kitchen-status completed">✓ Abgeholt & Erledigt</div>';
+            echo '<div class="kitchen-status completed">✓ Abgeholt</div>';
         } elseif ( $ready_time ) {
             echo '<div class="kitchen-status ready">🥡 Abholbereit (' . esc_html( $ready_time ) . ')</div>';
         } elseif ( $accepted_time ) {
             echo '<div class="kitchen-status in-prep">🍳 In Zubereitung (' . esc_html( $accepted_time ) . ')</div>';
         } else {
-            echo '<div class="kitchen-status waiting">⏳ Neu · Wartet auf Annahme</div>';
+            echo '<div class="kitchen-status waiting">⏳ Neu · Wartet</div>';
         }
 
         // Kundennotiz
@@ -80,29 +84,10 @@ function wowthai_render_order_admin_column( $column, $order ) {
             echo '<div class="order-kitchen-note" title="' . esc_attr( $note ) . '">📝 „' . esc_html( wp_trim_words( $note, 7, '...' ) ) . '“</div>';
         }
 
-        // Schnell-Aktions-Buttons direkt in der Spalte (leicht erreichbar)
-        $nonce = wp_create_nonce( 'wowthai_order_action_' . $order_id );
-        echo '<div class="wowthai-inline-actions">';
-
-        if ( in_array( $status, [ 'processing', 'pending', 'on-hold' ], true ) && empty( $accepted_time ) ) {
-            $accept_url = admin_url( 'admin-post.php?action=wowthai_accept_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
-            $reject_url = admin_url( 'admin-post.php?action=wowthai_reject_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
-
-            echo '<a href="' . esc_url( $accept_url ) . '" class="btn-quick-order btn-accept">✓ Annehmen</a>';
-            echo '<a href="' . esc_url( $reject_url ) . '" class="btn-quick-order btn-reject" onclick="return confirm(\'Bestellung #' . esc_js( $order_id ) . ' wirklich ablehnen und stornieren?\')">✕ Ablehnen</a>';
-        } elseif ( ! empty( $accepted_time ) && empty( $ready_time ) && in_array( $status, [ 'processing', 'pending', 'on-hold' ], true ) ) {
-            $ready_url = admin_url( 'admin-post.php?action=wowthai_ready_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
-            echo '<a href="' . esc_url( $ready_url ) . '" class="btn-quick-order btn-ready">🥡 Abholbereit</a>';
-        } elseif ( ! empty( $ready_time ) && $status !== 'completed' && $status !== 'cancelled' ) {
-            $complete_url = admin_url( 'admin-post.php?action=wowthai_complete_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
-            echo '<a href="' . esc_url( $complete_url ) . '" class="btn-quick-order btn-complete">✓ Abgeholt</a>';
-        }
-
-        echo '</div>'; // .wowthai-inline-actions
         echo '</div>'; // .wowthai-col-pickup
     }
 
-    // SPALTE 2: SPEISENÜBERSICHT (KÜCHEN-ÜBERBLICK)
+    // SPALTE 2: SPEISENÜBERSICHT
     if ( $column === 'wowthai_items' ) {
         $items = $order->get_items();
         if ( ! empty( $items ) ) {
@@ -120,63 +105,35 @@ function wowthai_render_order_admin_column( $column, $order ) {
             echo '<span style="color:#8c8f94;font-size:12px;">Keine Artikel</span>';
         }
     }
+
+    // SPALTE 3: QUICK BUTTONS GANZ RECHTS (ÜBERSICHTLICH & LEICHT ZU BEDIENEN)
+    if ( $column === 'wowthai_quick_actions' ) {
+        $nonce = wp_create_nonce( 'wowthai_order_action_' . $order_id );
+        echo '<div class="wowthai-right-actions">';
+
+        if ( in_array( $status, [ 'processing', 'pending', 'on-hold' ], true ) && empty( $accepted_time ) ) {
+            $accept_url = admin_url( 'admin-post.php?action=wowthai_accept_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
+            $reject_url = admin_url( 'admin-post.php?action=wowthai_reject_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
+
+            echo '<a href="' . esc_url( $accept_url ) . '" class="btn-quick-order btn-accept" title="Bestellung annehmen">✓ Annehmen</a>';
+            echo '<a href="' . esc_url( $reject_url ) . '" class="btn-quick-order btn-reject" title="Bestellung ablehnen" onclick="return confirm(\'Bestellung #' . esc_js( $order_id ) . ' wirklich ablehnen und stornieren?\')">✕ Ablehnen</a>';
+        } elseif ( ! empty( $accepted_time ) && empty( $ready_time ) && in_array( $status, [ 'processing', 'pending', 'on-hold' ], true ) ) {
+            $ready_url = admin_url( 'admin-post.php?action=wowthai_ready_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
+            echo '<a href="' . esc_url( $ready_url ) . '" class="btn-quick-order btn-ready" title="Meldung: Speisen abholbereit verpackt">🥡 Abholbereit</a>';
+        } elseif ( ! empty( $ready_time ) && $status !== 'completed' && $status !== 'cancelled' ) {
+            $complete_url = admin_url( 'admin-post.php?action=wowthai_complete_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
+            echo '<a href="' . esc_url( $complete_url ) . '" class="btn-quick-order btn-complete" title="Bestellung abgeschlossen">✓ Abgeholt</a>';
+        } else {
+            echo '<span style="color:#a7aaad;font-size:12px;">–</span>';
+        }
+
+        echo '</div>';
+    }
 }
 add_action( 'manage_woocommerce_page_wc-orders_custom_column', 'wowthai_render_order_admin_column', 10, 2 );
 add_action( 'manage_shop_order_posts_custom_column', 'wowthai_render_order_admin_column', 10, 2 );
 
-// 3. Standard-Aktions-Buttons in WooCommerce erweitern
-function wowthai_add_admin_order_actions( $actions, $order ) {
-    if ( is_numeric( $order ) ) {
-        $order = wc_get_order( $order );
-    }
-    if ( ! $order ) {
-        return $actions;
-    }
-
-    $order_id = $order->get_id();
-    $status   = $order->get_status();
-    $accepted = $order->get_meta( '_wowthai_accepted_time' );
-    $ready    = $order->get_meta( '_wowthai_ready_time' );
-
-    $nonce = wp_create_nonce( 'wowthai_order_action_' . $order_id );
-
-    // Wenn neu & noch nicht angenommen
-    if ( in_array( $status, [ 'processing', 'pending', 'on-hold' ], true ) && empty( $accepted ) ) {
-        $actions['wowthai_accept'] = [
-            'url'    => admin_url( 'admin-post.php?action=wowthai_accept_order&order_id=' . $order_id . '&_wpnonce=' . $nonce ),
-            'name'   => 'Bestellung annehmen',
-            'action' => 'wowthai-accept-btn',
-        ];
-        $actions['wowthai_reject'] = [
-            'url'    => admin_url( 'admin-post.php?action=wowthai_reject_order&order_id=' . $order_id . '&_wpnonce=' . $nonce ),
-            'name'   => 'Bestellung ablehnen',
-            'action' => 'wowthai-reject-btn',
-        ];
-    }
-
-    // Wenn angenommen & noch nicht abholbereit
-    if ( ! empty( $accepted ) && empty( $ready ) && in_array( $status, [ 'processing', 'pending', 'on-hold' ], true ) ) {
-        $actions['wowthai_ready'] = [
-            'url'    => admin_url( 'admin-post.php?action=wowthai_ready_order&order_id=' . $order_id . '&_wpnonce=' . $nonce ),
-            'name'   => 'Abholbereit melden',
-            'action' => 'wowthai-ready-btn',
-        ];
-    }
-
-    // Wenn abholbereit -> als abgeholt markieren
-    if ( ! empty( $ready ) && $status !== 'completed' && $status !== 'cancelled' ) {
-        $actions['wowthai_complete'] = [
-            'url'    => admin_url( 'admin-post.php?action=wowthai_complete_order&order_id=' . $order_id . '&_wpnonce=' . $nonce ),
-            'name'   => 'Als erledigt markieren',
-            'action' => 'wowthai-complete-btn',
-        ];
-    }
-
-    return $actions;
-}
-add_filter( 'woocommerce_admin_order_actions', 'wowthai_add_admin_order_actions', 20, 2 );
-
-// 4. HANDLER: Bestellung annehmen
+// 3. HANDLER: Bestellung annehmen
 function wowthai_handle_accept_order() {
     $order_id = isset( $_GET['order_id'] ) ? intval( $_GET['order_id'] ) : 0;
     check_admin_referer( 'wowthai_order_action_' . $order_id );
@@ -204,7 +161,7 @@ function wowthai_handle_accept_order() {
 }
 add_action( 'admin_post_wowthai_accept_order', 'wowthai_handle_accept_order' );
 
-// 5. HANDLER: Bestellung ablehnen / stornieren
+// 4. HANDLER: Bestellung ablehnen / stornieren
 function wowthai_handle_reject_order() {
     $order_id = isset( $_GET['order_id'] ) ? intval( $_GET['order_id'] ) : 0;
     check_admin_referer( 'wowthai_order_action_' . $order_id );
@@ -227,7 +184,7 @@ function wowthai_handle_reject_order() {
             $message = "Guten Tag $name,\n\n"
                      . "leider kann Ihre Bestellung #$order_id derzeit vom Restaurant nicht angenommen werden (z. B. Küche ausgelastet oder kurz vor Küchenschluss).\n\n"
                      . "Die Bestellung wurde storniert. Falls Sie bereits bezahlt haben, wird der Betrag umgehend zurückerstattet.\n\n"
-                     . "Für Rückfragen erreichen Sie uns unter +43 7252 74973.\n\n"
+                     . "Für Rückfragen erreichen Sie uns gerne unter +43 7252 74973.\n\n"
                      . "Ihr WOW Thai Steyr Team";
             wp_mail( $email, $subject, $message, [ 'Content-Type: text/plain; charset=UTF-8' ] );
         }
@@ -240,7 +197,7 @@ function wowthai_handle_reject_order() {
 }
 add_action( 'admin_post_wowthai_reject_order', 'wowthai_handle_reject_order' );
 
-// 6. HANDLER: Abholbereit melden
+// 5. HANDLER: Abholbereit melden
 function wowthai_handle_ready_order() {
     $order_id = isset( $_GET['order_id'] ) ? intval( $_GET['order_id'] ) : 0;
     check_admin_referer( 'wowthai_order_action_' . $order_id );
@@ -264,7 +221,7 @@ function wowthai_handle_ready_order() {
 }
 add_action( 'admin_post_wowthai_ready_order', 'wowthai_handle_ready_order' );
 
-// 7. HANDLER: Bestellung als abgeschlossen/abgeholt markieren
+// 6. HANDLER: Bestellung als abgeschlossen/abgeholt markieren
 function wowthai_handle_complete_order() {
     $order_id = isset( $_GET['order_id'] ) ? intval( $_GET['order_id'] ) : 0;
     check_admin_referer( 'wowthai_order_action_' . $order_id );
@@ -286,7 +243,7 @@ function wowthai_handle_complete_order() {
 }
 add_action( 'admin_post_wowthai_complete_order', 'wowthai_handle_complete_order' );
 
-// 8. Admin-Erfolgsmeldungen
+// 7. Admin-Erfolgsmeldungen
 function wowthai_admin_order_notices() {
     if ( empty( $_GET['wowthai_notice'] ) ) {
         return;
@@ -296,7 +253,7 @@ function wowthai_admin_order_notices() {
 
     if ( $notice === 'accepted' ) {
         echo '<div class="notice notice-success is-dismissible" style="border-left-color:#107a38;background:#f0faf2;padding:12px 16px;">';
-        echo '<p style="font-size:14px;margin:0;color:#155724;"><strong>✓ Bestellung #' . esc_html( $o_id ) . ' angenommen!</strong> Die Küche wurde informiert und bereitet die Speisen jetzt zu.</p>';
+        echo '<p style="font-size:14px;margin:0;color:#155724;"><strong>✓ Bestellung #' . esc_html( $o_id ) . ' angenommen!</strong> Die Küche bereitet die Speisen jetzt zu.</p>';
         echo '</div>';
     } elseif ( $notice === 'rejected' ) {
         echo '<div class="notice notice-error is-dismissible" style="border-left-color:#c22213;background:#fdf2f2;padding:12px 16px;">';
@@ -313,6 +270,89 @@ function wowthai_admin_order_notices() {
     }
 }
 add_action( 'admin_notices', 'wowthai_admin_order_notices' );
+
+// 8. TISCHRESERVIERUNGS-BOX OBEN AUF DER BESTELLSEITE (WC-ORDERS)
+function wowthai_render_reservations_top_box() {
+    $screen = get_current_screen();
+    if ( ! $screen || ( $screen->id !== 'woocommerce_page_wc-orders' && $screen->id !== 'edit-shop_order' ) ) {
+        return;
+    }
+
+    $today = current_time( 'Y-m-d' );
+    $today_res = get_posts( [
+        'post_type'      => 'tischanfrage',
+        'post_status'    => [ 'publish', 'private' ],
+        'posts_per_page' => 10,
+        'meta_key'       => '_res_date',
+        'meta_value'     => $today,
+        'orderby'        => 'meta_value',
+        'order'          => 'ASC',
+    ] );
+
+    $pending_count = function_exists( 'wowthai_get_pending_res_count' ) ? wowthai_get_pending_res_count() : 0;
+    $today_count   = count( $today_res );
+    $manage_url    = admin_url( 'edit.php?post_type=tischanfrage' );
+    ?>
+    <div class="wowthai-res-dashboard-box" style="margin: 15px 0 20px 0; background: #fff; border: 1px solid #dcdcde; border-left: 4px solid #d97706; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 14px 18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:<?php echo $today_count > 0 ? '12px' : '0'; ?>;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:22px;">📅</span>
+                <div>
+                    <h3 style="margin:0; font-size:15px; font-weight:700; color:#1d2327;">
+                        Tischreservierungen Heute (<?php echo esc_html( date_i18n('D, d. M Y') ); ?>)
+                    </h3>
+                    <div style="font-size:12px; color:#646970; margin-top:2px;">
+                        <strong><?php echo $today_count; ?></strong> Tisch(e) reserviert 
+                        <?php if ( $pending_count > 0 ) : ?>
+                            · <span style="color:#b25e00; font-weight:700;">⏳ <?php echo $pending_count; ?> neu ausstehend</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <a href="<?php echo esc_url( $manage_url ); ?>" class="button button-secondary" style="font-weight:600; font-size:12px;">
+                    Alle Tischanfragen verwalten ↗
+                </a>
+            </div>
+        </div>
+
+        <?php if ( $today_count > 0 ) : ?>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; padding-top:12px; border-top:1px solid #f0f0f1;">
+                <?php foreach ( $today_res as $res ) : 
+                    $time   = get_post_meta( $res->ID, '_res_time', true ) ?: '18:00';
+                    $party  = get_post_meta( $res->ID, '_res_party', true ) ?: 2;
+                    $guest  = get_post_meta( $res->ID, '_res_name', true ) ?: $res->post_title;
+                    $status = get_post_meta( $res->ID, '_res_status', true ) ?: 'pending';
+
+                    $st_badge = [
+                        'pending'   => [ 'bg' => '#fff4e5', 'col' => '#b25e00', 'lbl' => '⏳ Ausstehend' ],
+                        'confirmed' => [ 'bg' => '#e8f7ee', 'col' => '#107a38', 'lbl' => '✓ Bestätigt' ],
+                        'arrived'   => [ 'bg' => '#eaf3fd', 'col' => '#0a5dc2', 'lbl' => '🍽️ Am Tisch' ],
+                        'cancelled' => [ 'bg' => '#fbeae8', 'col' => '#c22213', 'lbl' => '✕ Storniert' ],
+                    ];
+                    $st = $st_badge[ $status ] ?? $st_badge['pending'];
+                ?>
+                    <div style="background:#f6f7f7; border:1px solid #dcdcde; border-radius:6px; padding:7px 12px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">
+                        <span style="font-weight:800; color:#d97706;">🕒 <?php echo esc_html( $time ); ?> Uhr</span>
+                        <span style="font-weight:700; color:#1d2327;"><?php echo esc_html( $guest ); ?></span>
+                        <span style="color:#646970; font-size:12px;">👥 <?php echo esc_html( $party ); ?> Pers.</span>
+                        <span style="font-size:11px; font-weight:700; padding:2px 7px; border-radius:10px; background:<?php echo $st['bg']; ?>; color:<?php echo $st['col']; ?>;">
+                            <?php echo esc_html( $st['lbl'] ); ?>
+                        </span>
+                        <?php if ( $status === 'pending' ) : 
+                            $nonce = wp_create_nonce( 'wowthai_res_status_' . $res->ID );
+                            $conf_url = admin_url( 'admin-post.php?action=wowthai_res_change_status&res_id=' . $res->ID . '&new_status=confirmed&_wpnonce=' . $nonce );
+                        ?>
+                            <a href="<?php echo esc_url( $conf_url ); ?>" class="button button-small" style="background:#107a38; color:#fff; border-color:#107a38; font-weight:700; font-size:11px; padding:0 6px; line-height:20px; height:22px;" title="Bestätigen">✓</a>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+    <?php
+}
+add_action( 'admin_notices', 'wowthai_render_reservations_top_box', 5 );
 
 // 9. Küchen-Meta-Box auf der Einzelbestellseite
 function wowthai_add_kitchen_meta_box() {
@@ -346,7 +386,7 @@ function wowthai_render_kitchen_meta_box( $post_or_order ) {
     $name     = trim( $order->get_billing_first_name() . ' ' . $order->get_billing_last_name() );
     $note     = $order->get_customer_note();
 
-    $nonce = wp_create_nonce( 'wowthai_order_action_' . $order_id );
+    $nonce        = wp_create_nonce( 'wowthai_order_action_' . $order_id );
     $accept_url   = admin_url( 'admin-post.php?action=wowthai_accept_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
     $reject_url   = admin_url( 'admin-post.php?action=wowthai_reject_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
     $ready_url    = admin_url( 'admin-post.php?action=wowthai_ready_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
@@ -403,7 +443,7 @@ function wowthai_render_kitchen_meta_box( $post_or_order ) {
     <?php
 }
 
-// 10. Modernes CSS & Audio-Chime für den Bestell-Screen
+// 10. Modernes, klares CSS für den Bestell-Screen
 function wowthai_admin_order_styles_and_scripts() {
     $screen = get_current_screen();
     if ( ! $screen || ( $screen->id !== 'woocommerce_page_wc-orders' && $screen->id !== 'edit-shop_order' ) ) {
@@ -411,26 +451,35 @@ function wowthai_admin_order_styles_and_scripts() {
     }
     ?>
     <style>
-    /* Spaltenbreite & Formatierung */
+    /* Spaltenbreiten & Layout */
     .column-wowthai_pickup {
-        min-width: 190px !important;
+        min-width: 140px !important;
         vertical-align: top !important;
     }
     .column-wowthai_items {
-        min-width: 220px !important;
-        max-width: 320px !important;
+        min-width: 200px !important;
+        max-width: 300px !important;
         vertical-align: top !important;
     }
+    .column-wowthai_quick_actions {
+        min-width: 170px !important;
+        vertical-align: top !important;
+        text-align: right !important;
+    }
+    th#wowthai_quick_actions {
+        text-align: right !important;
+    }
+
     .wowthai-col-pickup {
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 5px;
     }
     .pickup-time-badge {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        padding: 4px 9px;
+        padding: 3px 8px;
         font-weight: 700;
         font-size: 12px;
         border-radius: 4px;
@@ -450,7 +499,7 @@ function wowthai_admin_order_styles_and_scripts() {
     .kitchen-status {
         font-size: 11px;
         font-weight: 700;
-        padding: 3px 8px;
+        padding: 2px 7px;
         border-radius: 4px;
         display: inline-flex;
         align-items: center;
@@ -461,7 +510,6 @@ function wowthai_admin_order_styles_and_scripts() {
         background: #fff4e5;
         color: #b25e00;
         border: 1px solid #ffd599;
-        animation: pulseWaiting 2s infinite ease-in-out;
     }
     .kitchen-status.in-prep {
         background: #e8f7ee;
@@ -483,10 +531,6 @@ function wowthai_admin_order_styles_and_scripts() {
         color: #c22213;
         border: 1px solid #f5b5b0;
     }
-    @keyframes pulseWaiting {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.65; }
-    }
     .order-kitchen-note {
         font-size: 12px;
         color: #50575e;
@@ -498,24 +542,26 @@ function wowthai_admin_order_styles_and_scripts() {
         margin-top: 2px;
     }
 
-    /* Schnell-Aktions-Buttons direkt in der Tabelle */
-    .wowthai-inline-actions {
+    /* RECHTE QUICK-BUTTONS (SCHÖN, SAUBER & KLAR) */
+    .wowthai-right-actions {
         display: flex;
-        gap: 5px;
+        gap: 6px;
+        justify-content: flex-end;
+        align-items: center;
         flex-wrap: wrap;
-        margin-top: 4px;
     }
     .btn-quick-order {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        padding: 4px 9px;
+        gap: 5px;
+        padding: 5px 12px;
         border-radius: 4px;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 700;
         text-decoration: none;
         transition: all 0.15s ease;
         line-height: 1.4;
+        white-space: nowrap;
     }
     .btn-quick-order.btn-accept {
         background: #107a38;
@@ -525,6 +571,7 @@ function wowthai_admin_order_styles_and_scripts() {
     .btn-quick-order.btn-accept:hover {
         background: #0d632e;
         color: #fff;
+        box-shadow: 0 1px 3px rgba(16,122,56,0.3);
     }
     .btn-quick-order.btn-reject {
         background: #fff;
@@ -532,8 +579,9 @@ function wowthai_admin_order_styles_and_scripts() {
         border: 1px solid #f5b5b0;
     }
     .btn-quick-order.btn-reject:hover {
-        background: #c22213;
-        color: #fff;
+        background: #fdf2f2;
+        border-color: #c22213;
+        color: #c22213;
     }
     .btn-quick-order.btn-ready {
         background: #0a5dc2;
@@ -554,7 +602,7 @@ function wowthai_admin_order_styles_and_scripts() {
         color: #fff;
     }
 
-    /* Speisen-Liste in der Tabelle */
+    /* Speisen-Liste */
     .wowthai-order-items-list {
         display: flex;
         flex-direction: column;
