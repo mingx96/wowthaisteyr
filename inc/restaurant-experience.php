@@ -72,7 +72,7 @@ function wowthai_get_dish_spice_level( $title = '', $description = '', $labels =
  */
 function wowthai_get_kitchen_prep_time() {
     $val = get_option( 'wowthai_kitchen_prep_time', '25–35 Min.' );
-    return $val ?: '25–35 Min.';
+    return in_array($val, ['15–20 Min.', '25–35 Min.', '40–50 Min.', '60+ Min.'], true) ? $val : '25–35 Min.';
 }
 
 /**
@@ -86,6 +86,7 @@ function wowthai_ajax_set_kitchen_prep_time() {
     }
 
     $time = isset( $_POST['prep_time'] ) ? sanitize_text_field( $_POST['prep_time'] ) : '25–35 Min.';
+    if (!in_array($time, ['15–20 Min.', '25–35 Min.', '40–50 Min.', '60+ Min.'], true)) wp_send_json_error(['message' => 'Ungültige Zubereitungszeit']);
     update_option( 'wowthai_kitchen_prep_time', $time );
 
     wp_send_json_success( [ 'prep_time' => $time ] );
@@ -96,31 +97,16 @@ add_action( 'wp_ajax_wowthai_set_prep_time', 'wowthai_ajax_set_kitchen_prep_time
  * 4. Upsell & Cross-Selling Produkte für den Slide-Cart (Thai Drinks & Sides)
  */
 function wowthai_get_upsell_suggestions() {
-    // Gibt 3 beliebte Zusatzartikel zurück (hohe Marge, blitzschnell zubereitet)
-    return [
-        [
-            'title' => 'Thai Iced Tea (Cha Yen)',
-            'desc'  => 'Traditioneller thailändischer Eistee mit Milch & feinem Aroma',
-            'price' => '€3,90',
-            'raw_price' => 3.90,
-            'tag'   => 'Empfehlung',
-            'icon'  => '🧋'
-        ],
-        [
-            'title' => 'Krabbenchips (Krupuk)',
-            'desc'  => 'Knusprig gebackene Garnelencracker mit süß-saurer Chilisauce',
-            'price' => '€3,50',
-            'raw_price' => 3.50,
-            'tag'   => 'Snack',
-            'icon'  => '🦐'
-        ],
-        [
-            'title' => 'Mango Lassi',
-            'desc'  => 'Cremiger Mango-Joghurt-Drink, herrlich fruchtig & erfrischend',
-            'price' => '€4,20',
-            'raw_price' => 4.20,
-            'tag'   => 'Beliebt',
-            'icon'  => '🥭'
-        ]
-    ];
+    if (!function_exists('wc_get_products')) return [];
+    $items = [];
+    // Suggestions must be real published, purchasable products with no required choices.
+    foreach (wc_get_products(['status' => 'publish', 'limit' => -1]) as $product) {
+        if (!preg_match('/cha yen|cha manao|krupuk|mango lassi/i', $product->get_name())) continue;
+        $id = $product->get_id();
+        if (!$product->is_type('simple') || !$product->is_purchasable() || !$product->is_in_stock()) continue;
+        if (get_post_meta($id, '_wowthai_has_variants', true) === 'yes' || wowthai_get_modifier_groups($id)) continue;
+        $items[] = ['product_id' => $id, 'title' => $product->get_name(), 'price' => html_entity_decode(wp_strip_all_tags(wc_price(wc_get_price_to_display($product)))), 'icon' => '✨'];
+        if (count($items) === 3) break;
+    }
+    return $items;
 }

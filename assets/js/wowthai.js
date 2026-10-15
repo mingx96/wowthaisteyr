@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div>
                       <h3>${esc(item.name)}</h3>
                       ${item.variant_name ? `<p><small>${esc(item.variant_name)}</small></p>` : ''}
+                      ${(item.modifier_names || []).map(choice => `<p><small>${esc(choice.group)}: ${esc(choice.name)}</small></p>`).join('')}
                       <strong>${esc(item.line_total)}</strong>
                     </div>
                     <div class="cart-line-actions">
@@ -132,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (item) {
           btn.disabled = true;
           btn.textContent = '✓';
-          addToCart(0, 1, 'upsell_' + idx, '', item.raw_price, item.title);
+          addToCart(item.product_id);
         }
       });
     });
@@ -174,21 +175,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Add Item to Cart
-  async function addToCart(productId, quantity = 1, variantId = '', variantName = '', price = '', customTitle = '') {
+  async function addToCart(productId, quantity = 1, variantId = '', modifierIds = []) {
     try {
-      const params = {
+      const body = new URLSearchParams({
         action: 'wowthai_add_to_cart',
         product_id: productId,
         quantity: quantity,
         variant_id: variantId,
-        variant_name: variantName,
-        variant_price: price,
+        modifier_ids: JSON.stringify(modifierIds),
         nonce: nonce
-      };
-      if (customTitle) {
-        params.custom_title = customTitle;
-      }
-      const body = new URLSearchParams(params);
+      });
       const res = await fetch(ajaxUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -244,7 +240,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function openDishModal(dish) {
     if (!sheetRoot) return;
     const variants = dish.variants || [];
-    let selectedVariant = variants[0] || null;
+    const modifierGroups = dish.modifierGroups || [];
+    const formatPrice = amount => new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR' }).format(Number(amount));
 
     sheetRoot.innerHTML = `
       <div class="modal-wrap" id="dish-modal-wrap">
@@ -254,10 +251,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <button type="button" class="icon-close" id="dish-modal-close" aria-label="Schließen">&times;</button>
           </div>
           ${dish.description ? `<p class="modal-description">${esc(dish.description)}</p>` : ''}
-          <div class="choice-group">
+          ${variants.length ? `<div class="choice-group">
             <div class="choice-head">
-              <strong>Option wählen</strong>
-              <span>Bitte wählen Sie eine Variante</span>
+              <strong>Variante wählen</strong>
+              <span>Preis je Variante</span>
             </div>
             ${variants.map((v, idx) => `
               <label class="choice-option">
@@ -266,7 +263,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 <small>${esc(v.formatted)}</small>
               </label>
             `).join('')}
-          </div>
+          </div>` : ''}
+          ${modifierGroups.map(group => {
+            const single = Number(group.max) === 1;
+            return `<fieldset class="choice-group modifier-group" data-group-id="${esc(group.id)}" data-min="${esc(group.min)}" data-max="${esc(group.max)}">
+              <legend>${esc(group.name)} ${Number(group.min) > 0 ? '<span class="required-mark">*</span>' : '<span class="optional-mark">(optional)</span>'}</legend>
+              ${single && Number(group.min) === 0 ? `<label class="choice-option"><input type="radio" name="modifier_${esc(group.id)}" value="" checked><span>Kein Extra</span></label>` : ''}
+              ${(group.options || []).map(option => `<label class="choice-option">
+                <input type="${single ? 'radio' : 'checkbox'}" name="modifier_${esc(group.id)}" value="${esc(option.id)}">
+                <span>${esc(option.name)}</span>
+                <small>${Number(option.price) > 0 ? `+${esc(formatPrice(option.price))}` : 'Inklusive'}</small>
+              </label>`).join('')}
+            </fieldset>`;
+          }).join('')}
+          <p class="sheet-validation" id="dish-validation" role="alert" hidden></p>
           <div class="sheet-bottom">
             <input type="number" id="dish-qty" value="1" min="1" max="50" aria-label="Menge">
             <button type="button" class="button button-dark" id="btn-add-modal">In den Warenkorb</button>
@@ -287,11 +297,20 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-add-modal')?.addEventListener('click', () => {
       const checked = sheetRoot.querySelector('input[name="dish_variant"]:checked');
       const vId = checked ? checked.value : '';
-      const vName = checked ? checked.dataset.name : '';
-      const vPrice = checked ? checked.dataset.price : '';
       const qty = parseInt(document.getElementById('dish-qty')?.value || '1', 10);
+      const selected = [];
+      for (const group of sheetRoot.querySelectorAll('.modifier-group')) {
+        const ids = [...group.querySelectorAll('input:checked')].map(input => input.value).filter(Boolean);
+        if (ids.length < Number(group.dataset.min) || ids.length > Number(group.dataset.max)) {
+          const message = document.getElementById('dish-validation');
+          message.textContent = `Bitte wählen Sie eine gültige Option für ${group.querySelector('legend')?.textContent.trim() || 'dieses Gericht'}.`;
+          message.hidden = false;
+          return;
+        }
+        selected.push(...ids);
+      }
       close();
-      addToCart(dish.id, qty, vId, vName, vPrice);
+      addToCart(dish.id, qty, vId, selected);
     });
   }
 
@@ -301,15 +320,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn) return;
     e.preventDefault();
 
+    if (btn.disabled) return;
     const productId = btn.dataset.productId;
     const hasVariants = btn.dataset.hasVariants === 'yes';
+    const hasModifiers = btn.dataset.hasModifiers === 'yes';
 
-    if (hasVariants) {
+    if (hasVariants || hasModifiers) {
       try {
         const variants = JSON.parse(btn.dataset.variants || '[]');
+        const modifierGroups = JSON.parse(btn.dataset.modifierGroups || '[]');
         const title = btn.dataset.title || '';
         const description = btn.dataset.description || '';
-        openDishModal({ id: productId, title, description, variants });
+        openDishModal({ id: productId, title, description, variants, modifierGroups });
       } catch (err) {
         console.error('Variant parse error:', err);
       }
@@ -375,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      if (secVisibleCount > 0 && (secMenuType === currentActiveTab || query.length > 1)) {
+      if (secVisibleCount > 0 && (secMenuType === currentActiveTab || query.length > 0)) {
         sec.style.display = 'block';
         const countEl = sec.querySelector('.section-count');
         if (countEl) {
@@ -508,72 +530,90 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnLater = document.getElementById('btn-later');
     const asapBox = document.getElementById('asap-box');
     const laterBox = document.getElementById('later-box');
-    const finalInput = document.getElementById('final_abholzeit');
+    const modeInput = document.getElementById('pickup_mode');
     const dateSelect = document.getElementById('pickup_date_select');
     const timeSelect = document.getElementById('pickup_time_select');
 
-    if (!btnLater || !finalInput) return;
+    if (!btnAsap || !btnLater || !modeInput || modeInput.dataset.initialized === 'yes') return;
+    modeInput.dataset.initialized = 'yes';
 
-    function populateSlotsForDate() {
+    function updatePreorderSlots() {
       if (!dateSelect || !timeSelect) return;
-      const val = dateSelect.value; // 'heute' or 'morgen'
-      const slotsJson = (val === 'heute') ? dateSelect.dataset.slotsToday : dateSelect.dataset.slotsTomorrow;
-      if (!slotsJson) return;
-
+      const previous = timeSelect.value;
+      let slots = [];
       try {
-        const slots = JSON.parse(slotsJson);
-        timeSelect.innerHTML = '';
-        slots.forEach(s => {
-          const opt = document.createElement('option');
-          opt.value = s;
-          opt.textContent = `${s} Uhr`;
-          timeSelect.appendChild(opt);
-        });
+        slots = JSON.parse(dateSelect.selectedOptions[0]?.dataset.slots || '[]');
       } catch (e) {
-        console.warn('Slot parsing error:', e);
+        slots = [];
       }
-      updatePreorderValue();
+      timeSelect.replaceChildren(...slots.map(slot => {
+        const option = document.createElement('option');
+        option.value = slot;
+        option.textContent = `${slot} Uhr`;
+        return option;
+      }));
+      if (slots.includes(previous)) timeSelect.value = previous;
     }
 
-    function updatePreorderValue() {
-      if (!dateSelect || !timeSelect || !timeSelect.value) return;
-      const dayLabel = dateSelect.options[dateSelect.selectedIndex].text.replace(/\s*\([^)]*\)/, '').trim();
-      const timeVal = timeSelect.value;
-      finalInput.value = `${dayLabel} um ${timeVal} Uhr`;
-    }
-
-    if (btnAsap) {
-      btnAsap.addEventListener('click', (e) => {
-        if (btnAsap.classList.contains('disabled') || btnAsap.disabled) {
-          e.preventDefault();
-          return;
-        }
-        btnAsap.classList.add('active');
-        btnLater.classList.remove('active');
-        if (asapBox) asapBox.style.display = 'flex';
-        if (laterBox) laterBox.style.display = 'none';
-        const prep = (typeof wowthaiConfig !== 'undefined' && wowthaiConfig.prep_time) ? wowthaiConfig.prep_time : '25–35 Min.';
-        finalInput.value = `Schnellstmöglich (ca. ${prep})`;
-      });
-    }
+    btnAsap.addEventListener('click', () => {
+      if (btnAsap.disabled) return;
+      btnAsap.classList.add('active');
+      btnLater.classList.remove('active');
+      if (asapBox) asapBox.style.display = 'flex';
+      if (laterBox) laterBox.style.display = 'none';
+      modeInput.value = 'asap';
+    });
 
     btnLater.addEventListener('click', () => {
       btnLater.classList.add('active');
-      if (btnAsap) btnAsap.classList.remove('active');
+      btnAsap.classList.remove('active');
       if (asapBox) asapBox.style.display = 'none';
       if (laterBox) laterBox.style.display = 'block';
-      updatePreorderValue();
+      modeInput.value = 'later';
+      updatePreorderSlots();
     });
 
-    dateSelect?.addEventListener('change', () => {
-      populateSlotsForDate();
-    });
-
-    timeSelect?.addEventListener('change', updatePreorderValue);
+    dateSelect?.addEventListener('change', updatePreorderSlots);
+    updatePreorderSlots();
   }
 
   initCheckoutTiming();
   document.body.addEventListener('updated_checkout', initCheckoutTiming);
+
+  async function refreshPickupAvailability() {
+    if (document.hidden || (!document.getElementById('pickup_mode') && !document.getElementById('cart-overlay'))) return;
+    try {
+      const response = await fetch(`${ajaxUrl}?action=wowthai_pickup_availability`, { cache: 'no-store' });
+      const result = await response.json();
+      if (!result.success) return;
+      const data = result.data;
+      if (window.wowthaiConfig) window.wowthaiConfig.prep_time = data.prep_time;
+      document.querySelectorAll('.badge-asap').forEach(el => { el.textContent = data.asap ? data.prep_time : 'Vorbestellung'; });
+      const mode = document.getElementById('pickup_mode');
+      const dates = document.getElementById('pickup_date_select');
+      const times = document.getElementById('pickup_time_select');
+      if (!mode || !dates || !times) return;
+      const previousDate = dates.value, previousTime = times.value;
+      dates.replaceChildren(...data.dates.map(date => {
+        const option = document.createElement('option');
+        option.value = date.value; option.textContent = date.label;
+        option.dataset.slots = JSON.stringify(date.slots);
+        return option;
+      }));
+      if (data.dates.some(date => date.value === previousDate)) dates.value = previousDate;
+      dates.dispatchEvent(new Event('change'));
+      if ([...times.options].some(option => option.value === previousTime)) times.value = previousTime;
+      const asap = document.getElementById('btn-asap');
+      asap.disabled = !data.asap;
+      asap.querySelector('.seg-pill').textContent = data.asap ? data.prep_time : 'Nicht verfügbar';
+      const ready = document.querySelector('#asap-box strong');
+      if (ready) ready.textContent = data.asap ? `${data.asap} Uhr` : '';
+      if (!data.asap && mode.value === 'asap') document.getElementById('btn-later').click();
+    } catch (error) { console.warn('Abholzeiten konnten nicht aktualisiert werden.'); }
+  }
+  refreshPickupAvailability();
+  setInterval(refreshPickupAvailability, 30000);
+  document.addEventListener('visibilitychange', refreshPickupAvailability);
 
   // Client-side Validation for Checkout Fields
   function validateCheckoutFields(showFeedback = true) {
@@ -711,6 +751,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
   }
 
+  // Open the correct selector when a WooCommerce product link lands on the menu.
+  const requestedDish = new URLSearchParams(window.location.search).get('dish');
+  if (requestedDish && /^\d+$/.test(requestedDish)) {
+    const dishButton = document.querySelector(`.dish-control[data-product-id="${requestedDish}"]`);
+    if (dishButton) {
+      const section = dishButton.closest('.menu-section');
+      const menuType = section?.dataset.menuType;
+      if (menuType && menuType !== 'restaurant') {
+        document.querySelector(`.menu-tab[data-menu="${menuType}"]`)?.click();
+      }
+      dishButton.scrollIntoView({ block: 'center' });
+      dishButton.click();
+    }
+  }
   // Initial cart load
   fetchCart();
 });

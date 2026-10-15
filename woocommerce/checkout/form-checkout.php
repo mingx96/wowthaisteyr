@@ -15,36 +15,12 @@ if ( ! $checkout->is_registration_enabled() && $checkout->is_registration_requir
     return;
 }
 
-$now = current_datetime();
-$opening_status = function_exists('wowthai_get_opening_status') ? wowthai_get_opening_status() : null;
-$is_open = $opening_status ? $opening_status['is_open'] : false;
-
-$kitchen_prep = function_exists('wowthai_get_kitchen_prep_time') ? wowthai_get_kitchen_prep_time() : '25–35 Min.';
-
-// Calculate ASAP time if open
-$prep_minutes = 30;
-if (preg_match('/(\d+)/', $kitchen_prep, $m)) {
-    $prep_minutes = intval($m[1]);
-}
-$asap_timestamp = $now->getTimestamp() + ($prep_minutes * 60);
-$asap_time_formatted = wp_date('H:i', $asap_timestamp);
-
-$today_label = wp_date('l, j. F', $now->getTimestamp());
-$tomorrow_label = wp_date('l, j. F', $now->getTimestamp() + 86400);
-
-$today_slots = function_exists('wowthai_get_available_pickup_slots') ? wowthai_get_available_pickup_slots('heute') : [];
-$tomorrow_slots = function_exists('wowthai_get_available_pickup_slots') ? wowthai_get_available_pickup_slots('morgen') : ['11:30', '12:00', '12:30', '13:00', '17:30', '18:00', '18:30'];
-
-$today_available = !empty($today_slots);
-
-// Initial abholzeit
-if ($is_open) {
-    $initial_abholzeit = 'Schnellstmöglich (ca. ' . $kitchen_prep . ')';
-} elseif ($today_available) {
-    $initial_abholzeit = 'Heute um ' . $today_slots[0] . ' Uhr';
-} else {
-    $initial_abholzeit = 'Morgen um ' . ($tomorrow_slots[0] ?? '11:30') . ' Uhr';
-}
+$now = wowthai_pickup_now();
+$has_sushi = wowthai_cart_has_sushi();
+$asap_ready = wowthai_pickup_asap_time($now);
+if ($has_sushi && $now->format('N') === '1') $asap_ready = null;
+$pickup_dates = wowthai_pickup_dates($now, $has_sushi);
+$initial_mode = $asap_ready ? 'asap' : 'later';
 ?>
 
 <div class="checkout-intro-bar">
@@ -69,84 +45,50 @@ if ($is_open) {
       </div>
 
       <div class="timing-segmented-control" role="tablist">
-        <?php if ($is_open): ?>
-          <button type="button" class="seg-btn active" id="btn-asap" data-mode="asap">
-            <span class="seg-icon">⚡</span>
-            <span class="seg-label">Schnellstmöglich</span>
-            <span class="seg-pill">ca. <?php echo esc_html($kitchen_prep); ?></span>
-          </button>
-        <?php else: ?>
-          <button type="button" class="seg-btn disabled" id="btn-asap" data-mode="asap" disabled title="Küche derzeit geschlossen" style="opacity:0.45;cursor:not-allowed;">
-            <span class="seg-icon">⚡</span>
-            <span class="seg-label">Schnellstmöglich</span>
-            <span class="seg-pill" style="background:#4a2424;color:#fca5a5;">Geschlossen</span>
-          </button>
-        <?php endif; ?>
-
-        <button type="button" class="seg-btn <?php echo !$is_open ? 'active' : ''; ?>" id="btn-later" data-mode="later">
+        <button type="button" class="seg-btn<?php echo $asap_ready ? ' active' : ''; ?>" id="btn-asap" data-mode="asap" <?php disabled(!$asap_ready); ?>>
+          <span class="seg-icon">⚡</span>
+          <span class="seg-label">Schnellstmöglich</span>
+          <span class="seg-pill"><?php echo $asap_ready ? esc_html(wowthai_get_kitchen_prep_time()) : 'Nicht verfügbar'; ?></span>
+        </button>
+        <button type="button" class="seg-btn<?php echo !$asap_ready ? ' active' : ''; ?>" id="btn-later" data-mode="later">
           <span class="seg-icon">🕒</span>
           <span class="seg-label">Später abholen</span>
           <span class="seg-pill">Vorbestellung</span>
         </button>
       </div>
 
-      <!-- ASAP Status Box (Only when kitchen is actually open) -->
-      <?php if ($is_open): ?>
-        <div class="asap-status-box" id="asap-box">
-          <span class="asap-status-dot"></span>
-          <span>Küche bereit · Fertig zur Abholung um ca. <strong><?php echo esc_html($asap_time_formatted); ?> Uhr</strong></span>
-        </div>
-      <?php endif; ?>
+      <!-- ASAP Status Box -->
+      <div class="asap-status-box" id="asap-box"<?php echo !$asap_ready ? ' style="display: none;"' : ''; ?>>
+        <span class="asap-status-dot"></span>
+        <span>Küche bereit · Fertig zur Abholung um ca. <strong><?php echo $asap_ready ? esc_html($asap_ready->format('H:i')) : ''; ?> Uhr</strong></span>
+      </div>
 
-      <!-- Kitchen Closed Notice (When outside opening hours) -->
-      <?php if (!$is_open): ?>
-        <div class="kitchen-closed-banner" id="kitchen-closed-banner" style="background:rgba(217,119,6,0.15);border:1px solid #d97706;border-radius:8px;padding:14px 18px;margin-bottom:16px;color:#fef3c7;display:flex;align-items:flex-start;gap:12px;">
-          <span style="font-size:24px;line-height:1;">🕒</span>
-          <div>
-            <strong style="color:#d4a359;font-size:14px;display:block;margin-bottom:4px;">Küche derzeit geschlossen · Vorbestellung aktiv</strong>
-            <p style="margin:0;font-size:13px;line-height:1.5;color:#e6e1d8;">
-              <?php if (!empty($opening_status['next_open_label'])): ?>
-                Unsere Küche kocht wieder gerne für <strong><?php echo esc_html($opening_status['next_open_label']); ?></strong> frisch für Sie.
-              <?php else: ?>
-                Bitte wählen Sie eine gewünschte Abholzeit während der Öffnungszeiten (Mo–Sa: 11:30–14:30 &amp; 17:00–21:00, So: 11:30–19:00).
-              <?php endif; ?>
-            </p>
-          </div>
-        </div>
+      <?php if (!$asap_ready): ?>
+        <p class="kitchen-closed-banner">Schnellstmögliche Abholung ist derzeit nicht verfügbar. Bitte wählen Sie eine Abholzeit für die nächste Öffnungszeit.<?php if ($has_sushi): ?> Montags ist Sushi-Ruhetag.<?php endif; ?></p>
       <?php endif; ?>
-
       <!-- Preorder Selectors Box -->
-      <div class="preorder-select-box" id="later-box" style="<?php echo !$is_open ? 'display:block;' : 'display:none;'; ?>">
+      <div class="preorder-select-box" id="later-box"<?php echo $asap_ready ? ' style="display: none;"' : ''; ?>>
         <div class="preorder-grid">
           <div class="preorder-item">
             <label for="pickup_date_select">Abholtag:</label>
-            <select id="pickup_date_select" class="input-select"
-              data-today-has-slots="<?php echo $today_available ? 'yes' : 'no'; ?>"
-              data-slots-today="<?php echo esc_attr(json_encode($today_slots)); ?>"
-              data-slots-tomorrow="<?php echo esc_attr(json_encode($tomorrow_slots)); ?>">
-              <?php if ($today_available): ?>
-                <option value="heute" selected>Heute (<?php echo esc_html($today_label); ?>)</option>
-                <option value="morgen">Morgen (<?php echo esc_html($tomorrow_label); ?>)</option>
-              <?php else: ?>
-                <option value="heute" disabled>Heute (Bereits geschlossen)</option>
-                <option value="morgen" selected>Morgen (<?php echo esc_html($tomorrow_label); ?>)</option>
-              <?php endif; ?>
+            <select id="pickup_date_select" name="pickup_date" class="input-select">
+              <?php foreach ($pickup_dates as $date): ?>
+                <option value="<?php echo esc_attr($date['value']); ?>" data-slots="<?php echo esc_attr(wp_json_encode($date['slots'])); ?>"><?php echo esc_html($date['label']); ?></option>
+              <?php endforeach; ?>
             </select>
           </div>
           <div class="preorder-item">
             <label for="pickup_time_select">Uhrzeit:</label>
-            <select id="pickup_time_select" class="input-select">
-              <?php 
-              $active_slots = ($today_available) ? $today_slots : $tomorrow_slots;
-              foreach ($active_slots as $s): ?>
-                <option value="<?php echo esc_attr($s); ?>"><?php echo esc_html($s); ?> Uhr</option>
+            <select id="pickup_time_select" name="pickup_time" class="input-select">
+              <?php foreach (($pickup_dates[0]['slots'] ?? []) as $slot): ?>
+                <option value="<?php echo esc_attr($slot); ?>"><?php echo esc_html($slot); ?> Uhr</option>
               <?php endforeach; ?>
             </select>
           </div>
         </div>
       </div>
 
-      <input type="hidden" name="abholzeit" id="final_abholzeit" value="<?php echo esc_attr($initial_abholzeit); ?>">
+      <input type="hidden" name="pickup_mode" id="pickup_mode" value="<?php echo esc_attr($initial_mode); ?>">
     </div>
 
     <!-- BLOCK 2: Kontaktdaten -->
@@ -214,7 +156,6 @@ if ($is_open) {
         <div>
           <strong>Abholadresse im Restaurant:</strong>
           <span>WOW Thai · City Point 1. OG<br>Leopold-Werndl-Straße 2, 4400 Steyr</span>
-          <small style="color:var(--muted);display:block;margin-top:4px;">🚗 Tiefgarage City Point im Haus · Bequem mit Lift ins 1. OG</small>
         </div>
       </div>
     </div>

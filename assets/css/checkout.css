@@ -1054,3 +1054,6 @@ table.shop_table tr.order-total td {
   border-color: #c79d4b;
 }
 
+
+.seg-btn:disabled { opacity: .45; cursor: not-allowed; }
+.sheet-validation { color: #b91c1c; }

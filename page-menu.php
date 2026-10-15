@@ -118,11 +118,13 @@ $is_sushi_day = function_exists('wowthai_is_sushi_available_on_day') ? wowthai_i
               <div class="dish-actions">
                 <button type="button" class="dish-control"
                   data-product-id="<?php echo esc_attr($p['id']); ?>"
+                  data-modifier-groups="<?php echo esc_attr(wp_json_encode($p['modifier_groups'])); ?>"
+                  data-has-modifiers="<?php echo !empty($p['modifier_groups']) ? 'yes' : 'no'; ?>"
                   data-has-variants="<?php echo $p['has_variants'] ? 'yes' : 'no'; ?>"
                   data-title="<?php echo esc_attr($p['title']); ?>"
                   data-description="<?php echo esc_attr($p['description']); ?>"
                   data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
-                  <?php echo $p['has_variants'] ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
+                  <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
                 </button>
               </div>
             </article>
@@ -186,11 +188,13 @@ $is_sushi_day = function_exists('wowthai_is_sushi_available_on_day') ? wowthai_i
                 <?php else: ?>
                   <button type="button" class="dish-control"
                     data-product-id="<?php echo esc_attr($p['id']); ?>"
-                    data-has-variants="<?php echo $p['has_variants'] ? 'yes' : 'no'; ?>"
+                    data-modifier-groups="<?php echo esc_attr(wp_json_encode($p['modifier_groups'])); ?>"
+                  data-has-modifiers="<?php echo !empty($p['modifier_groups']) ? 'yes' : 'no'; ?>"
+                  data-has-variants="<?php echo $p['has_variants'] ? 'yes' : 'no'; ?>"
                     data-title="<?php echo esc_attr($p['title']); ?>"
                     data-description="<?php echo esc_attr($p['description']); ?>"
                     data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
-                    <?php echo $p['has_variants'] ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
+                    <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
                   </button>
                 <?php endif; ?>
               </div>

@@ -1,11 +1,10 @@
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
 ## 📌 LƯỢT CẬP NHẬT HIỆN TẠI (CURRENT TURN)
-- **Active Agent in Charge**: **Codex / ChatGPT**
-- **Handed Over By**: **Gemini (Antigravity)**
-- **Handover Timestamp**: 2026-10-16 00:30 (Europe/Vienna)
-- **Current Theme Version**: `v1.2.2`
-- **Latest Commit**: `d154901` (pushed to `origin/main`)
+- **Active Agent in Charge**: **Gemini (Antigravity)** - *Tiếp quản sau khi Codex đạt giới hạn lượt (usage limit)*
+- **Handover Timestamp**: 2026-10-16 00:45 (Europe/Vienna)
+- **Current Theme Version**: `v1.2.3`
+- **Latest Commit**: (Đang chuẩn bị commit v1.2.3)
 - **Git Repository**: `https://github.com/mingx96/wowthaisteyr.git`
 - **Primary Branch**: `main`
 
@@ -36,7 +35,7 @@
 - **Chỉ dẫn đỗ xe City Point & Google 5-Star Review Booster**: Tích hợp trên Hóa đơn Vàng (`thankyou.php`) và Email.
 - **1-Click Add to Google Calendar**: Cho khách đặt bàn thành công.
 
-### 3. Phiên bản v1.2.2 (Commit `d154901`) — PHIÊN BẢN HIỆN TẠI
+### 3. Phiên bản v1.2.2 (Commit `d154901`)
 - **Đồng bộ Chuẩn xác Giờ Bếp toàn hệ thống**:
   - **Thứ 2 đến Thứ 7**: Trưa `11:30 – 14:30` & Chiều/Tối `17:00 – 21:00`.
   - **Chủ Nhật**: `11:30 – 19:00` (thông suốt).
@@ -49,29 +48,44 @@
   - Vô hiệu hóa nút thêm giỏ hàng đối với các món Sushi vào Thứ 2.
   - Backend validation ngăn chặn triệt để nếu khách đặt Sushi lấy vào Thứ 2.
 
+### 4. Phiên bản v1.2.3 (Phiên bản Hiện tại) — Tích hợp & Nâng cấp Bảo mật Codex & Gemini
+- **Bảo mật Tính giá Server-Side (Price Tampering Protection)**:
+  - Giá món biến thể và topping được truy vấn trực tiếp từ metadata sản phẩm (`_wowthai_variants`), loại bỏ hoàn toàn việc nhận giá từ POST client.
+- **Tùy chọn Bắt buộc / Topping (Modifier Groups)**:
+  - Hỗ trợ chọn loại mì (ví dụ: Reisnudeln, Glasnudeln) và topping cho Pad Thai và các món đặc sản; validate bắt buộc trên cả front-end và WooCommerce backend.
+- **Mô đun `inc/pickup.php` Chuyên dụng**:
+  - Chuẩn hóa toàn bộ thời gian theo timezone nhà hàng `Europe/Vienna`.
+  - Kết nối trực tiếp nhịp độ bếp ("Küchen-Taktung") với bộ đệm tính giờ lấy món.
+- **Client Heartbeat Refresh (30s)**:
+  - Hàm `refreshPickupAvailability` tự động thăm dò cập nhật giờ lấy món khi bếp đổi thời gian chuẩn bị hoặc khi vừa bước qua giờ đóng cửa.
+- **Deep-linking Món ăn**:
+  - Hỗ trợ tham số URL `?dish=<product_id>` tự động chuyển tab và mở modal món ăn.
+- **Xử lý An toàn Món Upsell**:
+  - Kiểm tra sản phẩm có sẵn thực tế trong WooCommerce database trước khi hiển thị gợi ý bán kèm.
+
 ---
 
-## 📂 DANH MỤC TỆP TIN THUỘC THEME (18 PHP Files — 100% Lint Passed)
-- `style.css` (v1.2.2)
-- `functions.php` (Core hooks, AJAX, validation)
+## 📂 DANH MỤC TỆP TIN THUỘC THEME (19 PHP Files — 100% Lint Passed)
+- `style.css` (v1.2.3)
+- `functions.php` (Core hooks, AJAX, validation, price protection)
 - `header.php`, `footer.php`, `front-page.php`, `index.php`, `page.php`, `woocommerce.php`
 - `page-menu.php`, `page-reservations.php`, `page-impressum.php`, `page-datenschutz.php`
-- `inc/restaurant-info.php` (Giờ mở cửa, Schema.org, Slots generator, Sushi check)
-- `inc/restaurant-experience.php` (Độ cay, Dị ứng, Nhịp độ bếp, Upsells)
+- `inc/pickup.php` (TÍNH NĂNG MỚI: Quản lý giờ đón, timezone, slot generation)
+- `inc/restaurant-info.php` (Giờ mở cửa, Schema.org)
+- `inc/restaurant-experience.php` (Độ cay, Dị ứng, Nhịp độ bếp, Upsells bảo vệ)
 - `inc/admin-orders.php` (Bảng điều phối bếp, in Bon 80mm, chuông âm thanh, nhịp độ bếp)
 - `inc/admin-reservations.php` (Quản lý đặt bàn chuẩn Resmio)
 - `inc/email-templates.php` (Mẫu email HTML viền vàng luxury)
 - `woocommerce/checkout/form-checkout.php` (Kasse Takeaway, điều phối giờ lấy)
 - `woocommerce/checkout/thankyou.php` (Hóa đơn Vàng, Review booster)
-- `assets/js/wowthai.js` & `assets/css/styles.css`
+- `assets/js/wowthai.js` & `assets/css/styles.css` & `assets/css/checkout.css`
 - `assets/pwa/manifest.json`
 
 ---
 
-## 🎯 NHIỆM VỤ TIẾP THEO CỦA CODEX / CHATGPT
-1. Pull commit `d154901` từ GitHub branch `main`.
-2. Deploy theme lên WordPress Studio / Staging (`https://wowthaisteyr.wpcomstaging.com/`) bằng tệp `wowthai.zip` hoặc git push (Theme only, KHÔNG sync database).
-3. Kiểm tra live các tính năng:
-   - Menu tìm kiếm, độ cay, modal dị ứng.
-   - Thử vào Kasse ban đêm hoặc chọn Thứ 2 để xác nhận logic hoạt động chuẩn.
-4. Bàn giao lại lượt cho Gemini khi hoàn tất.
+## 🎯 TRẠNG THÁI & HƯỚNG TRIỂN KHAI TIẾP THEO
+1. **Mã nguồn v1.2.3**: Đã hợp nhất 100% bản vá bảo mật và tính năng chọn topping/mì của Codex cùng hệ thống của Gemini.
+2. **Deploy lên WordPress Studio & Online Staging**:
+   - Tệp cài đặt `wowthai.zip` đã được build sẵn tại thư mục themes.
+   - Thư mục Studio `C:\Users\mnguy\Studio\wow-thai-steyr\wp-content\themes\wowthai` đã được đồng bộ chuẩn v1.2.3.
+3. Khi người dùng nạp thêm credits / đổi phiên cho Codex, Codex có thể trực tiếp pull commit v1.2.3 và tiếp tục nhiệm vụ kết nối MCP / Sync Studio online.

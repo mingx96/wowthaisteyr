@@ -48,7 +48,7 @@ function wowthai_get_restaurant_data() {
  */
 function wowthai_is_sushi_available_on_day($day_of_week = null) {
     if ($day_of_week === null) {
-        $now = current_datetime();
+        $now = wowthai_pickup_now();
         $day_of_week = (int) $now->format('N');
     }
     // Montag (1) ist Sushi-Ruhetag!
@@ -59,7 +59,7 @@ function wowthai_is_sushi_available_on_day($day_of_week = null) {
  * Ermittelt aktuellen Öffnungsstatus basierend auf der aktuellen Uhrzeit (Europe/Vienna)
  */
 function wowthai_get_opening_status() {
-    $now = current_datetime(); // DateTimeImmutable in WordPress timezone
+    $now = wowthai_pickup_now(); // DateTimeImmutable in WordPress timezone
     $day_of_week = (int) $now->format('N'); // 1 = Mo, 7 = So
     $hour_min = $now->format('H:i');
 
@@ -132,55 +132,8 @@ function wowthai_get_opening_status() {
  * Generiert die verfügbaren Abhol-Zeitslots für heute oder morgen
  */
 function wowthai_get_available_pickup_slots($day = 'heute') {
-    $now = current_datetime();
-    $target_dt = ($day === 'morgen') ? $now->modify('+1 day') : $now;
-    $target_day_of_week = (int) $target_dt->format('N');
-
-    $raw_slots = [];
-
-    if ($target_day_of_week === 7) {
-        // Sonntag: 11:30 bis 18:30 (Küche schließt 19:00)
-        for ($h = 11; $h <= 18; $h++) {
-            $m_vals = ($h === 11) ? [30, 45] : (($h === 18) ? [0, 15, 30] : [0, 15, 30, 45]);
-            foreach ($m_vals as $m) {
-                $raw_slots[] = sprintf('%02d:%02d', $h, $m);
-            }
-        }
-    } else {
-        // Mo - Sa: Mittag 11:30 - 14:15, Abend 17:00 - 20:30 (Küche schließt 21:00)
-        // Mittag
-        for ($h = 11; $h <= 14; $h++) {
-            $m_vals = ($h === 11) ? [30, 45] : (($h === 14) ? [0, 15] : [0, 15, 30, 45]);
-            foreach ($m_vals as $m) {
-                $raw_slots[] = sprintf('%02d:%02d', $h, $m);
-            }
-        }
-        // Abend
-        for ($h = 17; $h <= 20; $h++) {
-            $m_vals = ($h === 20) ? [0, 15, 30] : [0, 15, 30, 45];
-            foreach ($m_vals as $m) {
-                $raw_slots[] = sprintf('%02d:%02d', $h, $m);
-            }
-        }
-    }
-
-    if ($day === 'morgen') {
-        return $raw_slots;
-    }
-
-    // Für Heute: Filtere alle Slots heraus, die bereits vorbei sind
-    // oder weniger als 25 Minuten ab jetzt sind (Küche braucht Vorlaufzeit)
-    $min_time_ts = $now->getTimestamp() + (25 * 60);
-    $min_time_str = wp_date('H:i', $min_time_ts);
-
-    $filtered_slots = [];
-    foreach ($raw_slots as $slot) {
-        if ($slot >= $min_time_str) {
-            $filtered_slots[] = $slot;
-        }
-    }
-
-    return $filtered_slots;
+    $now = wowthai_pickup_now();
+    return wowthai_pickup_slots_for_date($day === 'morgen' ? $now->modify('+1 day') : $now, $now);
 }
 
 /**
