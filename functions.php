@@ -26,7 +26,7 @@ add_action('after_setup_theme', 'wowthai_theme_setup');
 // 2. Enqueue Styles & Scripts
 function wowthai_enqueue_scripts() {
     $theme_uri = get_template_directory_uri();
-    $version = '1.1.3';
+    $version = '1.2.0';
 
     // Fonts & Base Styles
     wp_enqueue_style('wowthai-fonts', $theme_uri . '/assets/css/fonts.css', [], $version);
@@ -434,8 +434,14 @@ function wowthai_get_products_in_cat($term_id) {
     return $products;
 }
 
-// 14. Restaurant Order Management & Kitchen Console in WP-Admin
+// 14. Restaurant Stammdaten, Öffnungszeiten & Google Schema.org
+require_once get_template_directory() . '/inc/restaurant-info.php';
+
+// 15. Branded HTML Email Templates (Dark & Gold Luxury)
+require_once get_template_directory() . '/inc/email-templates.php';
+
+// 16. Restaurant Order Management & Kitchen Console in WP-Admin
 require_once get_template_directory() . '/inc/admin-orders.php';
 
-// 15. Tischanfragen & Reservierungsverwaltung in WP-Admin (Resmio/Wix Style)
+// 17. Tischanfragen & Reservierungsverwaltung in WP-Admin (Resmio/Wix Style)
 require_once get_template_directory() . '/inc/admin-reservations.php';

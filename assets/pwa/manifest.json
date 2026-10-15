@@ -1,0 +1,22 @@
+{
+  "name": "WOW Thai Steyr - Restaurant & Takeaway",
+  "short_name": "WOW Thai",
+  "description": "Authentische thailändische Spezialitäten, Wok & Sushi im City Point Steyr.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#100f0d",
+  "theme_color": "#100f0d",
+  "icons": [
+    {
+      "src": "../img/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "../img/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

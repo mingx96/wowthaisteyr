@@ -353,29 +353,43 @@ function wowthai_handle_res_status_change() {
         $restaurant_phone = '+43 7252 74973';
 
         if ( $new_status === 'confirmed' ) {
-            $subject = "Bestätigung: Ihre Tischreservierung bei $restaurant_name";
-            $message = "Guten Tag $guest_name,\n\n"
-                     . "wir freuen uns, Ihnen mitteilen zu können, dass Ihre Tischreservierung erfolgreich bestätigt wurde!\n\n"
-                     . "DETAILS IHRER RESERVIERUNG:\n"
-                     . "------------------------------------\n"
-                     . "Datum:     $formatted_date\n"
-                     . "Uhrzeit:   $res_time Uhr\n"
-                     . "Personen:  $res_party\n"
-                     . "Ort:       WOW Thai Steyr (City Point, Steyr)\n"
-                     . "------------------------------------\n\n"
-                     . "Sollten Sie sich verspäten oder Fragen haben, erreichen Sie uns unter $restaurant_phone.\n\n"
-                     . "Wir freuen uns auf Ihren Besuch!\n"
-                     . "Herzliche Grüße,\nIhr WOW Thai Steyr Team";
+            $subject = "✓ Bestätigt: Ihre Tischreservierung bei $restaurant_name";
+            $headline = "Ihre Reservierung ist bestätigt!";
+            $body_html = "
+                <p>Guten Tag " . esc_html( $guest_name ) . ",</p>
+                <p>wir freuen uns sehr, Ihren Besuch bei uns zu bestätigen. Ihr Tisch ist für Sie reserviert!</p>
+                <div class=\"card-box\">
+                    <p style=\"margin:0 0 6px 0;\"><strong>Datum:</strong> " . esc_html( $formatted_date ) . "</p>
+                    <p style=\"margin:0 0 6px 0;\"><strong>Uhrzeit:</strong> " . esc_html( $res_time ) . " Uhr</p>
+                    <p style=\"margin:0 0 6px 0;\"><strong>Gäste:</strong> " . esc_html( $res_party ) . " Personen</p>
+                    <p style=\"margin:0;\"><strong>Adresse:</strong> City Point Steyr (1. Obergeschoss), Leopold-Werndl-Straße 2, 4400 Steyr</p>
+                </div>
+                <p>Sollten Sie sich verspäten oder Fragen haben, erreichen Sie uns jederzeit telefonisch unter <a href=\"tel:" . esc_attr( $restaurant_phone ) . "\" style=\"color:#d4a359;font-weight:700;\">" . esc_html( $restaurant_phone ) . "</a>.</p>
+                <p>Wir freuen uns darauf, Sie kulinarisch zu verwöhnen!</p>
+            ";
 
-            wp_mail( $guest_email, $subject, $message, [ 'Content-Type: text/plain; charset=UTF-8' ] );
+            if ( function_exists( 'wowthai_send_branded_email' ) ) {
+                wowthai_send_branded_email( $guest_email, $subject, $headline, $body_html, home_url( '/menu/' ), 'Speisekarte ansehen ↗' );
+            } else {
+                wp_mail( $guest_email, $subject, strip_tags( $body_html ) );
+            }
         } elseif ( $new_status === 'cancelled' ) {
             $subject = "Information zu Ihrer Reservierung bei $restaurant_name";
-            $message = "Guten Tag $guest_name,\n\n"
-                     . "leider müssen wir Ihnen mitteilen, dass Ihre Tischreservierung für den $formatted_date um $res_time Uhr storniert oder abgelehnt wurde.\n\n"
-                     . "Für Rückfragen oder alternative Termine erreichen Sie uns gerne telefonisch unter $restaurant_phone.\n\n"
-                     . "Mit freundlichen Grüßen,\nIhr WOW Thai Steyr Team";
+            $headline = "Information zu Ihrer Anfrage";
+            $body_html = "
+                <p>Guten Tag " . esc_html( $guest_name ) . ",</p>
+                <p>leider müssen wir Ihnen mitteilen, dass wir Ihre Tischreservierung für den <strong>" . esc_html( $formatted_date ) . " um " . esc_html( $res_time ) . " Uhr</strong> zu diesem Zeitpunkt nicht annehmen können (z. B. Restaurant bereits voll besetzt).</p>
+                <div class=\"card-box\">
+                    <p style=\"margin:0;\">Für alternative Termine oder kurzfristige Verfügbarkeiten erreichen Sie uns gerne direkt telefonisch unter <a href=\"tel:" . esc_attr( $restaurant_phone ) . "\" style=\"color:#d4a359;font-weight:700;\">" . esc_html( $restaurant_phone ) . "</a>.</p>
+                </div>
+                <p>Vielen Dank für Ihr Verständnis.<br>Ihr WOW Thai Steyr Team</p>
+            ";
 
-            wp_mail( $guest_email, $subject, $message, [ 'Content-Type: text/plain; charset=UTF-8' ] );
+            if ( function_exists( 'wowthai_send_branded_email' ) ) {
+                wowthai_send_branded_email( $guest_email, $subject, $headline, $body_html );
+            } else {
+                wp_mail( $guest_email, $subject, strip_tags( $body_html ) );
+            }
         }
     }
 

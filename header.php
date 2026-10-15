@@ -4,6 +4,11 @@
   <meta charset="<?php bloginfo('charset'); ?>">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#100f0d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="WOW Thai">
+  <link rel="manifest" href="<?php echo get_template_directory_uri(); ?>/assets/pwa/manifest.json">
+  <link rel="apple-touch-icon" href="<?php echo get_template_directory_uri(); ?>/assets/img/logo.png">
   <link rel="preload" as="image" href="<?php echo get_template_directory_uri(); ?>/assets/img/hero.jpg" fetchpriority="high">
   <?php wp_head(); ?>
 </head>

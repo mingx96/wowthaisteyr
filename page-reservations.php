@@ -37,22 +37,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
                 update_post_meta($res_id, '_res_notes', $notes);
                 update_post_meta($res_id, '_res_status', 'pending');
 
-                // Send notification email to restaurant
+                // 1. Send branded HTML notification email to restaurant
                 $to = get_option('admin_email');
                 $dashboard_url = admin_url('edit.php?post_type=tischanfrage');
-                $subject = "🔔 Neue Tischreservierung: $name ($party Personen am $date um $time Uhr)";
-                $message = "Neue Tischreservierung bei WOW Thai Steyr eingetroffen:\n\n"
-                         . "Name:        $name\n"
-                         . "Personen:    $party Personen\n"
-                         . "Datum:       $formatted_date ($date)\n"
-                         . "Uhrzeit:     $time Uhr\n"
-                         . "Telefon:     $phone\n"
-                         . "E-Mail:      " . ($email ?: 'Keine Angabe') . "\n"
-                         . "Anmerkungen: " . ($notes ?: 'Keine') . "\n\n"
-                         . "In der Administration ansehen & mit 1-Klick bestätigen:\n"
-                         . "$dashboard_url\n";
+                $subject = "🔔 Neue Reservierungsanfrage: $name ($party Pers. am $date um $time Uhr)";
+                
+                $admin_body = "
+                <p>Eine neue Tischreservierungsanfrage ist über die Website eingegangen:</p>
+                <div class=\"card-box\">
+                    <p style=\"margin:0 0 6px 0;\"><strong>Gast:</strong> " . esc_html($name) . "</p>
+                    <p style=\"margin:0 0 6px 0;\"><strong>Personen:</strong> " . esc_html($party) . " Personen</p>
+                    <p style=\"margin:0 0 6px 0;\"><strong>Datum & Zeit:</strong> " . esc_html($formatted_date) . " um " . esc_html($time) . " Uhr</p>
+                    <p style=\"margin:0 0 6px 0;\"><strong>Telefon:</strong> <a href=\"tel:" . esc_attr($phone) . "\" style=\"color:#d4a359;\">" . esc_html($phone) . "</a></p>
+                    <p style=\"margin:0 0 6px 0;\"><strong>E-Mail:</strong> " . esc_html($email ?: 'Keine Angabe') . "</p>
+                    <p style=\"margin:0;\"><strong>Wünsche:</strong> " . esc_html($notes ?: 'Keine Anmerkungen') . "</p>
+                </div>
+                <p style=\"font-size:13px;color:#999;\">Sie können diese Reservierung direkt mit einem Klick im WordPress-Dashboard annehmen oder bearbeiten.</p>
+                ";
 
-                wp_mail($to, $subject, $message, ['Content-Type: text/plain; charset=UTF-8']);
+                if (function_exists('wowthai_send_branded_email')) {
+                    wowthai_send_branded_email($to, $subject, 'Neue Tischreservierung', $admin_body, $dashboard_url, 'In Dashboard verwalten ↗');
+                } else {
+                    wp_mail($to, $subject, strip_tags($admin_body));
+                }
+
+                // 2. Send branded HTML confirmation email to Guest
+                if (!empty($email) && is_email($email)) {
+                    $guest_subject = "Ihre Reservierungsanfrage bei WOW Thai Steyr";
+                    $guest_body = "
+                    <p>Guten Tag " . esc_html($name) . ",</p>
+                    <p>vielen Dank für Ihre Reservierungsanfrage! Wir haben Ihre Angaben erhalten und prüfen die Tischverfügbarkeit:</p>
+                    <div class=\"card-box\">
+                        <p style=\"margin:0 0 6px 0;\"><strong>Datum:</strong> " . esc_html($formatted_date) . "</p>
+                        <p style=\"margin:0 0 6px 0;\"><strong>Uhrzeit:</strong> " . esc_html($time) . " Uhr</p>
+                        <p style=\"margin:0 0 6px 0;\"><strong>Gästeanzahl:</strong> " . esc_html($party) . " Personen</p>
+                        <p style=\"margin:0;\"><strong>Ort:</strong> City Point Steyr (1. OG), Leopold-Werndl-Straße 2</p>
+                    </div>
+                    <p>Unser Team prüft Ihre Anfrage. Sobald Ihr Tisch fest reserviert ist, erhalten Sie eine Bestätigung von uns.</p>
+                    <p>Wir freuen uns darauf, Sie bald mit authentischer thailändischer Küche begrüßen zu dürfen!</p>
+                    ";
+
+                    if (function_exists('wowthai_send_branded_email')) {
+                        wowthai_send_branded_email($email, $guest_subject, 'Reservierung eingegangen', $guest_body, home_url('/menu/'), 'Schon jetzt Speisekarte ansehen ↗');
+                    }
+                }
 
                 $booking_submitted = true;
             } else {

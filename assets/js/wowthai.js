@@ -288,21 +288,120 @@ document.addEventListener('DOMContentLoaded', () => {
   const menuSections = document.querySelectorAll('.menu-section');
   const sectionLinks = document.querySelectorAll('.section-link');
 
+  // Live Menu Search & Dietary Filter Engine
+  const dishSearchInput = document.getElementById('dish-search-input');
+  const dishSearchClear = document.getElementById('dish-search-clear');
+  const dishResetBtn = document.getElementById('dish-reset-search');
+  const dishFilterChips = document.querySelectorAll('#dish-filter-chips .filter-chip');
+  const dishSearchEmpty = document.getElementById('dish-search-empty');
+
+  let currentActiveTab = 'restaurant';
+  let currentChipFilter = 'all';
+  let currentSearchQuery = '';
+
+  function filterMenuDishes() {
+    let totalVisible = 0;
+    const query = currentSearchQuery.trim().toLowerCase();
+
+    menuSections.forEach(sec => {
+      const secMenuType = sec.dataset.menuType;
+      const matchesTab = (query.length > 0) ? true : (secMenuType === currentActiveTab);
+
+      if (!matchesTab) {
+        sec.style.display = 'none';
+        return;
+      }
+
+      let secVisibleCount = 0;
+      const cards = sec.querySelectorAll('.dish-card');
+
+      cards.forEach(card => {
+        const searchMeta = card.dataset.dishSearch || '';
+        const labelsMeta = card.dataset.dishLabels || '';
+        const titleMeta = card.dataset.dishTitle || '';
+
+        const matchesQuery = !query || searchMeta.includes(query) || titleMeta.includes(query);
+
+        let matchesChip = true;
+        if (currentChipFilter === 'veggie') {
+          matchesChip = searchMeta.includes('veggie') || searchMeta.includes('vegan') || searchMeta.includes('vegetarisch') || searchMeta.includes('tofu');
+        } else if (currentChipFilter === 'spicy') {
+          matchesChip = searchMeta.includes('scharf') || searchMeta.includes('pikant') || searchMeta.includes('chili') || searchMeta.includes('🌶');
+        } else if (currentChipFilter === 'popular') {
+          matchesChip = searchMeta.includes('beliebt') || searchMeta.includes('bestseller') || searchMeta.includes('chef') || searchMeta.includes('⭐') || labelsMeta.length > 0;
+        }
+
+        if (matchesQuery && matchesChip) {
+          card.style.display = '';
+          secVisibleCount++;
+          totalVisible++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      if (secVisibleCount > 0 && (secMenuType === currentActiveTab || query.length > 1)) {
+        sec.style.display = 'block';
+        const countEl = sec.querySelector('.section-count');
+        if (countEl) {
+          countEl.textContent = `${secVisibleCount} ${secMenuType === 'sushi' ? 'Sushi-Kreationen' : 'Spezialitäten'}`;
+        }
+      } else {
+        sec.style.display = 'none';
+      }
+    });
+
+    if (dishSearchEmpty) {
+      dishSearchEmpty.style.display = (totalVisible === 0) ? 'block' : 'none';
+    }
+
+    if (dishSearchClear) {
+      dishSearchClear.style.display = query.length > 0 ? 'block' : 'none';
+    }
+  }
+
+  if (dishSearchInput) {
+    dishSearchInput.addEventListener('input', (e) => {
+      currentSearchQuery = e.target.value;
+      filterMenuDishes();
+    });
+
+    if (dishSearchClear) {
+      dishSearchClear.addEventListener('click', () => {
+        dishSearchInput.value = '';
+        currentSearchQuery = '';
+        dishSearchInput.focus();
+        filterMenuDishes();
+      });
+    }
+
+    if (dishResetBtn) {
+      dishResetBtn.addEventListener('click', () => {
+        dishSearchInput.value = '';
+        currentSearchQuery = '';
+        currentChipFilter = 'all';
+        dishFilterChips.forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
+        filterMenuDishes();
+      });
+    }
+
+    dishFilterChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        dishFilterChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        currentChipFilter = chip.dataset.filter || 'all';
+        filterMenuDishes();
+      });
+    });
+  }
+
   if (menuTabs.length > 0) {
     menuTabs.forEach(tab => {
       tab.addEventListener('click', () => {
         const targetMenu = tab.dataset.menu; // 'restaurant' or 'sushi'
+        currentActiveTab = targetMenu;
         menuTabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-
-        // Filter sections
-        menuSections.forEach(sec => {
-          if (sec.dataset.menuType === targetMenu) {
-            sec.style.display = 'block';
-          } else {
-            sec.style.display = 'none';
-          }
-        });
 
         // Filter section badges
         sectionLinks.forEach(link => {
@@ -312,6 +411,8 @@ document.addEventListener('DOMContentLoaded', () => {
             link.style.display = 'none';
           }
         });
+
+        filterMenuDishes();
       });
     });
 

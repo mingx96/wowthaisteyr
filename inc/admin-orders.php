@@ -168,7 +168,11 @@ function wowthai_render_order_admin_column( $column, $order ) {
     // SPALTE 3: QUICK BUTTONS GANZ RECHTS
     if ( $column === 'wowthai_quick_actions' ) {
         $nonce = wp_create_nonce( 'wowthai_order_action_' . $order_id );
+        $print_url = admin_url( 'admin-post.php?action=wowthai_print_order_bon&order_id=' . $order_id );
         echo '<div class="wowthai-right-actions">';
+
+        // Immer verfügbar: 80mm Bon-Druck für die Küche
+        echo '<button type="button" class="btn-quick-order btn-bon-print" onclick="window.open(\'' . esc_url( $print_url ) . '\', \'bon_print\', \'width=380,height=650,scrollbars=yes\')" title="80mm Küchenbon drucken">🖨️ Bon</button>';
 
         if ( in_array( $status, [ 'processing', 'pending', 'on-hold' ], true ) && empty( $accepted_time ) ) {
             $accept_url = admin_url( 'admin-post.php?action=wowthai_accept_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
@@ -182,8 +186,6 @@ function wowthai_render_order_admin_column( $column, $order ) {
         } elseif ( ! empty( $ready_time ) && $status !== 'completed' && $status !== 'cancelled' ) {
             $complete_url = admin_url( 'admin-post.php?action=wowthai_complete_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
             echo '<a href="' . esc_url( $complete_url ) . '" class="btn-quick-order btn-complete" title="Bestellung abgeschlossen">✓ Abgeholt</a>';
-        } else {
-            echo '<span style="color:#a7aaad;font-size:12px;">–</span>';
         }
 
         echo '</div>';
@@ -235,17 +237,27 @@ function wowthai_handle_reject_order() {
         $order->set_status( 'cancelled', 'Bestellung um ' . $current_time . ' Uhr vom Restaurant abgelehnt/storniert.' );
         $order->save();
 
-        // Benachrichtigungs-E-Mail an Kunden
+        // Benachrichtigungs-E-Mail an Kunden mit Branded HTML Template
         $email = $order->get_billing_email();
         $name  = $order->get_billing_first_name();
         if ( ! empty( $email ) && is_email( $email ) ) {
             $subject = "Information zu Ihrer Bestellung #$order_id bei WOW Thai Steyr";
-            $message = "Guten Tag $name,\n\n"
-                     . "leider kann Ihre Bestellung #$order_id derzeit vom Restaurant nicht angenommen werden (z. B. Küche ausgelastet oder kurz vor Küchenschluss).\n\n"
-                     . "Die Bestellung wurde storniert. Falls Sie bereits bezahlt haben, wird der Betrag umgehend zurückerstattet.\n\n"
-                     . "Für Rückfragen erreichen Sie uns gerne unter +43 7252 74973.\n\n"
-                     . "Ihr WOW Thai Steyr Team";
-            wp_mail( $email, $subject, $message, [ 'Content-Type: text/plain; charset=UTF-8' ] );
+            $headline = "Information zu Ihrer Bestellung #$order_id";
+            $body_html = "
+                <p>Guten Tag " . esc_html( $name ) . ",</p>
+                <p>leider kann Ihre Bestellung <strong>#$order_id</strong> derzeit vom Restaurant nicht angenommen werden (z. B. Küche kurzzeitig ausgelastet oder Küchenschluss).</p>
+                <div class=\"card-box\">
+                    <p style=\"margin:0;\">Die Bestellung wurde storniert. Falls Sie bereits online bezahlt haben, wird Ihnen der Betrag umgehend vollständig erstattet.</p>
+                </div>
+                <p>Für direkte Rückfragen erreichen Sie uns gerne telefonisch unter <a href=\"tel:+43725274973\" style=\"color:#d4a359;font-weight:700;\">+43 7252 74973</a>.</p>
+                <p>Wir bitten um Ihr Verständnis.<br>Ihr WOW Thai Steyr Team</p>
+            ";
+
+            if ( function_exists( 'wowthai_send_branded_email' ) ) {
+                wowthai_send_branded_email( $email, $subject, $headline, $body_html );
+            } else {
+                wp_mail( $email, $subject, strip_tags( $body_html ) );
+            }
         }
     }
 
@@ -255,6 +267,150 @@ function wowthai_handle_reject_order() {
     exit;
 }
 add_action( 'admin_post_wowthai_reject_order', 'wowthai_handle_reject_order' );
+
+// 6b. HANDLER: 80mm Küchenbon drucken (Optimiert für Gastro-Thermodrucker)
+function wowthai_handle_print_order_bon() {
+    $order_id = isset( $_GET['order_id'] ) ? intval( $_GET['order_id'] ) : 0;
+    if ( ! current_user_can( 'edit_shop_orders' ) && ! current_user_can( 'manage_woocommerce' ) ) {
+        wp_die( 'Keine Berechtigung.' );
+    }
+
+    $order = wc_get_order( $order_id );
+    if ( ! $order ) {
+        wp_die( 'Bestellung #' . esc_html( $order_id ) . ' nicht gefunden.' );
+    }
+
+    $pickup_time = $order->get_meta( '_wowthai_pickup_time', true ) ?: 'Sofort / ASAP';
+    $pickup_date = $order->get_meta( '_wowthai_pickup_date', true ) ?: date_i18n( 'd.m.Y' );
+    $note        = $order->get_customer_note();
+    $items       = $order->get_items();
+    $total       = $order->get_formatted_order_total();
+    $payment     = $order->get_payment_method_title() ?: 'Barzahlung bei Abholung';
+    $customer    = $order->get_formatted_billing_full_name() ?: 'Gast';
+    $phone       = $order->get_billing_phone();
+    ?>
+    <!DOCTYPE html>
+    <html lang="de">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Küchenbon #<?php echo esc_html( $order_id ); ?> · WOW Thai Steyr</title>
+        <style>
+            @page { margin: 0; size: 80mm auto; }
+            * { box-sizing: border-box; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Courier New', monospace, sans-serif;
+                width: 74mm;
+                margin: 0 auto;
+                padding: 4mm 2mm;
+                color: #000;
+                font-size: 13px;
+                line-height: 1.35;
+                background: #fff;
+            }
+            .center { text-align: center; }
+            .bold { font-weight: 800; }
+            .large { font-size: 16px; }
+            .huge { font-size: 24px; letter-spacing: 0.5px; }
+            .divider { border-top: 1px dashed #000; margin: 6px 0; }
+            .double-divider { border-top: 2px solid #000; margin: 8px 0; }
+            .flex-between { display: flex; justify-content: space-between; align-items: baseline; }
+            .item-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+            .item-name { flex: 1; padding-right: 6px; }
+            .item-variant { font-size: 11px; padding-left: 12px; font-style: italic; color: #222; }
+            .pickup-box {
+                border: 2px solid #000;
+                padding: 6px;
+                margin: 8px 0;
+                text-align: center;
+                border-radius: 4px;
+            }
+            .btn-print-bar {
+                margin-bottom: 12px;
+                text-align: center;
+                background: #f0f0f1;
+                padding: 8px;
+                border-radius: 4px;
+            }
+            .btn-action {
+                padding: 6px 14px;
+                font-size: 13px;
+                font-weight: 700;
+                cursor: pointer;
+                border-radius: 4px;
+                border: 1px solid #777;
+            }
+            .btn-primary { background: #107a38; color: #fff; border-color: #107a38; }
+            @media print {
+                .no-print { display: none !important; }
+                body { width: 100%; padding: 0; }
+            }
+        </style>
+    </head>
+    <body onload="window.print()">
+        <div class="no-print btn-print-bar">
+            <button class="btn-action btn-primary" onclick="window.print()">🖨️ Bon Drucken</button>
+            <button class="btn-action" onclick="window.close()" style="margin-left:8px;">✕ Schließen</button>
+        </div>
+
+        <div class="center bold large">WOW THAI STEYR</div>
+        <div class="center" style="font-size: 11px;">City Point · Leopold-Werndl-Str. 2 · Steyr<br>Tel: +43 7252 74973</div>
+        <div class="double-divider"></div>
+
+        <div class="pickup-box">
+            <div style="font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">ABHOLZEIT / TAKEAWAY</div>
+            <div class="huge bold"><?php echo esc_html( $pickup_time ); ?></div>
+            <div style="font-size: 11px; font-weight: 600;"><?php echo esc_html( $pickup_date ); ?></div>
+        </div>
+
+        <div class="flex-between" style="font-size: 12px;">
+            <span><strong>Bestellung:</strong> #<?php echo esc_html( $order_id ); ?></span>
+            <span><?php echo esc_html( date_i18n( 'H:i' ) ); ?> Uhr</span>
+        </div>
+        <div style="font-size: 12px;"><strong>Gast:</strong> <?php echo esc_html( $customer ); ?></div>
+        <?php if ( $phone ) : ?>
+            <div style="font-size: 12px;"><strong>Tel:</strong> <?php echo esc_html( $phone ); ?></div>
+        <?php endif; ?>
+
+        <?php if ( ! empty( $note ) ) : ?>
+            <div class="divider"></div>
+            <div style="background:#eee; padding:4px 6px; font-size:12px; border-left:3px solid #000;">
+                <strong>⚠️ KÜCHENNOTIZ:</strong><br><?php echo nl2br( esc_html( $note ) ); ?>
+            </div>
+        <?php endif; ?>
+
+        <div class="double-divider"></div>
+        <div class="bold" style="font-size: 12px; margin-bottom: 6px;">SPEISEN:</div>
+
+        <?php foreach ( $items as $item ) : 
+            $qty = $item->get_quantity();
+            $name = $item->get_name();
+            $line_total = wc_price( $item->get_total() );
+        ?>
+            <div class="item-row">
+                <div class="item-name">
+                    <span class="bold large"><?php echo esc_html( $qty ); ?>x</span> <strong><?php echo esc_html( $name ); ?></strong>
+                </div>
+                <div class="bold"><?php echo strip_tags( $line_total ); ?></div>
+            </div>
+        <?php endforeach; ?>
+
+        <div class="double-divider"></div>
+        <div class="flex-between large bold">
+            <span>GESAMT:</span>
+            <span><?php echo strip_tags( $total ); ?></span>
+        </div>
+        <div style="font-size: 11px; margin-top: 3px;"><strong>Zahlung:</strong> <?php echo esc_html( $payment ); ?></div>
+        <div class="divider"></div>
+        <div class="center" style="font-size: 10px; margin-top: 6px; color:#444;">
+            Frisch zubereitet bei WOW Thai Steyr<br>Guten Appetit!
+        </div>
+    </body>
+    </html>
+    <?php
+    exit;
+}
+add_action( 'admin_post_wowthai_print_order_bon', 'wowthai_handle_print_order_bon' );
 
 // 7. HANDLER: Abholbereit melden
 function wowthai_handle_ready_order() {
@@ -598,16 +754,127 @@ function wowthai_admin_order_styles_and_scripts() {
         margin-right: 4px;
         display: inline-block;
     }
-    .wowthai-item-line .item-name {
+    .btn-quick-order.btn-bon-print {
+        background: #f6f7f7;
+        color: #2c3338;
+        border: 1px solid #c3c4c7;
+        cursor: pointer;
+    }
+    .btn-quick-order.btn-bon-print:hover {
+        background: #f0f0f1;
+        border-color: #8c8f94;
         color: #1d2327;
-        font-weight: 600;
+    }
+
+    /* Sound Alert Banner */
+    .wowthai-sound-ctrl {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #f0f6fc;
+        border: 1px solid #cce5ff;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #004085;
+        cursor: pointer;
+        user-select: none;
+    }
+    .wowthai-sound-ctrl.muted {
+        background: #f8f9fa;
+        border-color: #d6d8db;
+        color: #6c757d;
     }
     </style>
 
+    <?php
+    // Check if there are active orders requiring immediate staff attention
+    $has_new_unaccepted = false;
+    if ( function_exists( 'wc_get_orders' ) ) {
+        $new_orders = wc_get_orders( [
+            'status' => [ 'pending', 'on-hold' ],
+            'limit'  => 1,
+            'return' => 'ids',
+        ] );
+        $has_new_unaccepted = ! empty( $new_orders );
+    }
+    ?>
+
     <script>
-    // Live Auto-Refresh (Alle 30 Sekunden)
     (function() {
-        let timer = setTimeout(function() {
+        const hasNewOrders = <?php echo $has_new_unaccepted ? 'true' : 'false'; ?>;
+
+        // Web Audio API Dual-Tone Chime
+        function playChime() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                if (ctx.state === 'suspended') {
+                    ctx.resume();
+                }
+                const now = ctx.currentTime;
+                
+                // Ding (587 Hz - D5)
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(587.33, now);
+                gain1.gain.setValueAtTime(0.25, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.4);
+
+                // Dong (880 Hz - A5)
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(880, now + 0.18);
+                gain2.gain.setValueAtTime(0.25, now + 0.18);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.18);
+                osc2.stop(now + 0.7);
+            } catch (e) {
+                console.warn('Audio chime notice:', e);
+            }
+        }
+
+        // Init sound controller pill in subsubsub bar
+        document.addEventListener('DOMContentLoaded', function() {
+            const isSoundOn = localStorage.getItem('wowthai_kitchen_sound') !== 'off';
+
+            const subsubsub = document.querySelector('ul.subsubsub');
+            if (subsubsub) {
+                const li = document.createElement('li');
+                li.style.float = 'right';
+                li.innerHTML = '<span id="wowthai-toggle-sound" class="wowthai-sound-ctrl ' + (isSoundOn ? '' : 'muted') + '">' + 
+                               (isSoundOn ? '🔔 Signal: AN' : '🔕 Signal: AUS') + '</span>';
+                subsubsub.appendChild(li);
+
+                document.getElementById('wowthai-toggle-sound').addEventListener('click', function() {
+                    const current = localStorage.getItem('wowthai_kitchen_sound') !== 'off';
+                    const next = !current;
+                    localStorage.setItem('wowthai_kitchen_sound', next ? 'on' : 'off');
+                    this.className = 'wowthai-sound-ctrl ' + (next ? '' : 'muted');
+                    this.textContent = next ? '🔔 Signal: AN' : '🔕 Signal: AUS';
+                    if (next) playChime();
+                });
+            }
+
+            // If there are incoming unaccepted orders, alert kitchen!
+            if (hasNewOrders && isSoundOn) {
+                // Play immediately after user interaction or if context available
+                setTimeout(playChime, 800);
+            }
+        });
+
+        // Live Auto-Refresh (Alle 30 Sekunden)
+        setTimeout(function() {
             if (!document.querySelector('input:focus, textarea:focus, select:focus')) {
                 window.location.reload();
             }
