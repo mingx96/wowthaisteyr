@@ -113,7 +113,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
       <p>Fragen zu Ihrer Reservierung oder besondere Wünsche? Rufen Sie uns gern direkt an – wir beraten Sie persönlich.</p>
       <a class="phone-large" href="tel:+43725274973">+43 7252 74973</a>
 
-      <div class="aside-parking-hint" style="margin-top:24px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:var(--muted);line-height:1.6;">
+      <div class="aside-hours-hint" style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:var(--muted);line-height:1.6;">
+        <strong style="color:var(--ink);display:block;margin-bottom:4px;">🕒 Öffnungszeiten Küche:</strong>
+        Mo–Sa: 11:30–14:30 &amp; 17:00–21:00 Uhr<br>
+        So: 11:30–19:00 Uhr (durchgehend)<br>
+        <span style="color:#d4a359;font-weight:600;">🍣 Montags Sushi-Ruhetag (warme Küche regulär)</span>
+      </div>
+
+      <div class="aside-parking-hint" style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:var(--muted);line-height:1.6;">
         <strong style="color:var(--ink);display:block;margin-bottom:4px;">🚗 Parken &amp; Barrierefreiheit:</strong>
         Tiefgarage City Point direkt im Haus verfügbar. Bequem mit dem Lift ins 1. Obergeschoss zu unserem Restaurant.
       </div>
@@ -166,13 +173,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
               <option value="17:00">17:00 Uhr</option>
               <option value="17:30">17:30 Uhr</option>
               <option value="18:00" selected>18:00 Uhr</option>
-              <option value="18:30">18:30 Uhr</option>
-              <option value="19:00">19:00 Uhr</option>
-              <option value="19:30">19:30 Uhr</option>
-              <option value="20:00">20:00 Uhr</option>
-              <option value="20:30">20:30 Uhr</option>
-              <option value="21:00">21:00 Uhr</option>
+              <option value="18:30" class="opt-mosa">18:30 Uhr</option>
+              <option value="19:00" class="opt-mosa">19:00 Uhr</option>
+              <option value="19:30" class="opt-mosa">19:30 Uhr</option>
+              <option value="20:00" class="opt-mosa">20:00 Uhr</option>
+              <option value="20:30" class="opt-mosa">20:30 Uhr</option>
             </select>
+            <div id="res_sushi_monday_hint" style="display:none;margin-top:6px;font-size:12px;color:#d4a359;font-weight:600;">🍣 Hinweis: Montags hat die Sushi-Bar Ruhetag. Warme Speisen &amp; Currys bereiten wir sehr gerne für Sie zu!</div>
           </div>
 
           <div class="field full">
@@ -218,5 +225,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
     </div>
   </section>
 </main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const dateInput = document.getElementById('res_date');
+  const timeSelect = document.getElementById('res_time');
+  const sushiHint = document.getElementById('res_sushi_monday_hint');
+
+  if (!dateInput || !timeSelect) return;
+
+  function updateSlots() {
+    if (!dateInput.value) return;
+    const parts = dateInput.value.split('-');
+    if (parts.length < 3) return;
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    const dayOfWeek = d.getDay(); // 0 = So, 1 = Mo
+
+    // Monday Sushi hint
+    if (sushiHint) {
+      sushiHint.style.display = (dayOfWeek === 1) ? 'block' : 'none';
+    }
+
+    // Sunday slots: restaurant closes at 19:00, hide slots > 18:00
+    const moSaOpts = timeSelect.querySelectorAll('.opt-mosa');
+    if (dayOfWeek === 0) {
+      moSaOpts.forEach(opt => {
+        opt.disabled = true;
+        opt.style.display = 'none';
+      });
+      if (['18:30', '19:00', '19:30', '20:00', '20:30'].includes(timeSelect.value)) {
+        timeSelect.value = '18:00';
+      }
+    } else {
+      moSaOpts.forEach(opt => {
+        opt.disabled = false;
+        opt.style.display = '';
+      });
+    }
+  }
+
+  dateInput.addEventListener('change', updateSlots);
+  updateSlots();
+});
+</script>
 
 <?php get_footer(); ?>

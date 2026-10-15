@@ -469,6 +469,12 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         });
 
+        // Toggle Sushi Monday Banner if present
+        const sushiBanner = document.getElementById('sushi-monday-banner');
+        if (sushiBanner) {
+          sushiBanner.style.display = (targetMenu === 'sushi') ? 'flex' : 'none';
+        }
+
         filterMenuDishes();
       });
     });
@@ -506,32 +512,63 @@ document.addEventListener('DOMContentLoaded', () => {
     const dateSelect = document.getElementById('pickup_date_select');
     const timeSelect = document.getElementById('pickup_time_select');
 
-    if (!btnAsap || !btnLater || !finalInput) return;
+    if (!btnLater || !finalInput) return;
+
+    function populateSlotsForDate() {
+      if (!dateSelect || !timeSelect) return;
+      const val = dateSelect.value; // 'heute' or 'morgen'
+      const slotsJson = (val === 'heute') ? dateSelect.dataset.slotsToday : dateSelect.dataset.slotsTomorrow;
+      if (!slotsJson) return;
+
+      try {
+        const slots = JSON.parse(slotsJson);
+        timeSelect.innerHTML = '';
+        slots.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = `${s} Uhr`;
+          timeSelect.appendChild(opt);
+        });
+      } catch (e) {
+        console.warn('Slot parsing error:', e);
+      }
+      updatePreorderValue();
+    }
 
     function updatePreorderValue() {
-      if (!dateSelect || !timeSelect) return;
-      const dayLabel = dateSelect.options[dateSelect.selectedIndex].text.replace(/\s*\([^)]*\)/, '');
+      if (!dateSelect || !timeSelect || !timeSelect.value) return;
+      const dayLabel = dateSelect.options[dateSelect.selectedIndex].text.replace(/\s*\([^)]*\)/, '').trim();
       const timeVal = timeSelect.value;
       finalInput.value = `${dayLabel} um ${timeVal} Uhr`;
     }
 
-    btnAsap.addEventListener('click', () => {
-      btnAsap.classList.add('active');
-      btnLater.classList.remove('active');
-      if (asapBox) asapBox.style.display = 'flex';
-      if (laterBox) laterBox.style.display = 'none';
-      finalInput.value = 'Schnellstmöglich (ca. 25–35 Min.)';
-    });
+    if (btnAsap) {
+      btnAsap.addEventListener('click', (e) => {
+        if (btnAsap.classList.contains('disabled') || btnAsap.disabled) {
+          e.preventDefault();
+          return;
+        }
+        btnAsap.classList.add('active');
+        btnLater.classList.remove('active');
+        if (asapBox) asapBox.style.display = 'flex';
+        if (laterBox) laterBox.style.display = 'none';
+        const prep = (typeof wowthaiConfig !== 'undefined' && wowthaiConfig.prep_time) ? wowthaiConfig.prep_time : '25–35 Min.';
+        finalInput.value = `Schnellstmöglich (ca. ${prep})`;
+      });
+    }
 
     btnLater.addEventListener('click', () => {
       btnLater.classList.add('active');
-      btnAsap.classList.remove('active');
+      if (btnAsap) btnAsap.classList.remove('active');
       if (asapBox) asapBox.style.display = 'none';
       if (laterBox) laterBox.style.display = 'block';
       updatePreorderValue();
     });
 
-    dateSelect?.addEventListener('change', updatePreorderValue);
+    dateSelect?.addEventListener('change', () => {
+      populateSlotsForDate();
+    });
+
     timeSelect?.addEventListener('change', updatePreorderValue);
   }
 

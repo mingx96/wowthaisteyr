@@ -26,7 +26,7 @@ add_action('after_setup_theme', 'wowthai_theme_setup');
 // 2. Enqueue Styles & Scripts
 function wowthai_enqueue_scripts() {
     $theme_uri = get_template_directory_uri();
-    $version = '1.2.1';
+    $version = '1.2.2';
 
     // Fonts & Base Styles
     wp_enqueue_style('wowthai-fonts', $theme_uri . '/assets/css/fonts.css', [], $version);
@@ -294,12 +294,70 @@ function wowthai_autofill_checkout_fields() {
     $_POST['billing_postcode'] = '4400';
     $_POST['billing_state'] = '';
     
-    // Ensure abholzeit is populated
+    // Ensure abholzeit is populated intelligently based on kitchen opening status
     if (empty($_POST['abholzeit'])) {
-        $_POST['abholzeit'] = 'Schnellstmöglich (ca. 25–35 Min.)';
+        $opening = function_exists('wowthai_get_opening_status') ? wowthai_get_opening_status() : null;
+        if ($opening && !$opening['is_open']) {
+            $slots = function_exists('wowthai_get_available_pickup_slots') ? wowthai_get_available_pickup_slots('morgen') : ['11:30'];
+            $_POST['abholzeit'] = 'Vorbestellung für morgen um ' . ($slots[0] ?? '11:30') . ' Uhr';
+        } else {
+            $prep = function_exists('wowthai_get_kitchen_prep_time') ? wowthai_get_kitchen_prep_time() : '25–35 Min.';
+            $_POST['abholzeit'] = 'Schnellstmöglich (ca. ' . $prep . ')';
+        }
     }
 }
 add_action('woocommerce_checkout_process', 'wowthai_autofill_checkout_fields', 5);
+
+// Check if cart contains any Sushi items
+function wowthai_cart_has_sushi() {
+    if ( ! function_exists('WC') || ! WC()->cart ) {
+        return false;
+    }
+    foreach ( WC()->cart->get_cart() as $cart_item ) {
+        $product_id = $cart_item['product_id'];
+        $terms = get_the_terms($product_id, 'product_cat');
+        if ( ! empty($terms) && ! is_wp_error($terms) ) {
+            foreach ($terms as $t) {
+                if (stripos($t->name, 'sushi') !== false || stripos($t->slug, 'sushi') !== false || stripos($t->slug, 'maki') !== false || stripos($t->slug, 'bowl') !== false) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+// Strict validation of pickup time and Monday Sushi closure
+function wowthai_validate_checkout_pickup() {
+    $abholzeit = !empty($_POST['abholzeit']) ? sanitize_text_field($_POST['abholzeit']) : '';
+    $opening = function_exists('wowthai_get_opening_status') ? wowthai_get_opening_status() : null;
+
+    // 1. If kitchen is closed, customer cannot order "Schnellstmöglich"
+    if ($opening && !$opening['is_open'] && stripos($abholzeit, 'schnellstmöglich') !== false) {
+        wc_add_notice('Die Küche ist derzeit geschlossen. Bitte wählen Sie eine Abholzeit für die nächste Öffnungszeit (Vorbestellung).', 'error');
+    }
+
+    // 2. Monday Sushi closure validation
+    $now = current_datetime();
+    $is_monday_pickup = false;
+
+    // If today is Monday and order is for today or ASAP
+    if ((int)$now->format('N') === 1 && (stripos($abholzeit, 'heute') !== false || stripos($abholzeit, 'schnellstmöglich') !== false)) {
+        $is_monday_pickup = true;
+    }
+    // If tomorrow is Monday and "morgen" was chosen
+    if ((int)$now->modify('+1 day')->format('N') === 1 && stripos($abholzeit, 'morgen') !== false) {
+        $is_monday_pickup = true;
+    }
+    if (stripos($abholzeit, 'montag') !== false) {
+        $is_monday_pickup = true;
+    }
+
+    if ($is_monday_pickup && wowthai_cart_has_sushi()) {
+        wc_add_notice('🍣 <strong>Hinweis zur Sushi-Bestellung:</strong> Unsere Sushi-Bar hat montags Ruhetag. Bitte wählen Sie einen Abholtermin von Dienstag bis Sonntag oder entfernen Sie die Sushi-Artikel aus dem Warenkorb.', 'error');
+    }
+}
+add_action('woocommerce_checkout_process', 'wowthai_validate_checkout_pickup', 20);
 
 // Ensure posted data always has country and pickup address during update_order_review AJAX
 function wowthai_filter_checkout_posted_data($data) {

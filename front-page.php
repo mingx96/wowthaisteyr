@@ -76,8 +76,9 @@ get_header();
     </div>
     <div class="hours-row">
       <span>Öffnungszeiten</span>
-      <span>Mo–Sa&nbsp; 11:00–14:30 · 17:00–22:00</span>
-      <span>So&nbsp; 11:30–20:00</span>
+      <span>Mo–Sa&nbsp; 11:30–14:30 · 17:00–21:00</span>
+      <span>So&nbsp; 11:30–19:00</span>
+      <span style="color:#d4a359;font-size:12px;font-weight:600;">🍣 Montags Sushi-Ruhetag</span>
     </div>
   </section>
 </main>

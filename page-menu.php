@@ -7,6 +7,7 @@ get_header();
 $menu_data = wowthai_get_menu_structure();
 $opening_status = function_exists('wowthai_get_opening_status') ? wowthai_get_opening_status() : null;
 $allergens = function_exists('wowthai_get_allergen_list') ? wowthai_get_allergen_list() : [];
+$is_sushi_day = function_exists('wowthai_is_sushi_available_on_day') ? wowthai_is_sushi_available_on_day() : true;
 ?>
 
 <main>
@@ -34,7 +35,7 @@ $allergens = function_exists('wowthai_get_allergen_list') ? wowthai_get_allergen
     <div class="menu-tools">
       <div id="menu-tabs" class="menu-tabs" role="tablist" aria-label="Menüauswahl">
         <button class="menu-tab active" data-menu="restaurant" type="button">Speisekarte Restaurant</button>
-        <button class="menu-tab" data-menu="sushi" type="button">Speisekarte Sushi</button>
+        <button class="menu-tab" data-menu="sushi" type="button">Speisekarte Sushi<?php if (!$is_sushi_day): ?> <span style="font-size:11px;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:4px;font-weight:700;margin-left:4px;">Montags Ruhetag</span><?php endif; ?></button>
       </div>
 
       <!-- Live Search & Filter Bar -->
@@ -131,6 +132,16 @@ $allergens = function_exists('wowthai_get_allergen_list') ? wowthai_get_allergen
     <?php endforeach; ?>
 
     <!-- Sushi Sections -->
+    <?php if (!$is_sushi_day): ?>
+      <div id="sushi-monday-banner" class="sushi-closed-banner" style="display:none;background:rgba(217,119,6,0.15);border:1px solid #d97706;border-radius:8px;padding:16px 20px;margin:16px 0 24px 0;color:#fef3c7;align-items:center;gap:14px;">
+        <span style="font-size:32px;line-height:1;">🍣</span>
+        <div>
+          <strong style="color:#d4a359;font-size:15px;display:block;margin-bottom:4px;">Montags Sushi-Ruhetag</strong>
+          <p style="margin:0;font-size:13px;line-height:1.5;color:#e6e1d8;">Unsere Sushi-Küche hat montags ihren Ruhetag. Sämtliche warmen Speisen (Currys, Wok, Spezialitäten) bereiten wir sehr gerne für Sie zu! Vorbestellungen für Sushi ab Dienstag sind jederzeit möglich.</p>
+        </div>
+      </div>
+    <?php endif; ?>
+
     <?php foreach ($menu_data['sushi'] as $sec): ?>
       <section class="menu-section" id="sec-<?php echo esc_attr($sec['slug']); ?>" data-menu-type="sushi" style="display: none;">
         <div class="section-heading">
@@ -168,14 +179,20 @@ $allergens = function_exists('wowthai_get_allergen_list') ? wowthai_get_allergen
                 </div>
               <?php endif; ?>
               <div class="dish-actions">
-                <button type="button" class="dish-control"
-                  data-product-id="<?php echo esc_attr($p['id']); ?>"
-                  data-has-variants="<?php echo $p['has_variants'] ? 'yes' : 'no'; ?>"
-                  data-title="<?php echo esc_attr($p['title']); ?>"
-                  data-description="<?php echo esc_attr($p['description']); ?>"
-                  data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
-                  <?php echo $p['has_variants'] ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
-                </button>
+                <?php if (!$is_sushi_day): ?>
+                  <button type="button" class="dish-control disabled" disabled style="opacity:0.65;cursor:not-allowed;background:#2b2620;color:#d4a359;border:1px solid rgba(212,163,89,0.3);" title="Montags Sushi-Ruhetag">
+                    🍣 Montags Ruhetag
+                  </button>
+                <?php else: ?>
+                  <button type="button" class="dish-control"
+                    data-product-id="<?php echo esc_attr($p['id']); ?>"
+                    data-has-variants="<?php echo $p['has_variants'] ? 'yes' : 'no'; ?>"
+                    data-title="<?php echo esc_attr($p['title']); ?>"
+                    data-description="<?php echo esc_attr($p['description']); ?>"
+                    data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
+                    <?php echo $p['has_variants'] ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
+                  </button>
+                <?php endif; ?>
               </div>
             </article>
           <?php endforeach; ?>

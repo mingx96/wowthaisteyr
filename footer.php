@@ -10,11 +10,14 @@
       <h4 style="font-size:13px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin:0 0 12px 0;">Öffnungszeiten</h4>
       <p style="color:var(--muted);margin:0 0 6px 0;">
         <strong style="color:var(--ink);">Montag – Samstag:</strong><br>
-        11:00 – 14:30 Uhr & 17:00 – 22:00 Uhr
+        11:30 – 14:30 Uhr &amp; 17:00 – 21:00 Uhr
       </p>
-      <p style="color:var(--muted);margin:0;">
+      <p style="color:var(--muted);margin:0 0 6px 0;">
         <strong style="color:var(--ink);">Sonntag:</strong><br>
-        11:30 – 20:00 Uhr (durchgehend)
+        11:30 – 19:00 Uhr (durchgehend)
+      </p>
+      <p style="color:#d4a359;font-size:11px;margin:0;font-weight:600;">
+        🍣 Montags Sushi-Ruhetag (warme Küche regulär)
       </p>
     </div>
 

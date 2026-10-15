@@ -1,6 +1,10 @@
 <?php
 /**
  * WOW Thai Steyr - Restaurant Info, Opening Hours & Structured Data (Schema.org)
+ * Zentrale, verbindliche Restaurant- & Küchenzeiten:
+ * - Montag bis Samstag: 11:30–14:30 Uhr (Mittag) & 17:00–21:00 Uhr (Abend)
+ * - Sonntag: 11:30–19:00 Uhr (durchgehend)
+ * - Montags: Sushi-Ruhetag (Warme Küche regulär geöffnet)
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -31,18 +35,31 @@ function wowthai_get_restaurant_data() {
         ],
         'google_maps_url' => 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr',
         'opening_hours_text' => [
-            'Mo–Sa' => '11:00–14:30 · 17:00–22:00 Uhr',
-            'So'    => '11:30–20:00 Uhr',
+            'Mo–Sa'   => '11:30–14:30 · 17:00–21:00 Uhr',
+            'So'      => '11:30–19:00 Uhr (durchgehend)',
+            'Hinweis' => 'Montags Sushi-Ruhetag (Warme Küche regulär)',
         ],
     ];
+}
+
+/**
+ * Prüft ob am angegebenen Wochentag Sushi verfügbar ist
+ * $day_of_week: 1 (Montag) bis 7 (Sonntag)
+ */
+function wowthai_is_sushi_available_on_day($day_of_week = null) {
+    if ($day_of_week === null) {
+        $now = current_datetime();
+        $day_of_week = (int) $now->format('N');
+    }
+    // Montag (1) ist Sushi-Ruhetag!
+    return ((int)$day_of_week !== 1);
 }
 
 /**
  * Ermittelt aktuellen Öffnungsstatus basierend auf der aktuellen Uhrzeit (Europe/Vienna)
  */
 function wowthai_get_opening_status() {
-    // Aktuelle Zeit in der WordPress-Zeitzone
-    $now = current_datetime(); // DateTimeImmutable mit WP-Timezone
+    $now = current_datetime(); // DateTimeImmutable in WordPress timezone
     $day_of_week = (int) $now->format('N'); // 1 = Mo, 7 = So
     $hour_min = $now->format('H:i');
 
@@ -50,48 +67,120 @@ function wowthai_get_opening_status() {
     $status_label = 'Vorbestellung möglich';
     $status_detail = '';
     $status_type = 'preorder'; // 'open' oder 'preorder'
+    $next_open_label = '';
+
+    $prep_time = function_exists('wowthai_get_kitchen_prep_time') ? wowthai_get_kitchen_prep_time() : '20–30 Min.';
 
     if ($day_of_week >= 1 && $day_of_week <= 6) {
-        // Mo - Sa: 11:00 - 14:30 & 17:00 - 22:00
-        if ($hour_min >= '11:00' && $hour_min < '14:30') {
+        // Mo - Sa: 11:30 - 14:30 & 17:00 - 21:00
+        if ($hour_min >= '11:30' && $hour_min < '14:30') {
             $is_open = true;
             $status_type = 'open';
             $status_label = 'Jetzt geöffnet';
-            $status_detail = 'Mittagsservice bis 14:30 Uhr · Abholung bereit in ca. 20–30 Min.';
-        } elseif ($hour_min >= '17:00' && $hour_min < '22:00') {
+            $status_detail = 'Mittagsservice bis 14:30 Uhr · Abholung bereit in ca. ' . $prep_time;
+        } elseif ($hour_min >= '17:00' && $hour_min < '21:00') {
             $is_open = true;
             $status_type = 'open';
             $status_label = 'Jetzt geöffnet';
-            $status_detail = 'Abendservice bis 22:00 Uhr · Abholung bereit in ca. 20–30 Min.';
-        } elseif ($hour_min < '11:00') {
-            $status_detail = 'Küche öffnet heute um 11:00 Uhr. Sie können jetzt für den Mittag vorbestellen!';
+            $status_detail = 'Abendservice bis 21:00 Uhr · Abholung bereit in ca. ' . $prep_time;
+        } elseif ($hour_min < '11:30') {
+            $next_open_label = 'heute um 11:30 Uhr';
+            $status_detail = 'Küche öffnet heute um 11:30 Uhr. Sie können jetzt für den Mittag vorbestellen!';
         } elseif ($hour_min >= '14:30' && $hour_min < '17:00') {
+            $next_open_label = 'heute um 17:00 Uhr';
             $status_detail = 'Nachmittagspause · Küche öffnet wieder um 17:00 Uhr. Vorbestellung jetzt möglich!';
         } else {
-            $status_detail = 'Restaurant schließt für heute. Sie können gerne für morgen vorbestellen!';
+            // Nach 21:00 Uhr
+            if ($day_of_week === 6) {
+                $next_open_label = 'morgen (Sonntag) ab 11:30 Uhr';
+                $status_detail = 'Küche für heute geschlossen. Vorbestellung für Sonntag ab 11:30 Uhr möglich!';
+            } else {
+                $next_open_label = 'morgen ab 11:30 Uhr';
+                $status_detail = 'Küche für heute geschlossen. Vorbestellung für morgen ab 11:30 Uhr möglich!';
+            }
         }
     } elseif ($day_of_week === 7) {
-        // So: 11:30 - 20:00 durchgehend
-        if ($hour_min >= '11:30' && $hour_min < '20:00') {
+        // So: 11:30 - 19:00 durchgehend
+        if ($hour_min >= '11:30' && $hour_min < '19:00') {
             $is_open = true;
             $status_type = 'open';
             $status_label = 'Jetzt geöffnet';
-            $status_detail = 'Sonntag durchgehend geöffnet bis 20:00 Uhr.';
+            $status_detail = 'Sonntag durchgehend geöffnet bis 19:00 Uhr · Abholung bereit in ca. ' . $prep_time;
         } elseif ($hour_min < '11:30') {
+            $next_open_label = 'heute um 11:30 Uhr';
             $status_detail = 'Küche öffnet am Sonntag um 11:30 Uhr. Vorbestellung jetzt möglich!';
         } else {
-            $status_detail = 'Schönen Sonntagabend! Wir sind morgen ab 11:00 Uhr wieder für Sie da.';
+            // Nach 19:00 Uhr am Sonntag
+            $next_open_label = 'morgen (Montag) ab 11:30 Uhr';
+            $status_detail = 'Schönen Sonntagabend! Wir sind morgen ab 11:30 Uhr wieder für Sie da (Montags Sushi-Ruhetag).';
         }
     }
 
     return [
-        'is_open'       => $is_open,
-        'status_type'   => $status_type,
-        'status_label'  => $status_label,
-        'status_detail' => $status_detail,
-        'time_now'      => $hour_min,
-        'day_now'       => $day_of_week,
+        'is_open'         => $is_open,
+        'status_type'     => $status_type,
+        'status_label'    => $status_label,
+        'status_detail'   => $status_detail,
+        'next_open_label' => $next_open_label,
+        'time_now'        => $hour_min,
+        'day_now'         => $day_of_week,
+        'is_sushi_day'    => wowthai_is_sushi_available_on_day($day_of_week),
     ];
+}
+
+/**
+ * Generiert die verfügbaren Abhol-Zeitslots für heute oder morgen
+ */
+function wowthai_get_available_pickup_slots($day = 'heute') {
+    $now = current_datetime();
+    $target_dt = ($day === 'morgen') ? $now->modify('+1 day') : $now;
+    $target_day_of_week = (int) $target_dt->format('N');
+
+    $raw_slots = [];
+
+    if ($target_day_of_week === 7) {
+        // Sonntag: 11:30 bis 18:30 (Küche schließt 19:00)
+        for ($h = 11; $h <= 18; $h++) {
+            $m_vals = ($h === 11) ? [30, 45] : (($h === 18) ? [0, 15, 30] : [0, 15, 30, 45]);
+            foreach ($m_vals as $m) {
+                $raw_slots[] = sprintf('%02d:%02d', $h, $m);
+            }
+        }
+    } else {
+        // Mo - Sa: Mittag 11:30 - 14:15, Abend 17:00 - 20:30 (Küche schließt 21:00)
+        // Mittag
+        for ($h = 11; $h <= 14; $h++) {
+            $m_vals = ($h === 11) ? [30, 45] : (($h === 14) ? [0, 15] : [0, 15, 30, 45]);
+            foreach ($m_vals as $m) {
+                $raw_slots[] = sprintf('%02d:%02d', $h, $m);
+            }
+        }
+        // Abend
+        for ($h = 17; $h <= 20; $h++) {
+            $m_vals = ($h === 20) ? [0, 15, 30] : [0, 15, 30, 45];
+            foreach ($m_vals as $m) {
+                $raw_slots[] = sprintf('%02d:%02d', $h, $m);
+            }
+        }
+    }
+
+    if ($day === 'morgen') {
+        return $raw_slots;
+    }
+
+    // Für Heute: Filtere alle Slots heraus, die bereits vorbei sind
+    // oder weniger als 25 Minuten ab jetzt sind (Küche braucht Vorlaufzeit)
+    $min_time_ts = $now->getTimestamp() + (25 * 60);
+    $min_time_str = wp_date('H:i', $min_time_ts);
+
+    $filtered_slots = [];
+    foreach ($raw_slots as $slot) {
+        if ($slot >= $min_time_str) {
+            $filtered_slots[] = $slot;
+        }
+    }
+
+    return $filtered_slots;
 }
 
 /**
@@ -169,20 +258,20 @@ function wowthai_output_restaurant_schema() {
             [
                 '@type'     => 'OpeningHoursSpecification',
                 'dayOfWeek' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-                'opens'     => '11:00',
+                'opens'     => '11:30',
                 'closes'    => '14:30',
             ],
             [
                 '@type'     => 'OpeningHoursSpecification',
                 'dayOfWeek' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
                 'opens'     => '17:00',
-                'closes'    => '22:00',
+                'closes'    => '21:00',
             ],
             [
                 '@type'     => 'OpeningHoursSpecification',
                 'dayOfWeek' => 'Sunday',
                 'opens'     => '11:30',
-                'closes'    => '20:00',
+                'closes'    => '19:00',
             ],
         ],
     ];
