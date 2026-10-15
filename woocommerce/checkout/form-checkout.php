@@ -45,11 +45,12 @@ $slots = ['11:30', '11:45', '12:00', '12:15', '12:30', '12:45', '13:00', '13:15'
         </div>
       </div>
 
+      <?php $kitchen_prep = function_exists('wowthai_get_kitchen_prep_time') ? wowthai_get_kitchen_prep_time() : '25–35 Min.'; ?>
       <div class="timing-segmented-control" role="tablist">
         <button type="button" class="seg-btn active" id="btn-asap" data-mode="asap">
           <span class="seg-icon">⚡</span>
           <span class="seg-label">Schnellstmöglich</span>
-          <span class="seg-pill">ca. 25–35 Min.</span>
+          <span class="seg-pill">ca. <?php echo esc_html($kitchen_prep); ?></span>
         </button>
         <button type="button" class="seg-btn" id="btn-later" data-mode="later">
           <span class="seg-icon">🕒</span>
@@ -153,6 +154,7 @@ $slots = ['11:30', '11:45', '12:00', '12:15', '12:30', '12:45', '13:00', '13:15'
         <div>
           <strong>Abholadresse im Restaurant:</strong>
           <span>WOW Thai · City Point 1. OG<br>Leopold-Werndl-Straße 2, 4400 Steyr</span>
+          <small style="color:var(--muted);display:block;margin-top:4px;">🚗 Tiefgarage City Point im Haus · Bequem mit Lift ins 1. OG</small>
         </div>
       </div>
     </div>

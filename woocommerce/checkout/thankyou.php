@@ -202,6 +202,13 @@ defined( 'ABSPATH' ) || exit;
                         </div>
                     </div>
 
+                    <div class="google-review-card" style="margin-top:20px;padding:16px 18px;background:linear-gradient(145deg,#231e17,#191612);border:1px solid #d4a359;border-radius:6px;text-align:center;">
+                        <div style="font-size:20px;color:#f59e0b;margin-bottom:4px;">⭐⭐⭐⭐⭐</div>
+                        <h3 style="margin:0 0 4px 0;font-size:15px;color:#f7f3ec;font-weight:700;">Ihre Meinung ist uns wichtig!</h3>
+                        <p style="margin:0 0 12px 0;font-size:12px;color:#b7afa2;line-height:1.5;">Hat es Ihnen geschmeckt? Wir würden uns sehr über Ihre kurze 5-Sterne-Bewertung auf Google freuen – das unterstützt unser Restaurant enorm!</p>
+                        <a href="https://maps.google.com/?q=WOW+Thai+Steyr" target="_blank" rel="noopener" style="display:inline-block;background:#d4a359;color:#100f0d;font-weight:700;font-size:12px;padding:8px 16px;border-radius:4px;text-decoration:none;">Jetzt auf Google bewerten ↗</a>
+                    </div>
+
                     <div class="receipt-footer-links">
                         <a href="<?php echo esc_url( home_url('/menu/') ); ?>" class="btn-menu-return">
                             ← Weitere Speisen zur Speisekarte ansehen

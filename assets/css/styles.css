@@ -448,3 +448,109 @@ body{background:radial-gradient(ellipse at 50% -24%,#302516 0,transparent 46%),v
     padding: 24px 20px;
   }
 }
+
+/* ==========================================================================
+   WOW Thai Steyr v1.2.1 - Spice Pills, Allergen Modal & Cart Upsells
+   ========================================================================== */
+
+/* Spice Level Pills */
+.spice-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  font-size: 12px;
+  letter-spacing: -1px;
+  vertical-align: middle;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+}
+
+/* Chip Allergen Button */
+.chip-allergen-btn {
+  background: transparent !important;
+  border-style: dashed !important;
+  border-color: #554837 !important;
+  color: #c4baaa !important;
+}
+.chip-allergen-btn:hover {
+  border-color: #d4a359 !important;
+  color: #f7f3ec !important;
+  background: rgba(212, 163, 89, 0.1) !important;
+}
+
+/* Slide-Cart Upsell Box */
+.drawer-upsell-box {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: #1e1914;
+  border: 1px dashed #514330;
+  border-radius: 6px;
+}
+.drawer-upsell-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e5c478;
+  margin: 0 0 10px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+.drawer-upsell-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.drawer-upsell-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #25201a;
+  padding: 7px 10px;
+  border-radius: 4px;
+  border: 1px solid #3d3427;
+  transition: border-color 0.15s ease;
+}
+.drawer-upsell-item:hover {
+  border-color: #d4a359;
+}
+.upsell-emoji {
+  font-size: 18px;
+  line-height: 1;
+}
+.upsell-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.upsell-text strong {
+  font-size: 12px;
+  color: #f7f3ec;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.upsell-text small {
+  font-size: 11px;
+  color: #e5c478;
+  font-weight: 700;
+}
+.btn-add-upsell {
+  background: transparent;
+  border: 1px solid #d4a359;
+  color: #d4a359;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-add-upsell:hover {
+  background: #d4a359;
+  color: #100f0d;
+}
+.btn-add-upsell:disabled {
+  background: #383025;
+  border-color: #554837;
+  color: #8c8273;
+  cursor: default;
+}

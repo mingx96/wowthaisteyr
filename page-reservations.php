@@ -112,15 +112,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
       <h2>Wir freuen uns<br>auf Ihren Besuch.</h2>
       <p>Fragen zu Ihrer Reservierung oder besondere Wünsche? Rufen Sie uns gern direkt an – wir beraten Sie persönlich.</p>
       <a class="phone-large" href="tel:+43725274973">+43 7252 74973</a>
+
+      <div class="aside-parking-hint" style="margin-top:24px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:var(--muted);line-height:1.6;">
+        <strong style="color:var(--ink);display:block;margin-bottom:4px;">🚗 Parken &amp; Barrierefreiheit:</strong>
+        Tiefgarage City Point direkt im Haus verfügbar. Bequem mit dem Lift ins 1. Obergeschoss zu unserem Restaurant.
+      </div>
     </div>
 
     <div class="reservation-panel" id="reservation-root" aria-live="polite">
-      <?php if ($booking_submitted): ?>
+      <?php if ($booking_submitted): 
+        // Build Google Calendar Event Link
+        $start_iso = date('Ymd\THis', strtotime("$date $time"));
+        $end_iso = date('Ymd\THis', strtotime("$date $time") + 7200); // 2 hours
+        $cal_title = urlencode("Tischreservierung: WOW Thai Steyr ($party Pers.)");
+        $cal_desc = urlencode("Ihre Reservierung bei WOW Thai Steyr für $party Personen. Bei Verspätungen erreichen Sie uns unter +43 7252 74973.");
+        $cal_loc = urlencode("WOW Thai Steyr, City Point 1. OG, Leopold-Werndl-Straße 2, 4400 Steyr");
+        $cal_url = "https://calendar.google.com/calendar/render?action=TEMPLATE&text={$cal_title}&dates={$start_iso}/{$end_iso}&details={$cal_desc}&location={$cal_loc}";
+      ?>
         <div class="booking-success">
           <h2>Vielen Dank für Ihre Reservierung!</h2>
           <p>Wir haben Ihre Anfrage für <strong><?php echo esc_html($date); ?> um <?php echo esc_html($time); ?> Uhr</strong> für <strong><?php echo esc_html($party); ?> Personen</strong> erhalten.</p>
           <p>Wir freuen uns darauf, Sie bald im Restaurant begrüßen zu dürfen!</p>
-          <a class="button button-dark" href="<?php echo esc_url(home_url('/menu/')); ?>">Schon jetzt Speisekarte ansehen ↗</a>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+            <a class="button button-dark" href="<?php echo esc_url(home_url('/menu/')); ?>">Schon jetzt Speisekarte ansehen ↗</a>
+            <a class="button button-quiet" href="<?php echo esc_url($cal_url); ?>" target="_blank" rel="noopener">📅 In Google Kalender eintragen ↗</a>
+          </div>
         </div>
       <?php else: ?>
         <h2 class="booking-title">Tisch online reservieren</h2>

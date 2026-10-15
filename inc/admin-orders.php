@@ -562,8 +562,35 @@ function wowthai_render_reservations_top_box() {
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
-            </div>
         <?php endif; ?>
+
+        <?php
+        $current_prep = function_exists( 'wowthai_get_kitchen_prep_time' ) ? wowthai_get_kitchen_prep_time() : '25–35 Min.';
+        $prep_options = [
+            '15–20 Min.' => '🟢 15–20 Min. (Ruhig)',
+            '25–35 Min.' => '🟡 25–35 Min. (Normal)',
+            '40–50 Min.' => '🟠 40–50 Min. (Voll)',
+            '60+ Min.'   => '🔴 60+ Min. (Rush Hour)',
+        ];
+        ?>
+        <div class="wowthai-prep-time-control" style="margin-top:14px; padding-top:12px; border-top:1px solid #f0f0f1; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:16px;">⏱️</span>
+                <div>
+                    <strong style="font-size:13px; color:#1d2327;">Aktuelle Küchen-Taktung (Zubereitungszeit):</strong>
+                    <span style="font-size:12px; color:#646970; display:block;">Wird Kunden im Warenkorb und an der Kasse live angezeigt</span>
+                </div>
+            </div>
+            <div class="prep-buttons" style="display:flex; gap:6px; flex-wrap:wrap;">
+                <?php foreach ( $prep_options as $val => $lbl ) : 
+                    $is_active = ( $current_prep === $val );
+                ?>
+                    <button type="button" class="btn-prep-time" data-time="<?php echo esc_attr( $val ); ?>" style="border:1px solid <?php echo $is_active ? '#d97706' : '#dcdcde'; ?>; background:<?php echo $is_active ? '#fef3d6' : '#f6f7f7'; ?>; color:<?php echo $is_active ? '#8c5b00' : '#2c3338'; ?>; font-weight:<?php echo $is_active ? '700' : '600'; ?>; padding:5px 12px; border-radius:4px; cursor:pointer; font-size:12px;">
+                        <?php echo esc_html( $lbl ); ?>
+                    </button>
+                <?php endforeach; ?>
+            </div>
+        </div>
     </div>
     <?php
 }
@@ -865,6 +892,34 @@ function wowthai_admin_order_styles_and_scripts() {
                     if (next) playChime();
                 });
             }
+
+            // Prep time switch buttons
+            document.querySelectorAll('.btn-prep-time').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const time = this.dataset.time;
+                    document.querySelectorAll('.btn-prep-time').forEach(function(b) {
+                        b.style.background = '#f6f7f7';
+                        b.style.borderColor = '#dcdcde';
+                        b.style.color = '#2c3338';
+                        b.style.fontWeight = '600';
+                    });
+                    this.style.background = '#fef3d6';
+                    this.style.borderColor = '#d97706';
+                    this.style.color = '#8c5b00';
+                    this.style.fontWeight = '700';
+
+                    const body = new URLSearchParams({
+                        action: 'wowthai_set_prep_time',
+                        prep_time: time,
+                        nonce: '<?php echo wp_create_nonce("wowthai_admin_nonce"); ?>'
+                    });
+                    fetch(ajaxurl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: body.toString()
+                    });
+                });
+            });
 
             // If there are incoming unaccepted orders, alert kitchen!
             if (hasNewOrders && isSoundOn) {

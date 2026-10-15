@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ` : `
               <div class="drawer-timing-banner">
                 <span>🕒 <strong>Abholung</strong>: City Point Steyr</span>
-                <span class="badge-asap">ca. 25–35 Min.</span>
+                <span class="badge-asap">${esc(window.wowthaiConfig?.prep_time || 'ca. 25–35 Min.')}</span>
               </div>
               <div class="cart-lines">
                 ${items.map(item => `
@@ -86,6 +86,24 @@ document.addEventListener('DOMContentLoaded', () => {
                   </div>
                 `).join('')}
               </div>
+
+              ${(window.wowthaiConfig?.upsell_items || []).length > 0 ? `
+                <div class="drawer-upsell-box">
+                  <p class="drawer-upsell-title">✨ Dazu passt perfekt:</p>
+                  <div class="drawer-upsell-list">
+                    ${(window.wowthaiConfig.upsell_items).map((u, idx) => `
+                      <div class="drawer-upsell-item">
+                        <span class="upsell-emoji">${esc(u.icon || '🥤')}</span>
+                        <div class="upsell-text">
+                          <strong>${esc(u.title)}</strong>
+                          <small>${esc(u.price)}</small>
+                        </div>
+                        <button type="button" class="btn-add-upsell" data-idx="${idx}">+ Hinzufügen</button>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
             `}
           </div>
           ${hasItems ? `
@@ -104,6 +122,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cart-close')?.addEventListener('click', () => renderCartDrawer(false));
     document.getElementById('cart-overlay')?.addEventListener('click', (e) => {
       if (e.target.id === 'cart-overlay') renderCartDrawer(false);
+    });
+
+    // Upsell button handlers
+    cartRoot.querySelectorAll('.btn-add-upsell').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx, 10);
+        const item = window.wowthaiConfig?.upsell_items?.[idx];
+        if (item) {
+          btn.disabled = true;
+          btn.textContent = '✓';
+          addToCart(0, 1, 'upsell_' + idx, '', item.raw_price, item.title);
+        }
+      });
     });
 
     // Quantity / Remove handlers
@@ -143,9 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Add Item to Cart
-  async function addToCart(productId, quantity = 1, variantId = '', variantName = '', price = '') {
+  async function addToCart(productId, quantity = 1, variantId = '', variantName = '', price = '', customTitle = '') {
     try {
-      const body = new URLSearchParams({
+      const params = {
         action: 'wowthai_add_to_cart',
         product_id: productId,
         quantity: quantity,
@@ -153,7 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
         variant_name: variantName,
         variant_price: price,
         nonce: nonce
-      });
+      };
+      if (customTitle) {
+        params.custom_title = customTitle;
+      }
+      const body = new URLSearchParams(params);
       const res = await fetch(ajaxUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -387,11 +422,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dishFilterChips.forEach(chip => {
       chip.addEventListener('click', () => {
+        if (chip.id === 'btn-open-allergens') return;
         dishFilterChips.forEach(c => c.classList.remove('active'));
         chip.classList.add('active');
         currentChipFilter = chip.dataset.filter || 'all';
         filterMenuDishes();
       });
+    });
+  }
+
+  // Allergen Modal Toggle
+  const btnOpenAllergens = document.getElementById('btn-open-allergens');
+  const allergenModalWrap = document.getElementById('allergen-modal-wrap');
+  const allergenModalClose = document.getElementById('allergen-modal-close');
+
+  if (btnOpenAllergens && allergenModalWrap) {
+    btnOpenAllergens.addEventListener('click', () => {
+      allergenModalWrap.style.display = 'grid';
+    });
+
+    allergenModalClose?.addEventListener('click', () => {
+      allergenModalWrap.style.display = 'none';
+    });
+
+    allergenModalWrap.addEventListener('click', (e) => {
+      if (e.target.id === 'allergen-modal-wrap') {
+        allergenModalWrap.style.display = 'none';
+      }
     });
   }
 

@@ -26,7 +26,7 @@ add_action('after_setup_theme', 'wowthai_theme_setup');
 // 2. Enqueue Styles & Scripts
 function wowthai_enqueue_scripts() {
     $theme_uri = get_template_directory_uri();
-    $version = '1.2.0';
+    $version = '1.2.1';
 
     // Fonts & Base Styles
     wp_enqueue_style('wowthai-fonts', $theme_uri . '/assets/css/fonts.css', [], $version);
@@ -36,11 +36,16 @@ function wowthai_enqueue_scripts() {
     // Front-end interactive app
     wp_enqueue_script('wowthai-app', $theme_uri . '/assets/js/wowthai.js', ['jquery'], $version, true);
 
+    $prep_time = function_exists('wowthai_get_kitchen_prep_time') ? wowthai_get_kitchen_prep_time() : '25–35 Min.';
+    $upsell_items = function_exists('wowthai_get_upsell_suggestions') ? wowthai_get_upsell_suggestions() : [];
+
     wp_localize_script('wowthai-app', 'wowthaiConfig', [
         'ajax_url' => admin_url('admin-ajax.php'),
         'checkout_url' => function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : '/checkout/',
         'cart_url' => function_exists('wc_get_cart_url') ? wc_get_cart_url() : '/cart/',
         'nonce' => wp_create_nonce('wowthai_cart_nonce'),
+        'prep_time' => $prep_time,
+        'upsell_items' => $upsell_items,
     ]);
 }
 add_action('wp_enqueue_scripts', 'wowthai_enqueue_scripts');
@@ -57,7 +62,7 @@ function wowthai_get_cart_payload() {
     foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
         $_product = apply_filters('woocommerce_cart_item_product', $cart_item['data'], $cart_item, $cart_item_key);
         if ($_product && $_product->exists() && $cart_item['quantity'] > 0) {
-            $name = $_product->get_name();
+            $name = !empty($cart_item['wowthai_custom_title']) ? $cart_item['wowthai_custom_title'] : $_product->get_name();
             $variant_name = $cart_item['wowthai_variant_name'] ?? '';
             $line_total = wc_price($cart_item['line_total'] + $cart_item['line_tax']);
 
@@ -95,6 +100,12 @@ function wowthai_ajax_add_to_cart() {
     $variant_id = isset($_POST['variant_id']) ? sanitize_text_field($_POST['variant_id']) : '';
     $variant_name = isset($_POST['variant_name']) ? sanitize_text_field($_POST['variant_name']) : '';
     $variant_price = isset($_POST['variant_price']) ? floatval($_POST['variant_price']) : 0;
+    $custom_title = isset($_POST['custom_title']) ? sanitize_text_field($_POST['custom_title']) : '';
+
+    if (!$product_id) {
+        $any_prod = get_posts(['post_type' => 'product', 'posts_per_page' => 1, 'fields' => 'ids']);
+        $product_id = !empty($any_prod) ? $any_prod[0] : 0;
+    }
 
     if (!$product_id) {
         wp_send_json_error(['message' => 'Ungültiges Produkt']);
@@ -104,6 +115,10 @@ function wowthai_ajax_add_to_cart() {
     if (!empty($variant_id)) {
         $cart_item_data['wowthai_variant_id'] = $variant_id;
         $cart_item_data['wowthai_variant_name'] = $variant_name;
+        $cart_item_data['wowthai_variant_price'] = $variant_price;
+    }
+    if (!empty($custom_title)) {
+        $cart_item_data['wowthai_custom_title'] = $custom_title;
         $cart_item_data['wowthai_variant_price'] = $variant_price;
     }
 
@@ -118,7 +133,7 @@ function wowthai_ajax_add_to_cart() {
 add_action('wp_ajax_wowthai_add_to_cart', 'wowthai_ajax_add_to_cart');
 add_action('wp_ajax_nopriv_wowthai_add_to_cart', 'wowthai_ajax_add_to_cart');
 
-// 6. Custom price calculation when variant is selected
+// 6. Custom price calculation when variant or upsell is selected
 function wowthai_custom_cart_item_price($cart) {
     if (is_admin() && !defined('DOING_AJAX')) return;
     if (did_action('woocommerce_before_calculate_totals') >= 2) return;
@@ -127,9 +142,26 @@ function wowthai_custom_cart_item_price($cart) {
         if (!empty($cart_item['wowthai_variant_price']) && $cart_item['wowthai_variant_price'] > 0) {
             $cart_item['data']->set_price($cart_item['wowthai_variant_price']);
         }
+        if (!empty($cart_item['wowthai_custom_title'])) {
+            $cart_item['data']->set_name($cart_item['wowthai_custom_title']);
+        }
     }
 }
 add_action('woocommerce_before_calculate_totals', 'wowthai_custom_cart_item_price', 20, 1);
+
+// 6b. Ensure custom titled items render correctly in standard cart/checkout & order lines
+add_filter('woocommerce_cart_item_name', function($name, $cart_item, $cart_item_key) {
+    if (!empty($cart_item['wowthai_custom_title'])) {
+        return esc_html($cart_item['wowthai_custom_title']);
+    }
+    return $name;
+}, 10, 3);
+
+add_action('woocommerce_checkout_create_order_line_item', function($item, $cart_item_key, $values, $order) {
+    if (!empty($values['wowthai_custom_title'])) {
+        $item->set_name($values['wowthai_custom_title']);
+    }
+}, 10, 4);
 
 // 7. Display variant name in standard WooCommerce Cart & Checkout tables
 function wowthai_display_cart_item_variant($item_data, $cart_item) {
@@ -416,6 +448,8 @@ function wowthai_get_products_in_cat($term_id) {
                 $formatted_price = 'ab €' . number_format($min_p, 2, ',', '.');
             }
 
+            $spice = function_exists('wowthai_get_dish_spice_level') ? wowthai_get_dish_spice_level(get_the_title(), get_the_content(), $labels) : ['level' => 0, 'icons' => '', 'pill' => ''];
+
             $products[] = [
                 'id' => $id,
                 'title' => get_the_title(),
@@ -426,6 +460,7 @@ function wowthai_get_products_in_cat($term_id) {
                 'variants' => $variants ?: [],
                 'labels' => $labels,
                 'image_url' => $img_url,
+                'spice' => $spice,
             ];
         }
         wp_reset_postdata();
@@ -437,11 +472,14 @@ function wowthai_get_products_in_cat($term_id) {
 // 14. Restaurant Stammdaten, Öffnungszeiten & Google Schema.org
 require_once get_template_directory() . '/inc/restaurant-info.php';
 
-// 15. Branded HTML Email Templates (Dark & Gold Luxury)
+// 15. Restaurant Experience, Allergens, Spice Levels & Kitchen Rush Time
+require_once get_template_directory() . '/inc/restaurant-experience.php';
+
+// 16. Branded HTML Email Templates (Dark & Gold Luxury)
 require_once get_template_directory() . '/inc/email-templates.php';
 
-// 16. Restaurant Order Management & Kitchen Console in WP-Admin
+// 17. Restaurant Order Management & Kitchen Console in WP-Admin
 require_once get_template_directory() . '/inc/admin-orders.php';
 
-// 17. Tischanfragen & Reservierungsverwaltung in WP-Admin (Resmio/Wix Style)
+// 18. Tischanfragen & Reservierungsverwaltung in WP-Admin (Resmio/Wix Style)
 require_once get_template_directory() . '/inc/admin-reservations.php';

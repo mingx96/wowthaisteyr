@@ -6,6 +6,7 @@ get_header();
 
 $menu_data = wowthai_get_menu_structure();
 $opening_status = function_exists('wowthai_get_opening_status') ? wowthai_get_opening_status() : null;
+$allergens = function_exists('wowthai_get_allergen_list') ? wowthai_get_allergen_list() : [];
 ?>
 
 <main>
@@ -48,6 +49,7 @@ $opening_status = function_exists('wowthai_get_opening_status') ? wowthai_get_op
           <button type="button" class="filter-chip" data-filter="veggie">🌱 Vegetarisch / Vegan</button>
           <button type="button" class="filter-chip" data-filter="spicy">🌶️ Scharf / Pikant</button>
           <button type="button" class="filter-chip" data-filter="popular">⭐ Beliebt</button>
+          <button type="button" class="filter-chip chip-allergen-btn" id="btn-open-allergens" style="margin-left:auto;">ℹ️ Allergen-Legende (A–R)</button>
         </div>
       </div>
 
@@ -86,6 +88,7 @@ $opening_status = function_exists('wowthai_get_opening_status') ? wowthai_get_op
           <?php foreach ($sec['products'] as $p): 
             $labels_text = !empty($p['labels']) ? implode(' ', $p['labels']) : '';
             $filter_meta = mb_strtolower($p['title'] . ' ' . ($p['description'] ?? '') . ' ' . $labels_text);
+            $spice_pill = !empty($p['spice']['pill']) ? $p['spice']['pill'] : '';
           ?>
             <article class="dish-card" 
               data-dish-title="<?php echo esc_attr(mb_strtolower($p['title'])); ?>"
@@ -95,7 +98,10 @@ $opening_status = function_exists('wowthai_get_opening_status') ? wowthai_get_op
                 <img class="dish-photo" src="<?php echo esc_url($p['image_url']); ?>" alt="<?php echo esc_attr($p['title']); ?>" loading="lazy">
               <?php endif; ?>
               <div class="dish-topline">
-                <h3><?php echo esc_html($p['title']); ?></h3>
+                <h3>
+                  <?php echo esc_html($p['title']); ?>
+                  <?php echo $spice_pill; ?>
+                </h3>
                 <span class="dish-price"><?php echo esc_html($p['formatted_price']); ?></span>
               </div>
               <?php if (!empty($p['description'])): ?>
@@ -135,6 +141,7 @@ $opening_status = function_exists('wowthai_get_opening_status') ? wowthai_get_op
           <?php foreach ($sec['products'] as $p): 
             $labels_text = !empty($p['labels']) ? implode(' ', $p['labels']) : '';
             $filter_meta = mb_strtolower($p['title'] . ' ' . ($p['description'] ?? '') . ' ' . $labels_text);
+            $spice_pill = !empty($p['spice']['pill']) ? $p['spice']['pill'] : '';
           ?>
             <article class="dish-card"
               data-dish-title="<?php echo esc_attr(mb_strtolower($p['title'])); ?>"
@@ -144,7 +151,10 @@ $opening_status = function_exists('wowthai_get_opening_status') ? wowthai_get_op
                 <img class="dish-photo" src="<?php echo esc_url($p['image_url']); ?>" alt="<?php echo esc_attr($p['title']); ?>" loading="lazy">
               <?php endif; ?>
               <div class="dish-topline">
-                <h3><?php echo esc_html($p['title']); ?></h3>
+                <h3>
+                  <?php echo esc_html($p['title']); ?>
+                  <?php echo $spice_pill; ?>
+                </h3>
                 <span class="dish-price"><?php echo esc_html($p['formatted_price']); ?></span>
               </div>
               <?php if (!empty($p['description'])): ?>
@@ -173,6 +183,33 @@ $opening_status = function_exists('wowthai_get_opening_status') ? wowthai_get_op
       </section>
     <?php endforeach; ?>
   </section>
+
+  <!-- Allergen Legende Modal (A - R Codex Österreich) -->
+  <div id="allergen-modal-wrap" class="modal-wrap" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="allergen-modal-title">
+    <div class="dish-modal allergen-modal" style="max-width: 680px;">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow" style="color:var(--green);font-size:11px;font-weight:700;letter-spacing:1px;">LEBENSMITTEL-INFORMATION</span>
+          <h2 id="allergen-modal-title" style="margin-top:4px;">Allergene &amp; Zusatzstoffe (A–R)</h2>
+        </div>
+        <button class="icon-close" id="allergen-modal-close" type="button" aria-label="Schließen">&times;</button>
+      </div>
+      <p class="modal-description" style="margin-bottom:18px;">
+        Gemäß der EU-Lebensmittelinformationsverordnung (LMIV) und österreichischer Codex-Richtlinie informieren wir Sie transparent über enthaltene Allergene in unseren Speisen. Bei Fragen oder schweren Unverträglichkeiten wenden Sie sich gerne direkt an unser Küchenteam!
+      </p>
+      <div class="allergen-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:10px;">
+        <?php foreach ($allergens as $al): ?>
+          <div class="allergen-item" style="background:#201c18;border:1px solid #3d3529;border-radius:4px;padding:8px 12px;display:flex;gap:10px;align-items:flex-start;">
+            <span style="background:#d4a359;color:#100f0d;font-weight:800;font-size:12px;width:22px;height:22px;border-radius:3px;display:inline-grid;place-items:center;flex-shrink:0;"><?php echo esc_html($al['letter']); ?></span>
+            <div>
+              <strong style="color:#f7f3ec;font-size:13px;display:block;line-height:1.3;"><?php echo esc_html($al['name']); ?></strong>
+              <small style="color:#b7afa2;font-size:11px;line-height:1.4;display:block;"><?php echo esc_html($al['detail']); ?></small>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+  </div>
 </main>
 
 <?php get_footer(); ?>

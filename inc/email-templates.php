@@ -70,6 +70,9 @@ function wowthai_send_branded_email( $to, $subject, $headline, $body_html, $acti
                             <?php echo esc_html( $address ); ?><br>
                             Telefon: <a href="tel:<?php echo esc_attr( $phone ); ?>"><?php echo esc_html( $phone ); ?></a> · 
                             Web: <a href="<?php echo esc_url( home_url('/') ); ?>">wow-thai-steyr.at</a>
+                            <p style="margin: 12px 0 0 0; padding-top: 10px; border-top: 1px dashed #26231c; font-size: 11px; color: #a39c8e;">
+                                ⭐⭐⭐⭐⭐ Hat es Ihnen geschmeckt? Wir freuen uns über Ihre <a href="https://maps.google.com/?q=WOW+Thai+Steyr" target="_blank" style="color: #d4a359; text-decoration: underline;">5-Sterne-Bewertung auf Google</a>!
+                            </p>
                         </td>
                     </tr>
                 </table>
