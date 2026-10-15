@@ -83,9 +83,15 @@
 
 ---
 
-## 🎯 TRẠNG THÁI & HƯỚNG TRIỂN KHAI TIẾP THEO
-1. **Mã nguồn v1.2.3**: Đã hợp nhất 100% bản vá bảo mật và tính năng chọn topping/mì của Codex cùng hệ thống của Gemini.
-2. **Deploy lên WordPress Studio & Online Staging**:
-   - Tệp cài đặt `wowthai.zip` đã được build sẵn tại thư mục themes.
-   - Thư mục Studio `C:\Users\mnguy\Studio\wow-thai-steyr\wp-content\themes\wowthai` đã được đồng bộ chuẩn v1.2.3.
-3. Khi người dùng nạp thêm credits / đổi phiên cho Codex, Codex có thể trực tiếp pull commit v1.2.3 và tiếp tục nhiệm vụ kết nối MCP / Sync Studio online.
+## 🎯 TRẠNG THÁI TRIỂN KHAI (DEPLOYMENT STATUS - HOÀN TẤT)
+1. **Theme v1.2.3 Đã Online**:
+   - Trực tiếp trên **WordPress.com Staging** (`https://wowthaisteyr.wpcomstaging.com`, Site ID `257980111`).
+   - Theme `wowthai` hiện là active theme với phiên bản `1.2.3`.
+   - Toàn bộ cơ sở dữ liệu sản phẩm, đơn hàng WooCommerce được giữ nguyên an toàn 100% (không đồng bộ database).
+2. **Kho mã nguồn & Bản dựng**:
+   - Commit HEAD: `7e85a41` (đã push lên `origin/main`).
+   - Gói theme cài đặt chuẩn: `wowthai.zip` tại thư mục themes.
+   - Thư mục Studio `C:\Users\mnguy\Studio\wow-thai-steyr\wp-content\themes\wowthai` đồng bộ 100%.
+3. **Bàn giao phiên**:
+   - Mọi cải tiến đã được tích hợp, lint 19/19 tệp PHP passed, JavaScript / CSS tối ưu hóa theo tiêu chuẩn hiện đại (`modern-web-guidance`).
+   - Khi chuyển giao cho ChatGPT / Codex, agent tiếp theo có thể pull branch `main` và tiếp tục theo lộ trình Master Plan.
