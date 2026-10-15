@@ -1,6 +1,6 @@
 <?php
 /**
- * WOW Thai Steyr - Tischanfragen & Reservierungsverwaltung
+ * WOW Thai Steyr - Reservierungsverwaltung (Tischreservierungen)
  * Modernes, intuitives Management-System (inspiriert von Resmio, Wix & FiveStar)
  * 100% nativ, kostenfrei, ohne Drittanbieter-Plugins.
  */
@@ -9,25 +9,25 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-// 1. Registrierung des Custom Post Types "tischanfrage"
+// 1. Registrierung des Custom Post Types "tischanfrage" (Angezeigt als Reservierungen)
 function wowthai_register_tischanfrage_cpt() {
     $pending_count = wowthai_get_pending_res_count();
     $menu_badge = $pending_count > 0 ? sprintf( ' <span class="awaiting-mod count-%1$d" style="background:#e6a100;color:#fff;border-radius:10px;padding:2px 7px;font-size:11px;font-weight:700;"><span class="pending-count">%1$d</span></span>', $pending_count ) : '';
 
     $labels = [
-        'name'                  => 'Tischanfragen',
-        'singular_name'         => 'Tischanfrage',
-        'menu_name'             => 'Tischanfragen' . $menu_badge,
-        'name_admin_bar'        => 'Tischanfrage',
-        'add_new'               => 'Neue Anfrage eintragen',
-        'add_new_item'          => 'Neue Tischanfrage manuell anlegen',
-        'new_item'              => 'Neue Tischanfrage',
-        'edit_item'             => 'Tischanfrage bearbeiten',
-        'view_item'             => 'Tischanfrage ansehen',
-        'all_items'             => 'Alle Anfragen',
-        'search_items'          => 'Anfragen durchsuchen',
-        'not_found'             => 'Keine Tischanfragen gefunden.',
-        'not_found_in_trash'    => 'Keine Anfragen im Papierkorb.',
+        'name'                  => 'Reservierungen',
+        'singular_name'         => 'Reservierung',
+        'menu_name'             => 'Reservierungen' . $menu_badge,
+        'name_admin_bar'        => 'Reservierung',
+        'add_new'               => 'Neue Reservierung eintragen',
+        'add_new_item'          => 'Neue Tischreservierung manuell anlegen',
+        'new_item'              => 'Neue Reservierung',
+        'edit_item'             => 'Reservierung bearbeiten',
+        'view_item'             => 'Reservierung ansehen',
+        'all_items'             => 'Alle Reservierungen',
+        'search_items'          => 'Reservierungen durchsuchen',
+        'not_found'             => 'Keine Reservierungen gefunden.',
+        'not_found_in_trash'    => 'Keine Reservierungen im Papierkorb.',
     ];
 
     $args = [
@@ -56,7 +56,7 @@ function wowthai_adjust_tischanfrage_submenu() {
         $badge = $pending_count > 0 ? sprintf( ' <span class="awaiting-mod count-%1$d" style="background:#e6a100;color:#fff;border-radius:10px;padding:2px 7px;font-size:10px;font-weight:700;"><span class="pending-count">%1$d</span></span>', $pending_count ) : '';
         foreach ( $submenu['woocommerce'] as &$item ) {
             if ( $item[2] === 'edit.php?post_type=tischanfrage' ) {
-                $item[0] = '📅 Tischanfragen' . $badge;
+                $item[0] = '📅 Reservierungen' . $badge;
                 break;
             }
         }
@@ -109,7 +109,7 @@ function wowthai_render_res_views( $views ) {
     );
 
     $custom_views['pending'] = sprintf(
-        '<a href="%s"%s>⏳ Ausstehend <span class="count">(%d)</span></a>',
+        '<a href="%s"%s>⏳ Ausstehend (Zu bearbeiten) <span class="count">(%d)</span></a>',
         esc_url( add_query_arg( 'res_filter', 'pending', $base_url ) ),
         $current_view === 'pending' ? ' class="current"' : '',
         $pending
@@ -126,7 +126,40 @@ function wowthai_render_res_views( $views ) {
 }
 add_filter( 'views_edit-tischanfrage', 'wowthai_render_res_views' );
 
-// 4. Query filtern basierend auf Tabs & Datumsfilter
+// 4. SORTIERUNG: Ausstehende & aktive Anfragen NACH OBEN, erledigte/stornierte NACH UNTEN
+function wowthai_sort_reservations_priority( $clauses, $query ) {
+    global $wpdb;
+    if ( ! is_admin() || ! $query->is_main_query() || $query->get( 'post_type' ) !== 'tischanfrage' ) {
+        return $clauses;
+    }
+
+    $clauses['join'] .= " LEFT JOIN {$wpdb->postmeta} AS pm_res_status ON ({$wpdb->posts}.ID = pm_res_status.post_id AND pm_res_status.meta_key = '_res_status') ";
+    $clauses['join'] .= " LEFT JOIN {$wpdb->postmeta} AS pm_res_date ON ({$wpdb->posts}.ID = pm_res_date.post_id AND pm_res_date.meta_key = '_res_date') ";
+    $clauses['join'] .= " LEFT JOIN {$wpdb->postmeta} AS pm_res_time ON ({$wpdb->posts}.ID = pm_res_time.post_id AND pm_res_time.meta_key = '_res_time') ";
+
+    // Priorität:
+    // 1: pending (Ausstehend - cần xử lý ngay -> Ưu tiên trên cùng!)
+    // 2: confirmed (Bestätigt - sắp tới)
+    // 3: arrived (Am Tisch - đã vào bàn -> chuyển xuống dưới)
+    // 4: cancelled (Storniert - đã hủy -> chuyển xuống dưới cùng)
+    $clauses['orderby'] = " 
+        CASE 
+            WHEN pm_res_status.meta_value = 'pending' THEN 1
+            WHEN pm_res_status.meta_value = 'confirmed' THEN 2
+            WHEN pm_res_status.meta_value = 'arrived' THEN 3
+            WHEN pm_res_status.meta_value = 'cancelled' THEN 4
+            ELSE 5 
+        END ASC,
+        pm_res_date.meta_value ASC,
+        pm_res_time.meta_value ASC,
+        {$wpdb->posts}.post_date DESC
+    ";
+
+    return $clauses;
+}
+add_filter( 'posts_clauses', 'wowthai_sort_reservations_priority', 10, 2 );
+
+// 5. Query filtern basierend auf Tabs & Datumsfilter
 function wowthai_filter_tischanfrage_query( $query ) {
     global $pagenow;
     if ( ! is_admin() || $pagenow !== 'edit.php' || $query->get( 'post_type' ) !== 'tischanfrage' || ! $query->is_main_query() ) {
@@ -162,15 +195,10 @@ function wowthai_filter_tischanfrage_query( $query ) {
     if ( ! empty( $meta_query ) ) {
         $query->set( 'meta_query', $meta_query );
     }
-
-    // Standardsortierung: nach Datum und Uhrzeit
-    $query->set( 'meta_key', '_res_date' );
-    $query->set( 'orderby', 'meta_value' );
-    $query->set( 'order', 'DESC' );
 }
 add_action( 'pre_get_posts', 'wowthai_filter_tischanfrage_query' );
 
-// 5. Zusätzliche Filter-Balken oben (Datumswahl)
+// 6. Datumsfilter-Input
 function wowthai_res_restrict_manage_posts() {
     global $typenow;
     if ( $typenow !== 'tischanfrage' ) {
@@ -181,21 +209,24 @@ function wowthai_res_restrict_manage_posts() {
 }
 add_action( 'restrict_manage_posts', 'wowthai_res_restrict_manage_posts' );
 
-// 6. Tabellenspalten definieren
+// 7. Bulk Actions entfernen (keine Massenbearbeitung nötig)
+add_filter( 'bulk_actions-edit-tischanfrage', '__return_empty_array' );
+
+// 8. Tabellenspalten definieren (Checkboxen entfernt für sauberen Look)
 function wowthai_res_columns( $columns ) {
     $new_cols = [];
-    $new_cols['cb']           = '<input type="checkbox" />';
+    // Keine Checkboxen mehr!
     $new_cols['res_status']   = 'Status';
     $new_cols['res_datetime'] = '📅 Datum & Uhrzeit';
     $new_cols['res_party']    = '👥 Gäste';
     $new_cols['res_guest']    = 'Gast & Kontakt';
     $new_cols['res_notes']    = 'Anmerkungen / Wünsche';
-    $new_cols['res_actions']  = 'Schnell-Aktionen';
+    $new_cols['res_actions']  = '⚡ Schnell-Aktionen';
     return $new_cols;
 }
 add_filter( 'manage_tischanfrage_posts_columns', 'wowthai_res_columns' );
 
-// 7. Spalteninhalte rendern (Modernes Resmio/Wix Design)
+// 9. Spalteninhalte rendern (Resmio/Wix Design)
 function wowthai_res_column_content( $column, $post_id ) {
     $status = get_post_meta( $post_id, '_res_status', true ) ?: 'pending';
     $date   = get_post_meta( $post_id, '_res_date', true );
@@ -233,10 +264,10 @@ function wowthai_res_column_content( $column, $post_id ) {
             $formatted_date = $date ? date_i18n( 'D, d. M Y', strtotime( $date ) ) : '–';
             echo '<div style="font-size:14px;font-weight:700;color:#1d2327;">' . esc_html( $formatted_date );
             if ( $is_today ) {
-                echo ' <span style="background:#e53935;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;vertical-align:middle;text-transform:uppercase;font-weight:800;">Heute</span>';
+                echo ' <span style="background:#e53935;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;vertical-align:middle;text-transform:uppercase;font-weight:800;margin-left:4px;">Heute</span>';
             }
             echo '</div>';
-            echo '<div style="font-size:13px;color:#d97706;font-weight:600;margin-top:2px;">🕒 ' . esc_html( $time ?: '–' ) . ' Uhr</div>';
+            echo '<div style="font-size:13px;color:#d97706;font-weight:700;margin-top:2px;">🕒 ' . esc_html( $time ?: '–' ) . ' Uhr</div>';
             break;
 
         case 'res_party':
@@ -247,7 +278,7 @@ function wowthai_res_column_content( $column, $post_id ) {
 
         case 'res_guest':
             echo '<div style="font-weight:700;font-size:14px;color:#1d2327;">' . esc_html( $name ?: get_the_title( $post_id ) ) . '</div>';
-            if ( $phone ) {
+            if ( $phone && $phone !== '+43' ) {
                 echo '<div style="font-size:12px;margin-top:3px;"><a href="tel:' . esc_attr( $phone ) . '" style="color:#0073aa;text-decoration:none;font-weight:600;">📞 ' . esc_html( $phone ) . '</a></div>';
             }
             if ( $email ) {
@@ -272,15 +303,15 @@ function wowthai_res_column_content( $column, $post_id ) {
             if ( $status === 'pending' ) {
                 $confirm_url = add_query_arg( 'new_status', 'confirmed', $base_action );
                 $cancel_url  = add_query_arg( 'new_status', 'cancelled', $base_action );
-                echo '<a href="' . esc_url( $confirm_url ) . '" class="button button-small" style="background:#107a38;color:#fff;border-color:#107a38;font-weight:600;">✓ Bestätigen</a>';
-                echo '<a href="' . esc_url( $cancel_url ) . '" class="button button-small" style="color:#c22213;border-color:#f5b5b0;" onclick="return confirm(\'Tischanfrage wirklich ablehnen/stornieren?\')">✕ Ablehnen</a>';
+                echo '<a href="' . esc_url( $confirm_url ) . '" class="button button-small" style="background:#107a38;color:#fff;border-color:#107a38;font-weight:700;padding:2px 10px;">✓ Bestätigen</a>';
+                echo '<a href="' . esc_url( $cancel_url ) . '" class="button button-small" style="color:#c22213;border-color:#f5b5b0;" onclick="return confirm(\'Reservierung wirklich ablehnen/stornieren?\')">✕ Ablehnen</a>';
             } elseif ( $status === 'confirmed' ) {
                 $arrived_url = add_query_arg( 'new_status', 'arrived', $base_action );
                 $cancel_url  = add_query_arg( 'new_status', 'cancelled', $base_action );
-                echo '<a href="' . esc_url( $arrived_url ) . '" class="button button-small" style="background:#0a5dc2;color:#fff;border-color:#0a5dc2;font-weight:600;">🍽️ Am Tisch</a>';
+                echo '<a href="' . esc_url( $arrived_url ) . '" class="button button-small" style="background:#0a5dc2;color:#fff;border-color:#0a5dc2;font-weight:700;padding:2px 10px;">🍽️ Am Tisch</a>';
                 echo '<a href="' . esc_url( $cancel_url ) . '" class="button button-small" style="color:#c22213;" onclick="return confirm(\'Reservierung stornieren?\')">✕ Stornieren</a>';
             } elseif ( $status === 'arrived' ) {
-                echo '<span style="color:#0a5dc2;font-weight:600;font-size:12px;">✓ Gäste sitzen am Tisch</span>';
+                echo '<span style="color:#0a5dc2;font-weight:700;font-size:12px;">✓ Gäste sitzen am Tisch</span>';
             } elseif ( $status === 'cancelled' ) {
                 $confirm_url = add_query_arg( 'new_status', 'confirmed', $base_action );
                 echo '<a href="' . esc_url( $confirm_url ) . '" class="button button-small">↺ Reaktivieren</a>';
@@ -292,7 +323,7 @@ function wowthai_res_column_content( $column, $post_id ) {
 }
 add_action( 'manage_tischanfrage_posts_custom_column', 'wowthai_res_column_content', 10, 2 );
 
-// 8. Schnell-Aktionen Handler (Status ändern + E-Mail Benachrichtigung)
+// 10. Schnell-Aktionen Handler (Status ändern + E-Mail Benachrichtigung)
 function wowthai_handle_res_status_change() {
     if ( ! current_user_can( 'edit_posts' ) ) {
         wp_die( 'Keine ausreichenden Berechtigungen.' );
@@ -309,7 +340,7 @@ function wowthai_handle_res_status_change() {
 
     update_post_meta( $res_id, '_res_status', $new_status );
 
-    // Optional: Automatische E-Mail an den Gast bei Bestätigung oder Stornierung
+    // E-Mail an Gast bei Bestätigung oder Stornierung
     $guest_email = get_post_meta( $res_id, '_res_email', true );
     $guest_name  = get_post_meta( $res_id, '_res_name', true );
     $res_date    = get_post_meta( $res_id, '_res_date', true );
@@ -355,18 +386,18 @@ function wowthai_handle_res_status_change() {
 }
 add_action( 'admin_post_wowthai_res_change_status', 'wowthai_handle_res_status_change' );
 
-// 9. Erfolgsmeldungen im Admin anzeigen
+// 11. Erfolgsmeldungen im Admin anzeigen
 function wowthai_res_admin_notices() {
     global $typenow;
     if ( $typenow !== 'tischanfrage' || empty( $_GET['wowthai_notice'] ) ) {
         return;
     }
     $status = isset( $_GET['status'] ) ? sanitize_text_field( $_GET['status'] ) : '';
-    $msg = 'Status der Tischanfrage wurde erfolgreich aktualisiert.';
+    $msg = 'Status der Reservierung wurde erfolgreich aktualisiert.';
     if ( $status === 'confirmed' ) {
-        $msg = '✓ Tischanfrage erfolgreich BESTÄTIGT! Der Gast wurde per E-Mail benachrichtigt.';
+        $msg = '✓ Reservierung erfolgreich BESTÄTIGT! Der Gast wurde per E-Mail benachrichtigt.';
     } elseif ( $status === 'cancelled' ) {
-        $msg = '✕ Tischanfrage wurde STORNIERT.';
+        $msg = '✕ Reservierung wurde STORNIERT.';
     } elseif ( $status === 'arrived' ) {
         $msg = '🍽️ Gäste als "Am Tisch" markiert.';
     }
@@ -375,11 +406,11 @@ function wowthai_res_admin_notices() {
 }
 add_action( 'admin_notices', 'wowthai_res_admin_notices' );
 
-// 10. Meta-Box auf der Bearbeiten-Seite der Tischanfrage
+// 12. Meta-Box auf der Bearbeiten-Seite der Reservierung
 function wowthai_res_add_meta_box() {
     add_meta_box(
         'wowthai_res_details',
-        '📋 Details der Tischanfrage',
+        '📋 Details der Reservierung',
         'wowthai_res_render_meta_box',
         'tischanfrage',
         'normal',
@@ -408,7 +439,7 @@ function wowthai_res_render_meta_box( $post ) {
     </style>
     <div class="res-grid">
         <div class="res-field">
-            <label>Status der Anfrage</label>
+            <label>Status der Reservierung</label>
             <select name="res_status" style="font-weight:700;">
                 <option value="pending" <?php selected( $status, 'pending' ); ?>>⏳ Ausstehend (Wartet auf Bestätigung)</option>
                 <option value="confirmed" <?php selected( $status, 'confirmed' ); ?>>✓ Bestätigt</option>
@@ -482,53 +513,32 @@ function wowthai_res_save_meta_box( $post_id ) {
 }
 add_action( 'save_post_tischanfrage', 'wowthai_res_save_meta_box' );
 
-// 11. Automatische Migration vorhandener Test-Buchungen (von Post zu Tischanfrage)
-function wowthai_migrate_legacy_reservations() {
-    if ( get_option( 'wowthai_legacy_res_migrated_v1' ) ) {
+// 13. CSS zur Bereinigung der Oberfläche (Bulk Actions & unnötige Filter ausblenden)
+function wowthai_clean_reservations_ui() {
+    $screen = get_current_screen();
+    if ( ! $screen || $screen->id !== 'edit-tischanfrage' ) {
         return;
     }
-
-    $legacy_posts = get_posts( [
-        'post_type'      => 'post',
-        'post_status'    => [ 'publish', 'private', 'draft' ],
-        'posts_per_page' => -1,
-        's'              => 'Reservierung:',
-    ] );
-
-    foreach ( $legacy_posts as $p ) {
-        if ( stripos( $p->post_title, 'Reservierung:' ) !== false ) {
-            // Extrahiere Name, Personen, Datum, Uhrzeit aus z. B.:
-            // "Reservierung: Minh (2 Personen am 2026-10-15 um 18:00 Uhr)"
-            $title = $p->post_title;
-            $name = 'Minh';
-            $party = 2;
-            $date = date( 'Y-m-d', strtotime( $p->post_date ) );
-            $time = '18:00';
-
-            if ( preg_match( '/Reservierung:\s*([^(]+)\s*\((\d+)\s*Personen\s*am\s*([\d-]+)\s*um\s*([\d:]+)/i', $title, $m ) ) {
-                $name  = trim( $m[1] );
-                $party = intval( $m[2] );
-                $date  = trim( $m[3] );
-                $time  = trim( $m[4] );
-            }
-
-            set_post_type( $p->ID, 'tischanfrage' );
-            update_post_meta( $p->ID, '_res_name', $name );
-            update_post_meta( $p->ID, '_res_party', $party );
-            update_post_meta( $p->ID, '_res_date', $date );
-            update_post_meta( $p->ID, '_res_time', $time );
-            update_post_meta( $p->ID, '_res_phone', '+43' );
-            update_post_meta( $p->ID, '_res_notes', $p->post_content );
-            update_post_meta( $p->ID, '_res_status', 'pending' );
-
-            wp_update_post( [
-                'ID'          => $p->ID,
-                'post_status' => 'publish',
-                'post_title'  => "$name · $party Pers. · $date $time",
-            ] );
-        }
+    ?>
+    <style>
+    /* Bulk actions und unnötige Dropdowns ausblenden */
+    .tablenav .actions.bulkactions,
+    .tablenav .actions select[name="action"],
+    .tablenav .actions select[name="m"] {
+        display: none !important;
     }
-
-    update_option( 'wowthai_legacy_res_migrated_v1', 1 );
+    .tablenav.top {
+        margin-bottom: 10px;
+    }
+    /* Tabellenspalten sauber formatieren */
+    .column-res_status { width: 130px; }
+    .column-res_datetime { width: 170px; }
+    .column-res_party { width: 120px; }
+    .column-res_guest { width: 180px; }
+    .column-res_actions { width: 180px; text-align: right; }
+    th#res_actions { text-align: right; }
+    .res-quick-actions { justify-content: flex-end; }
+    </style>
+    <?php
 }
-add_action( 'admin_init', 'wowthai_migrate_legacy_reservations' );
+add_action( 'admin_head', 'wowthai_clean_reservations_ui' );

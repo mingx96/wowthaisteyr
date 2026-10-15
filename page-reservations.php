@@ -40,8 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
                 // Send notification email to restaurant
                 $to = get_option('admin_email');
                 $dashboard_url = admin_url('edit.php?post_type=tischanfrage');
-                $subject = "🔔 Neue Tischanfrage: $name ($party Personen am $date um $time Uhr)";
-                $message = "Neue Tischanfrage bei WOW Thai Steyr eingetroffen:\n\n"
+                $subject = "🔔 Neue Tischreservierung: $name ($party Personen am $date um $time Uhr)";
+                $message = "Neue Tischreservierung bei WOW Thai Steyr eingetroffen:\n\n"
                          . "Name:        $name\n"
                          . "Personen:    $party Personen\n"
                          . "Datum:       $formatted_date ($date)\n"
