@@ -1,97 +1,64 @@
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
 ## 📌 LƯỢT CẬP NHẬT HIỆN TẠI (CURRENT TURN)
-- **Active Agent in Charge**: **Gemini (Antigravity)** - *Tiếp quản sau khi Codex đạt giới hạn lượt (usage limit)*
-- **Handover Timestamp**: 2026-10-16 00:45 (Europe/Vienna)
-- **Current Theme Version**: `v1.2.3`
-- **Latest Commit**: `14787f4` (pushed to `origin/main`)
+- **Active Agent in Charge**: **Gemini (Antigravity)**
+- **Handover Timestamp**: 2026-10-16 11:35 (Europe/Vienna)
+- **Current Theme Version**: `v1.3.0`
 - **Git Repository**: `https://github.com/mingx96/wowthaisteyr.git`
 - **Primary Branch**: `main`
 
 ---
 
 ## 🔒 QUY TẮC PHỐI HỢP (RULES OF ENGAGEMENT)
-1. **Chỉ Agent giữ lượt được ghi vào site chung**: Hiện quyền triển khai lên WordPress Studio / WordPress Online (`wpcomstaging.com`) thuộc về **Codex / ChatGPT**.
-2. **Triển khai Theme — KHÔNG đồng bộ Database**: Mọi thay đổi nằm hoàn toàn trong mã nguồn theme `wp-content/themes/wowthai`. Tuyệt đối không import/overwrite database để bảo toàn dữ liệu đơn hàng và cấu hình thực tế.
-3. **Đổi lượt**: Khi Codex hoàn tất tích hợp và kiểm thử trực tuyến, cập nhật mục này và chuyển quyền lại cho Gemini kèm commit hash mới nhất.
+1. **Chỉ Agent giữ lượt được ghi vào site chung**: Trước khi ghi vào Studio hoặc push lên Live (`wpcomstaging.com`), kiểm tra và cập nhật `COORDINATION.md`.
+2. **Triển khai Theme — KHÔNG đồng bộ Database**: Mọi thay đổi nằm hoàn toàn trong mã nguồn theme `wp-content/themes/wowthai`. Tuyệt đối không import/overwrite database (`--options "themes"` duy nhất) để bảo toàn dữ liệu đơn hàng và cấu hình thực tế.
+3. **Kiểm định Tự động Bắt buộc**: Luôn chạy `node dev/verify.mjs` (10/10 cổng G1–G10 PASS + 62 unit assertions trong `dev/tests/hours.test.php`) trước khi đóng gói `node dev/build.mjs` và đẩy lên Live.
 
 ---
 
-## 🚀 TÓM TẮT THAY ĐỔI TỪ v1.1.4 ĐẾN v1.2.2 (CHANGELOG FOR CODEX)
+## 🚀 TÓM TẮT THAY ĐỔI TỪ v1.1.4 ĐẾN v1.3.0 (CHANGELOG)
 
-### 1. Phiên bản v1.2.0 (Commit `543590b`)
-- **Live Search & Filter**: Tìm món ăn tức thì không reload (`#dish-search-input`) và bộ lọc chip thông minh (`Alle`, `🌱 Veggie`, `🌶️ Scharf`, `⭐ Beliebt`).
-- **In Phiếu Bếp 80mm (`[🖨️ Bon]`)**: Cửa sổ pop-up in nhiệt chuẩn khổ giấy 80mm cho đầu bếp với 1 click từ danh sách đơn hàng.
-- **Chuông báo Web Audio Ding-Dong**: Trình duyệt tự phát âm thanh hai tone (587Hz & 880Hz) khi có đơn mới, kèm nút bật/tắt chuông `🔔 Signal: AN/AUS`.
-- **Hệ thống Email HTML Branded Luxury**: Giao diện email đen than chì viền vàng kim (`#d4a359`) cho cả đơn món và đặt bàn.
-- **Pháp lý Áo**: Trang `/impressum/` (chuẩn WKO, ECG §5) và `/datenschutz/` (DSGVO).
-- **Google Schema.org JSON-LD & PWA Tablet Manifest**.
+### 1. Phiên bản v1.2.0 – v1.2.3
+- **Live Search & Filter**, **In Phiếu Bếp 80mm (`[🖨️ Bon]`)**, **Chuông báo Web Audio Ding-Dong**, **Email HTML Branded Luxury**, **Trang pháp lý `/impressum/` & `/datenschutz/`**, **Schema.org JSON-LD & PWA Manifest**.
+- **Thang độ cay (`🌶️`)**, **Bảng tra dị ứng Codex EU (A–R)**, **Slide-Cart Upsell 1-Click**, **Điều tiết nhịp độ Bếp ("Küchen-Taktung")**, **Bảo mật tính giá Server-side**, **Modifier Groups**, **`inc/pickup.php`**.
 
-### 2. Phiên bản v1.2.1 (Commit `e8d162f`)
-- **Thang độ cay trực quan (`🌶️`)**: Tự động nhận diện mức cay 0–3 (`Leicht pikant`, `Scharf`, `Sehr scharf`) hiển thị trên menu và modal biến thể.
-- **Bảng tra dị ứng Codex EU (A–R)**: Modal tra cứu 14 nhóm dị ứng thực phẩm theo luật bảo vệ người tiêu dùng Áo.
-- **Slide-Cart Upsell 1-Click**: Thanh gợi ý món bán kèm (Trà Thái Cha Yen, Trà chanh, Bánh phồng tôm Krupuk, Mango Lassi) với nút `+ Hinzufügen` bằng AJAX.
-- **Điều tiết nhịp độ Bếp ("Küchen-Taktung")**: Nút chuyển 4 mức phút (`15-20`, `25-35`, `40-50`, `60+`) trong WP-Admin, cập nhật thời gian thực sang giỏ hàng và Kasse của khách.
-- **Chỉ dẫn đỗ xe City Point & Google 5-Star Review Booster**: Tích hợp trên Hóa đơn Vàng (`thankyou.php`) và Email.
-- **1-Click Add to Google Calendar**: Cho khách đặt bàn thành công.
-
-### 3. Phiên bản v1.2.2 (Commit `d154901`)
-- **Đồng bộ Chuẩn xác Giờ Bếp toàn hệ thống**:
-  - **Thứ 2 đến Thứ 7**: Trưa `11:30 – 14:30` & Chiều/Tối `17:00 – 21:00`.
-  - **Chủ Nhật**: `11:30 – 19:00` (thông suốt).
-- **Khắc phục triệt để Bug Kasse khi Quán đóng cửa**:
-  - Ngoài giờ mở cửa: Nút `⚡ Schnellstmöglich` tự động **Disabled** (hiện nhãn `Geschlossen`).
-  - Tự động chuyển sang `🕒 Später abholen (Vorbestellung)` với khung giờ hợp lệ, lọc bỏ giờ trong quá khứ (không còn tình trạng hiện `00:16 Uhr` lúc nửa đêm).
-- **Quy tắc Sushi Ruhetag ngày Thứ 2 (Montags kein Sushi)**:
-  - Tab Sushi gắn nhãn cảnh báo `Montags Ruhetag`.
-  - Hiển thị banner thông báo thân thiện.
-  - Vô hiệu hóa nút thêm giỏ hàng đối với các món Sushi vào Thứ 2.
-  - Backend validation ngăn chặn triệt để nếu khách đặt Sushi lấy vào Thứ 2.
-
-### 4. Phiên bản v1.2.3 (Phiên bản Hiện tại) — Tích hợp & Nâng cấp Bảo mật Codex & Gemini
-- **Bảo mật Tính giá Server-Side (Price Tampering Protection)**:
-  - Giá món biến thể và topping được truy vấn trực tiếp từ metadata sản phẩm (`_wowthai_variants`), loại bỏ hoàn toàn việc nhận giá từ POST client.
-- **Tùy chọn Bắt buộc / Topping (Modifier Groups)**:
-  - Hỗ trợ chọn loại mì (ví dụ: Reisnudeln, Glasnudeln) và topping cho Pad Thai và các món đặc sản; validate bắt buộc trên cả front-end và WooCommerce backend.
-- **Mô đun `inc/pickup.php` Chuyên dụng**:
-  - Chuẩn hóa toàn bộ thời gian theo timezone nhà hàng `Europe/Vienna`.
-  - Kết nối trực tiếp nhịp độ bếp ("Küchen-Taktung") với bộ đệm tính giờ lấy món.
-- **Client Heartbeat Refresh (30s)**:
-  - Hàm `refreshPickupAvailability` tự động thăm dò cập nhật giờ lấy món khi bếp đổi thời gian chuẩn bị hoặc khi vừa bước qua giờ đóng cửa.
-- **Deep-linking Món ăn**:
-  - Hỗ trợ tham số URL `?dish=<product_id>` tự động chuyển tab và mở modal món ăn.
-- **Xử lý An toàn Món Upsell**:
-  - Kiểm tra sản phẩm có sẵn thực tế trong WooCommerce database trước khi hiển thị gợi ý bán kèm.
+### 2. Phiên bản v1.3.0 (Phiên bản Hiện tại — Master Architecture, Legal, Kitchen & Modern Web Upgrade)
+- **Phase 0 — Hệ thống Kiểm định Tự động (`dev/verify.mjs`, `dev/build.mjs`, `dev/tests/hours.test.php`)**:
+  - 10 cổng kiểm định tự động **G1–G10** (kiểm tra Single Source of Truth giờ mở cửa, không Google Fonts ngoài, không lỗi UTF-8 mojibake, LF line endings, `node --check` + `php -l` toàn bộ 22 tệp PHP, đồng bộ version, chống truy cập superglobal thô, chống hàm UTC `date()`/`time()`/`strtotime()`, số điện thoại chuẩn `+43 7252 74973`, hiển thị đầy đủ biến thể/modifier trên phiếu bếp 80mm).
+  - **62 unit assertions** trong `dev/tests/hours.test.php` kiểm thử đầy đủ biên giờ mở cửa, Thứ 2 nghỉ Sushi, khung giờ `Mittagsmenü` (Thứ 2–Thứ 7 `11:30–14:30`), hạn đặt bàn trước 30 phút đóng bếp, và chuyển đổi giờ mùa hè/mùa đông (`Europe/Vienna` DST).
+- **Phase 1 — Hotfix Vận hành Bếp, Hóa đơn, Email & Pháp lý**:
+  - **Phiếu bếp 80mm & Bảng Admin Orders (`inc/admin-orders.php`)**: Bổ sung `wowthai_get_order_item_customizations($item)` hiển thị đầy đủ `Variante` và `Modifiers` (loại mì, topping...) trên cả bảng đơn hàng và phiếu in nhiệt 80mm; đọc đúng khóa `'Abholzeit'` (kèm fallback tương thích ngược).
+  - **Hóa đơn Vàng (`woocommerce/checkout/thankyou.php`)**: Sửa số điện thoại sai `+43 7252 45866` thành động `+43 7252 74973` và hiển thị chi tiết biến thể/modifier từng món.
+  - **Email Hệ thống (`inc/email-templates.php`)**: Loại bỏ hoàn toàn fallback `dev-email@wpengine.local`, dùng `wowthai_get_notification_email()`.
+  - **Chống 404 Trang Pháp lý (`functions.php`)**: Tự động khởi tạo trang `impressum` & `datenschutz` (`wowthai_ensure_legal_pages`) kết hợp virtual template routing đảm bảo `/impressum/` và `/datenschutz/` luôn trả về HTTP 200 mà không cần đồng bộ DB.
+- **Phase 2 — Single Source of Truth Giờ Mở Cửa & Timezone (`inc/hours.php`)**:
+  - Tập trung duy nhất toàn bộ cấu hình giờ mở cửa (`Mo–Sa 11:30–14:30 & 17:00–21:00`, `So 11:30–19:00`, Thứ 2 nghỉ Sushi, `Mittagsmenü` `Mo–Sa 11:30–14:30`) vào `inc/hours.php`.
+  - Đồng bộ `inc/pickup.php`, `inc/restaurant-info.php`, `footer.php`, `front-page.php`, `inc/admin-reservations.php`; khóa đặt món `Mittagsmenü` ngoài khung giờ trưa Thứ 2–Thứ 7.
+- **Phase 3 — Bảo mật Đặt bàn, DSGVO, `.ics` & Tự Hủy 1-Click (`inc/reservations-front.php`, `page-reservations.php`)**:
+  - Chuyển sang luồng `admin-post.php` (`wowthai_reserve`) + Post-Redirect-Get với HMAC token, honeypot chống bot, giới hạn tần suất IP (ẩn danh SHA-256), kiểm tra tick đồng ý DSGVO, kiểm tra khung giờ hợp lệ từ `wowthai_reservation_slots()`, chống đặt trùng, tải lịch `.ics` (`wowthai_res_ics`), link khách tự hủy đặt bàn 1-click (`wowthai_res_cancel`), và cron tự động dọn dữ liệu quá 90 ngày theo DSGVO.
+- **Phase 4 — Chuẩn hóa Thực đơn, Gỡ Google Fonts, Logo Retina & SEO/OG**:
+  - **`inc/menu-normalizer.php`**: Tự động sửa lỗi chính tả danh mục `Vorpseise Sushi` → `Vorspeise Sushi`, khôi phục mô tả món `V10. Tod Man Gung`, và chuẩn hóa chính tả tiếng Đức cho toàn bộ 94 món mà không cần ghi đè DB.
+  - **DSGVO Fonts (`assets/css/styles.css`)**: Gỡ bỏ `@import` Google Fonts bên ngoài, dùng 100% font tự host WOFF2 (`Playfair Display` & `DM Sans`).
+  - **Tối ưu LCP & Logo (`assets/img/logo-sm.png`, `header.php`)**: Tạo logo 2x Retina `logo-sm.png` (21.6 KB, giảm 95% dung lượng so với 426 KB), chỉ preload ảnh Hero LCP trên trang chủ, bổ sung `<meta name="description">`, OpenGraph `og:*`, skip-link `#main`, và banner Sondertag.
+- **Phase 5 — Modern Web `<dialog>`, Accessibility WCAG 2.1 AA, Tối ưu INP & Quản lý Ngày nghỉ Lễ (`page-menu.php`, `assets/js/wowthai.js`, `assets/css/styles.css`, `inc/admin-orders.php`)**:
+  - Nâng cấp toàn bộ Modal món ăn, Giỏ hàng trượt và Bảng Allergen sang phần tử gốc `<dialog closedby="any">` mở bằng `.showModal()` kèm coordinate light-dismiss fallback cho Safari và khóa cuộn nền bằng CSS (`overscroll-behavior: contain`).
+  - Chuẩn hóa `role="tab"`, `aria-selected`, `aria-pressed`, vùng thông báo `#dish-result-status` (`role="status" aria-live="polite"`), nhãn giỏ hàng động `Bestellung (N Artikel)` chuẩn WCAG 2.5.3.
+  - Thay vòng lặp `setInterval` 1s bằng sự kiện WooCommerce (`updated_checkout`, `checkout_error`) và tự động tạm dừng polling 30s khi tab ẩn (`document.hidden`).
+  - Bổ sung thanh điều khiển **Sondertage / Feiertage / Betriebsurlaub** ngay trong trang Đơn hàng Admin.
 
 ---
 
-## 📂 DANH MỤC TỆP TIN THUỘC THEME (19 PHP Files — 100% Lint Passed)
-- `style.css` (v1.2.3)
-- `functions.php` (Core hooks, AJAX, validation, price protection)
+## 📂 DANH MỤC TỆP TIN THUỘC THEME (22 PHP Files — 10/10 Gates Passed)
+- `style.css` (v1.3.0)
+- `functions.php`
 - `header.php`, `footer.php`, `front-page.php`, `index.php`, `page.php`, `woocommerce.php`
 - `page-menu.php`, `page-reservations.php`, `page-impressum.php`, `page-datenschutz.php`
-- `inc/pickup.php` (TÍNH NĂNG MỚI: Quản lý giờ đón, timezone, slot generation)
-- `inc/restaurant-info.php` (Giờ mở cửa, Schema.org)
-- `inc/restaurant-experience.php` (Độ cay, Dị ứng, Nhịp độ bếp, Upsells bảo vệ)
-- `inc/admin-orders.php` (Bảng điều phối bếp, in Bon 80mm, chuông âm thanh, nhịp độ bếp)
-- `inc/admin-reservations.php` (Quản lý đặt bàn chuẩn Resmio)
-- `inc/email-templates.php` (Mẫu email HTML viền vàng luxury)
-- `woocommerce/checkout/form-checkout.php` (Kasse Takeaway, điều phối giờ lấy)
-- `woocommerce/checkout/thankyou.php` (Hóa đơn Vàng, Review booster)
-- `assets/js/wowthai.js` & `assets/css/styles.css` & `assets/css/checkout.css`
-- `assets/pwa/manifest.json`
+- `inc/hours.php` (Single Source of Truth cho giờ mở cửa, timezone `Europe/Vienna`, Sushi & Mittagsmenü)
+- `inc/menu-normalizer.php` (Chuẩn hóa tên danh mục & chính tả tiếng Đức cho 94 món ăn)
+- `inc/reservations-front.php` (PRG, Rate-limit, Honeypot, DSGVO, `.ics`, 1-click Cancel, 90-day Cron)
+- `inc/pickup.php`, `inc/restaurant-info.php`, `inc/restaurant-experience.php`
+- `inc/admin-orders.php`, `inc/admin-reservations.php`, `inc/email-templates.php`
+- `woocommerce/checkout/form-checkout.php`, `woocommerce/checkout/thankyou.php`
+- `assets/js/wowthai.js`, `assets/css/styles.css`, `assets/css/checkout.css`, `assets/css/fonts.css`
+- `assets/img/logo-sm.png`, `assets/img/logo.png`, `assets/img/hero.jpg`, `assets/pwa/manifest.json`
 
----
-
-## 🎯 TRẠNG THÁI TRIỂN KHAI (DEPLOYMENT STATUS - HOÀN TẤT)
-1. **Theme v1.2.3 Đã Online**:
-   - Trực tiếp trên **WordPress.com Staging** (`https://wowthaisteyr.wpcomstaging.com`, Site ID `257980111`).
-   - Theme `wowthai` hiện là active theme với phiên bản `1.2.3`.
-   - Toàn bộ cơ sở dữ liệu sản phẩm, đơn hàng WooCommerce được giữ nguyên an toàn 100% (không đồng bộ database).
-2. **Kho mã nguồn & Bản dựng**:
-   - Commit HEAD: `7e85a41` (đã push lên `origin/main`).
-   - Gói theme cài đặt chuẩn: `wowthai.zip` tại thư mục themes.
-   - Thư mục Studio `C:\Users\mnguy\Studio\wow-thai-steyr\wp-content\themes\wowthai` đồng bộ 100%.
-3. **Bàn giao phiên**:
-   - Mọi cải tiến đã được tích hợp, lint 19/19 tệp PHP passed, JavaScript / CSS tối ưu hóa theo tiêu chuẩn hiện đại (`modern-web-guidance`).
-   - Khi chuyển giao cho ChatGPT / Codex, agent tiếp theo có thể pull branch `main` và tiếp tục theo lộ trình Master Plan.
