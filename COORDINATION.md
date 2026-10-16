@@ -1,7 +1,10 @@
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
 ## 📌 LƯỢT CẬP NHẬT HIỆN TẠI (CURRENT TURN)
-- **Active Agent in Charge**: **Gemini (Antigravity)**
+- **Active Agent in Charge**: **Codex / ChatGPT — Operations & CRM implementation authorized by owner**
+- **Current scope**: `plugins/wowthai-operations`, plugin packaging, tests, and compatibility adapters. Theme redesign remains outside this task. Do not deploy a second agent's checkout over these files.
+- **Data scope**: Selective import of Wix contact profiles only from `a1e58c2c-1fca-4e4b-a015-e14b156d3a32`. No historical orders/reservations, no account creation, no marketing sends, no full database sync. Customer files stay outside Git and public uploads.
+- **Deployment status**: Implementation started; online installation awaits an authenticated wp-admin browser session. Record actual import counts and release revision here before handover.
 - **Handover Timestamp**: 2026-10-16 11:35 (Europe/Vienna)
 - **Current Theme Version**: `v1.3.0`
 - **Git Repository**: `https://github.com/mingx96/wowthaisteyr.git`
