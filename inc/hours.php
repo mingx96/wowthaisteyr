@@ -11,7 +11,8 @@ if (!defined('ABSPATH')) {
 
 const WOWTHAI_SUSHI_CLOSED_DAYS           = [1]; // 1 = Montag (ISO-8601)
 const WOWTHAI_MITTAGSMENU_DAYS            = [1, 2, 3, 4, 5, 6]; // Montag bis Samstag
-const WOWTHAI_MITTAGSMENU_RANGE           = ['11:30', '14:30'];
+const WOWTHAI_MITTAGSMENU_M4_DAYS         = [2, 3, 4, 5]; // Dienstag bis Freitag (M4 Sushi-Mittagsmenü)
+const WOWTHAI_MITTAGSMENU_RANGE           = ['11:00', '14:30'];
 const WOWTHAI_ENFORCE_MITTAGSMENU_HOURS   = true;
 const WOWTHAI_LAST_RESERVATION_OFFSET_MIN = 30; // Letzte Reservierung 30 Min. vor Küchenschluss
 
@@ -34,12 +35,12 @@ function wowthai_now(): DateTimeImmutable {
  */
 function wowthai_hours_schedule(): array {
     $schedule = [
-        1 => [['11:30', '14:30'], ['17:00', '21:00']],
-        2 => [['11:30', '14:30'], ['17:00', '21:00']],
-        3 => [['11:30', '14:30'], ['17:00', '21:00']],
-        4 => [['11:30', '14:30'], ['17:00', '21:00']],
-        5 => [['11:30', '14:30'], ['17:00', '21:00']],
-        6 => [['11:30', '14:30'], ['17:00', '21:00']],
+        1 => [['11:00', '14:30'], ['17:00', '21:00']],
+        2 => [['11:00', '14:30'], ['17:00', '21:00']],
+        3 => [['11:00', '14:30'], ['17:00', '21:00']],
+        4 => [['11:00', '14:30'], ['17:00', '21:00']],
+        5 => [['11:00', '14:30'], ['17:00', '21:00']],
+        6 => [['11:00', '14:30'], ['17:00', '21:00']],
         7 => [['11:30', '19:00']],
     ];
     return apply_filters('wowthai_hours_schedule', $schedule);
@@ -138,6 +139,32 @@ function wowthai_mittagsmenu_available(?DateTimeImmutable $at = null): bool {
 }
 
 /**
+ * Prüft anhand des Wochentags (1=Mo .. 7=So), ob Mittagsmenü M4 (Sushi) an diesem Tag grundsätzlich serviert wird (Di–Fr).
+ */
+function wowthai_mittagsmenu_m4_available_on_dow(?int $day_of_week = null): bool {
+    if ($day_of_week === null) {
+        $now = wowthai_now();
+        if (wowthai_get_special_closed_day($now) !== null) {
+            return false;
+        }
+        $day_of_week = (int) $now->format('N');
+    }
+    return in_array((int) $day_of_week, WOWTHAI_MITTAGSMENU_M4_DAYS, true);
+}
+
+/**
+ * Prüft, ob zum Zeitpunkt $at das Mittagsmenü M4 (Sushi) verfügbar ist (Di–Fr im Mittagsfenster 11:00–14:30).
+ */
+function wowthai_mittagsmenu_m4_available(?DateTimeImmutable $at = null): bool {
+    $at = ($at ?? wowthai_now())->setTimezone(wowthai_timezone());
+    $dow = (int) $at->format('N');
+    if (!in_array($dow, WOWTHAI_MITTAGSMENU_M4_DAYS, true)) {
+        return false;
+    }
+    return wowthai_mittagsmenu_available($at);
+}
+
+/**
  * Prüft, ob ein geplanter Abhol-Slot ($date + $slot_hm) für das Mittagsmenü zulässig ist.
  */
 function wowthai_is_slot_valid_for_mittagsmenu(DateTimeImmutable $date, string $slot_hm): bool {
@@ -156,6 +183,20 @@ function wowthai_is_slot_valid_for_mittagsmenu(DateTimeImmutable $date, string $
     $start_dt = wowthai_datetime_at_hm($date, $start_hm);
     $end_dt   = wowthai_datetime_at_hm($date, $end_hm);
     return ($slot_dt >= $start_dt && $slot_dt <= $end_dt);
+}
+
+/**
+ * Prüft, ob ein geplanter Abhol-Slot ($date + $slot_hm) für Mittagsmenü M4 (Sushi, nur Di–Fr 11:00–14:30) zulässig ist.
+ */
+function wowthai_is_slot_valid_for_mittagsmenu_m4(DateTimeImmutable $date, string $slot_hm): bool {
+    if (!WOWTHAI_ENFORCE_MITTAGSMENU_HOURS) {
+        return true;
+    }
+    $dow = (int) $date->format('N');
+    if (!in_array($dow, WOWTHAI_MITTAGSMENU_M4_DAYS, true)) {
+        return false;
+    }
+    return wowthai_is_slot_valid_for_mittagsmenu($date, $slot_hm);
 }
 
 /**
@@ -187,7 +228,8 @@ function wowthai_hours_display(): array {
         'sun_hours_short'  => $sun_short . ' Uhr',
         'sushi_note'       => 'Montags Sushi-Ruhetag (Warme Küche regulär)',
         'sushi_note_short' => 'Sushi: Montags Ruhetag (Warme Küche geöffnet)',
-        'mittags_note'     => 'Mo – Sa · ' . $lunch_start . ' – ' . $lunch_end . ' Uhr (nicht an Sonn- & Feiertagen)',
+        'mittags_note'     => 'Mo – Sa · ' . $lunch_start . ' – ' . $lunch_end . ' Uhr (M4 Sushi: Di – Fr)',
+        'mittags_m4_note'  => 'Di – Fr · ' . $lunch_start . ' – ' . $lunch_end . ' Uhr',
         'rows'             => [
             [
                 'days'  => 'Mo – Sa',
@@ -221,6 +263,7 @@ function wowthai_compute_opening_status(?DateTimeImmutable $at = null): array {
             'time_now'        => $hour_min,
             'day_now'         => $dow,
             'is_sushi_day'    => false,
+            'is_m4_day'       => false,
         ];
     }
 
@@ -250,7 +293,7 @@ function wowthai_compute_opening_status(?DateTimeImmutable $at = null): array {
     }
 
     if (!$is_open) {
-        $first_open  = $ranges[0][0] ?? '11:30';
+        $first_open  = $ranges[0][0] ?? '11:00';
         $second_open = $ranges[1][0] ?? null;
         $first_close = $ranges[0][1] ?? null;
 
@@ -290,6 +333,7 @@ function wowthai_compute_opening_status(?DateTimeImmutable $at = null): array {
         'time_now'        => $hour_min,
         'day_now'         => $dow,
         'is_sushi_day'    => wowthai_sushi_available($now),
+        'is_m4_day'       => wowthai_mittagsmenu_m4_available_on_dow($dow),
     ];
 }
 

@@ -354,8 +354,24 @@ function wowthai_handle_res_status_change() {
         $restaurant_phone = $res_info['phone'] ?? '+43 7252 74973';
 
         if ( $new_status === 'confirmed' ) {
-            $subject = "✓ Bestätigt: Ihre Tischreservierung bei $restaurant_name";
-            $headline = "Ihre Reservierung ist bestätigt!";
+            $subject    = "✓ Bestätigt: Ihre Tischreservierung bei $restaurant_name";
+            $headline   = "Ihre Reservierung ist bestätigt!";
+            $ics_url    = function_exists( 'wowthai_res_ics_url' ) ? wowthai_res_ics_url( (int) $res_id ) : '';
+            $cancel_url = function_exists( 'wowthai_res_cancel_url' ) ? wowthai_res_cancel_url( (int) $res_id ) : '';
+            $extra_links = '';
+            if ( $ics_url !== '' || $cancel_url !== '' ) {
+                $extra_links .= '<p style="font-size:13px;color:#a39c8e;margin-top:14px;">';
+                if ( $ics_url !== '' ) {
+                    $extra_links .= '📅 <a href="' . esc_url( $ics_url ) . '" style="color:#d4a359;font-weight:700;">Termin im Kalender speichern (.ics)</a>';
+                }
+                if ( $ics_url !== '' && $cancel_url !== '' ) {
+                    $extra_links .= ' &nbsp;·&nbsp; ';
+                }
+                if ( $cancel_url !== '' ) {
+                    $extra_links .= '✕ <a href="' . esc_url( $cancel_url ) . '" style="color:#a39c8e;text-decoration:underline;">Reservierung online stornieren</a>';
+                }
+                $extra_links .= '</p>';
+            }
             $body_html = "
                 <p>Guten Tag " . esc_html( $guest_name ) . ",</p>
                 <p>wir freuen uns sehr, Ihren Besuch bei uns zu bestätigen. Ihr Tisch ist für Sie reserviert!</p>
@@ -366,6 +382,7 @@ function wowthai_handle_res_status_change() {
                     <p style=\"margin:0;\"><strong>Adresse:</strong> City Point Steyr (1. Obergeschoss), Leopold-Werndl-Straße 2, 4400 Steyr</p>
                 </div>
                 <p>Sollten Sie sich verspäten oder Fragen haben, erreichen Sie uns jederzeit telefonisch unter <a href=\"tel:" . esc_attr( $restaurant_phone ) . "\" style=\"color:#d4a359;font-weight:700;\">" . esc_html( $restaurant_phone ) . "</a>.</p>
+                " . $extra_links . "
                 <p>Wir freuen uns darauf, Sie kulinarisch zu verwöhnen!</p>
             ";
 

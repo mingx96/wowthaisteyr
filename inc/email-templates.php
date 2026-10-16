@@ -91,7 +91,66 @@ function wowthai_send_branded_email( $to, $subject, $headline, $body_html, $acti
     $headers = [
         'Content-Type: text/html; charset=UTF-8',
         'From: WOW Thai Steyr <' . $from_email . '>',
+        'Reply-To: WOW Thai Steyr <' . $from_email . '>',
     ];
 
-    return wp_mail( $to, $subject, $message, $headers );
+    $sent = wp_mail( $to, $subject, $message, $headers );
+    wowthai_record_email_event( (string) $to, (string) $subject, $sent ? 'sent' : 'failed' );
+    return $sent;
+}
+
+/**
+ * Speichert die letzten 20 E-Mail-Ereignisse (Ringpuffer) zur Diagnose im Admin-Cockpit.
+ */
+function wowthai_record_email_event( string $to, string $subject, string $status, string $error = '' ): void {
+    $log = get_option( 'wowthai_email_log', [] );
+    if ( ! is_array( $log ) ) {
+        $log = [];
+    }
+    $now_str = function_exists( 'wowthai_now' ) ? wowthai_now()->format( 'd.m.Y H:i:s' ) : current_time( 'd.m.Y H:i:s' );
+    array_unshift( $log, [
+        'time'    => $now_str,
+        'to'      => $to,
+        'subject' => $subject,
+        'status'  => $status,
+        'error'   => $error,
+    ] );
+    $log = array_slice( $log, 0, 20 );
+    update_option( 'wowthai_email_log', $log, false );
+}
+
+add_action( 'wp_mail_failed', function ( $wp_error ) {
+    if ( ! is_wp_error( $wp_error ) ) {
+        return;
+    }
+    $data    = (array) $wp_error->get_error_data();
+    $to      = isset( $data['to'] ) ? ( is_array( $data['to'] ) ? implode( ', ', $data['to'] ) : (string) $data['to'] ) : '';
+    $subject = isset( $data['subject'] ) ? (string) $data['subject'] : '';
+    wowthai_record_email_event( $to, $subject, 'failed', $wp_error->get_error_message() );
+} );
+
+/**
+ * Formatiert die Bestellpositionen inkl. Varianten & Zusatzoptionen für Kunden-E-Mails.
+ */
+function wowthai_format_order_items_email_html( $order ): string {
+    if ( ! is_object( $order ) || ! method_exists( $order, 'get_items' ) ) {
+        return '';
+    }
+    $html = '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #3d372b;">';
+    foreach ( $order->get_items() as $item ) {
+        $qty  = (int) $item->get_quantity();
+        $name = (string) $item->get_name();
+        $cust = function_exists( 'wowthai_get_order_item_customizations' )
+            ? wowthai_get_order_item_customizations( $item )
+            : [];
+        $html .= '<p style="margin:0 0 4px 0;font-size:14px;color:#f2efe9;"><strong>' . esc_html( $qty . 'x ' . $name ) . '</strong>';
+        if ( ! empty( $cust ) ) {
+            $html .= '<br><span style="font-size:12px;color:#d4a359;padding-left:14px;">↳ ' . esc_html( implode( ' · ', $cust ) ) . '</span>';
+        }
+        $html .= '</p>';
+    }
+    $total = wp_strip_all_tags( (string) $order->get_formatted_order_total() );
+    $html .= '<p style="margin:8px 0 0 0;padding-top:8px;border-top:1px dashed #3d372b;font-size:14px;color:#d4a359;"><strong>Gesamtsumme: ' . esc_html( html_entity_decode( $total, ENT_QUOTES, 'UTF-8' ) ) . '</strong></p>';
+    $html .= '</div>';
+    return $html;
 }

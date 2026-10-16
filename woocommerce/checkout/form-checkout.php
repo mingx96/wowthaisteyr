@@ -15,12 +15,17 @@ if ( ! $checkout->is_registration_enabled() && $checkout->is_registration_requir
     return;
 }
 
-$now = wowthai_pickup_now();
-$has_sushi = wowthai_cart_has_sushi();
-$asap_ready = wowthai_pickup_asap_time($now);
-if ($has_sushi && $now->format('N') === '1') $asap_ready = null;
-$pickup_dates = wowthai_pickup_dates($now, $has_sushi);
+$now          = wowthai_pickup_now();
+$has_sushi    = wowthai_cart_has_sushi();
+$has_lunch    = function_exists('wowthai_cart_has_mittagsmenu') ? wowthai_cart_has_mittagsmenu() : false;
+$has_m4       = function_exists('wowthai_cart_has_mittagsmenu_m4') ? wowthai_cart_has_mittagsmenu_m4() : false;
+$asap_ready   = wowthai_pickup_asap_time($now, $has_lunch, $has_m4);
+if ($has_sushi && !wowthai_sushi_available($now)) {
+    $asap_ready = null;
+}
+$pickup_dates = wowthai_pickup_dates($now, $has_sushi, $has_lunch, $has_m4);
 $initial_mode = $asap_ready ? 'asap' : 'later';
+$wow_hd       = function_exists('wowthai_hours_display') ? wowthai_hours_display() : [];
 ?>
 
 <div class="checkout-intro-bar">
@@ -64,7 +69,7 @@ $initial_mode = $asap_ready ? 'asap' : 'later';
       </div>
 
       <?php if (!$asap_ready): ?>
-        <p class="kitchen-closed-banner">Schnellstmögliche Abholung ist derzeit nicht verfügbar. Bitte wählen Sie eine Abholzeit für die nächste Öffnungszeit.<?php if ($has_sushi): ?> Montags ist Sushi-Ruhetag.<?php endif; ?></p>
+        <p class="kitchen-closed-banner">Schnellstmögliche Abholung ist derzeit nicht verfügbar. Bitte wählen Sie eine Abholzeit für die nächste Öffnungszeit.<?php if ($has_m4 && !empty($wow_hd['mittags_m4_note'])): ?> Das Sushi-Mittagsmenü M4 wird nur <?php echo esc_html($wow_hd['mittags_m4_note']); ?> serviert.<?php elseif ($has_lunch && !empty($wow_hd['mittags_note'])): ?> Mittagsmenü: <?php echo esc_html($wow_hd['mittags_note']); ?>.<?php elseif ($has_sushi): ?> Montags ist Sushi-Ruhetag.<?php endif; ?></p>
       <?php endif; ?>
       <!-- Preorder Selectors Box -->
       <div class="preorder-select-box" id="later-box"<?php echo $asap_ready ? ' style="display: none;"' : ''; ?>>

@@ -251,6 +251,32 @@ function wowthai_handle_accept_order() {
             $order->add_order_note( 'Bestellung um ' . $current_time . ' Uhr angenommen. Die Küche bereitet die Speisen vor.' );
         }
         $order->save();
+
+        // Kunden-E-Mail bei Annahme durch die Küche senden
+        $email  = $order->get_billing_email();
+        $name   = $order->get_billing_first_name() ?: 'Gast';
+        $pickup = $order->get_meta( 'Abholzeit' ) ?: 'Schnellstmöglich';
+        if ( ! empty( $email ) && is_email( $email ) ) {
+            $items_html = function_exists( 'wowthai_format_order_items_email_html' )
+                ? wowthai_format_order_items_email_html( $order )
+                : '';
+            $subject  = "✓ Bestellung #$order_id angenommen – In Zubereitung bei WOW Thai Steyr";
+            $headline = "Ihre Bestellung #$order_id wird zubereitet!";
+            $body_html = "
+                <p>Guten Tag " . esc_html( $name ) . ",</p>
+                <p>vielen Dank für Ihre Bestellung! Unser Küchenteam hat Ihre Bestellung <strong>#$order_id</strong> um <strong>" . esc_html( $current_time ) . " Uhr</strong> angenommen und bereitet Ihre Speisen frisch für Sie zu.</p>
+                <div class=\"card-box\">
+                    <p style=\"margin:0 0 6px 0;\"><strong>🕒 Gewünschte Abholzeit:</strong> " . esc_html( $pickup ) . "</p>
+                    <p style=\"margin:0;\"><strong>📍 Abholort:</strong> WOW Thai · City Point Steyr (1. OG), Leopold-Werndl-Straße 2, 4400 Steyr</p>
+                    " . $items_html . "
+                </div>
+                <p>Sobald Ihre Speisen fertig verpackt und abholbereit sind, informieren wir Sie. Für Rückfragen erreichen Sie uns unter <a href=\"tel:+43725274973\" style=\"color:#d4a359;font-weight:700;\">+43 7252 74973</a>.</p>
+                <p>Wir freuen uns auf Sie!<br>Ihr WOW Thai Steyr Team</p>
+            ";
+            if ( function_exists( 'wowthai_send_branded_email' ) ) {
+                wowthai_send_branded_email( $email, $subject, $headline, $body_html, 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr', 'Route im City Point öffnen ↗' );
+            }
+        }
     }
 
     $redirect_url = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=wc-orders' );
@@ -478,6 +504,33 @@ function wowthai_handle_ready_order() {
         $order->update_meta_data( '_wowthai_ready_time', $current_time );
         $order->add_order_note( 'Speisen sind fertig zubereitet und abholbereit verpackt (um ' . $current_time . ' Uhr).' );
         $order->save();
+
+        // Kunden-E-Mail bei Abholbereitschaft senden
+        $email  = $order->get_billing_email();
+        $name   = $order->get_billing_first_name() ?: 'Gast';
+        $pickup = $order->get_meta( 'Abholzeit' ) ?: 'Sofort';
+        if ( ! empty( $email ) && is_email( $email ) ) {
+            $items_html = function_exists( 'wowthai_format_order_items_email_html' )
+                ? wowthai_format_order_items_email_html( $order )
+                : '';
+            $subject  = "🥡 Ihre Bestellung #$order_id ist abholbereit! – WOW Thai Steyr";
+            $headline = "Ihre Speisen stehen abholbereit!";
+            $body_html = "
+                <p>Guten Tag " . esc_html( $name ) . ",</p>
+                <p>gute Nachrichten: Ihre Bestellung <strong>#$order_id</strong> wurde soeben frisch zubereitet, heiß verpackt und steht <strong>ab sofort im Restaurant zur Abholung</strong> für Sie bereit!</p>
+                <div class=\"card-box\">
+                    <p style=\"margin:0 0 6px 0;\"><strong>Status:</strong> 🥡 Abholbereit (fertig seit " . esc_html( $current_time ) . " Uhr)</p>
+                    <p style=\"margin:0 0 6px 0;\"><strong>Vereinbarte Zeit:</strong> " . esc_html( $pickup ) . "</p>
+                    <p style=\"margin:0;\"><strong>📍 Abholadresse:</strong> WOW Thai · City Point 1. OG, Leopold-Werndl-Straße 2, 4400 Steyr</p>
+                    " . $items_html . "
+                </div>
+                <p>Kommen Sie einfach zu unserer Theke im 1. Obergeschoss des City Point Steyr. Bei Rückfragen erreichen Sie uns unter <a href=\"tel:+43725274973\" style=\"color:#d4a359;font-weight:700;\">+43 7252 74973</a>.</p>
+                <p>Guten Appetit wünscht Ihnen<br>Ihr WOW Thai Steyr Team</p>
+            ";
+            if ( function_exists( 'wowthai_send_branded_email' ) ) {
+                wowthai_send_branded_email( $email, $subject, $headline, $body_html, 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr', 'Route auf Google Maps öffnen ↗' );
+            }
+        }
     }
 
     $redirect_url = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=wc-orders' );
@@ -519,7 +572,7 @@ function wowthai_admin_order_notices() {
 
     if ( $notice === 'accepted' ) {
         echo '<div class="notice notice-success is-dismissible" style="border-left-color:#107a38;background:#f0faf2;padding:12px 16px;">';
-        echo '<p style="font-size:14px;margin:0;color:#155724;"><strong>✓ Bestellung #' . esc_html( $o_id ) . ' angenommen!</strong> Die Küche bereitet die Speisen jetzt zu.</p>';
+        echo '<p style="font-size:14px;margin:0;color:#155724;"><strong>✓ Bestellung #' . esc_html( $o_id ) . ' angenommen!</strong> Der Kunde wurde per E-Mail informiert und die Küche bereitet die Speisen jetzt zu.</p>';
         echo '</div>';
     } elseif ( $notice === 'rejected' ) {
         echo '<div class="notice notice-error is-dismissible" style="border-left-color:#c22213;background:#fdf2f2;padding:12px 16px;">';
@@ -527,7 +580,7 @@ function wowthai_admin_order_notices() {
         echo '</div>';
     } elseif ( $notice === 'ready' ) {
         echo '<div class="notice notice-success is-dismissible" style="border-left-color:#0a5dc2;background:#f0f7fb;padding:12px 16px;">';
-        echo '<p style="font-size:14px;margin:0;color:#0a5dc2;"><strong>🥡 Bestellung #' . esc_html( $o_id ) . ' ist abholbereit!</strong> Die Speisen stehen zur Abholung bereit.</p>';
+        echo '<p style="font-size:14px;margin:0;color:#0a5dc2;"><strong>🥡 Bestellung #' . esc_html( $o_id ) . ' ist abholbereit!</strong> Der Kunde wurde per E-Mail benachrichtigt und die Speisen stehen zur Abholung bereit.</p>';
         echo '</div>';
     } elseif ( $notice === 'completed' ) {
         echo '<div class="notice notice-success is-dismissible" style="border-left-color:#107a38;background:#f0faf2;padding:12px 16px;">';
@@ -679,6 +732,34 @@ function wowthai_render_reservations_top_box() {
                         <a href="<?php echo esc_url( $rm_url ); ?>" style="color:#c22213;text-decoration:none;font-weight:800;" title="Eintrag löschen">✕</a>
                     </span>
                 <?php endforeach; ?>
+            </div>
+        </div>
+
+        <?php
+        $notif_email = function_exists( 'wowthai_get_notification_email' ) ? wowthai_get_notification_email() : get_option( 'admin_email' );
+        $email_log   = get_option( 'wowthai_email_log', [] );
+        $last_email  = is_array( $email_log ) && ! empty( $email_log[0] ) ? $email_log[0] : null;
+        ?>
+        <div class="wowthai-email-status-control" style="margin-top:12px; padding-top:12px; border-top:1px solid #f0f0f1; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; font-size:12px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:16px;">✉️</span>
+                <div>
+                    <strong style="font-size:13px; color:#1d2327;">E-Mail-Verbindung &amp; Benachrichtigungen:</strong>
+                    <span style="color:#646970; display:block;">Absender &amp; Empfänger: <strong><?php echo esc_html( $notif_email ); ?></strong> · Branded HTML Templates aktiv (Annahme, Abholbereit, Storno, Reservierung)</span>
+                </div>
+            </div>
+            <div>
+                <?php if ( $last_email && is_array( $last_email ) ) : 
+                    $is_sent = ( ( $last_email['status'] ?? '' ) === 'sent' );
+                ?>
+                    <span style="background:<?php echo $is_sent ? '#e8f7ee' : '#fbeae8'; ?>; border:1px solid <?php echo $is_sent ? '#b3e8c4' : '#f5b5b0'; ?>; color:<?php echo $is_sent ? '#107a38' : '#c22213'; ?>; padding:3px 10px; border-radius:4px; font-weight:700;">
+                        <?php echo $is_sent ? '✓ Letzte E-Mail gesendet' : '✕ E-Mail-Fehler'; ?> (<?php echo esc_html( $last_email['time'] ?? '' ); ?>)
+                    </span>
+                <?php else : ?>
+                    <span style="background:#e8f7ee; border:1px solid #b3e8c4; color:#107a38; padding:3px 10px; border-radius:4px; font-weight:700;">
+                        ✓ E-Mail-System bereit
+                    </span>
+                <?php endif; ?>
             </div>
         </div>
     </div>

@@ -10,6 +10,7 @@ $hours_display = function_exists('wowthai_hours_display') ? wowthai_hours_displa
 $allergens = function_exists('wowthai_get_allergen_list') ? wowthai_get_allergen_list() : [];
 $is_sushi_day = function_exists('wowthai_is_sushi_available_on_day') ? wowthai_is_sushi_available_on_day() : true;
 $is_mittags_now = function_exists('wowthai_mittagsmenu_available') ? wowthai_mittagsmenu_available() : false;
+$is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowthai_mittagsmenu_m4_available_on_dow() : true;
 ?>
 
 <main id="main" tabindex="-1">
@@ -105,7 +106,8 @@ $is_mittags_now = function_exists('wowthai_mittagsmenu_available') ? wowthai_mit
           <?php foreach ($sec['products'] as $p): 
             $labels_text = !empty($p['labels']) ? implode(' ', $p['labels']) : '';
             $filter_meta = mb_strtolower($p['title'] . ' ' . ($p['description'] ?? '') . ' ' . $labels_text);
-            $spice_pill = !empty($p['spice']['pill']) ? $p['spice']['pill'] : '';
+            $spice_pill  = !empty($p['spice']['pill']) ? $p['spice']['pill'] : '';
+            $is_m4_dish  = function_exists('wowthai_product_is_mittagsmenu_m4') ? wowthai_product_is_mittagsmenu_m4($p['id'], $p['title']) : false;
           ?>
             <article class="dish-card" 
               data-dish-title="<?php echo esc_attr(mb_strtolower($p['title'])); ?>"
@@ -124,24 +126,33 @@ $is_mittags_now = function_exists('wowthai_mittagsmenu_available') ? wowthai_mit
               <?php if (!empty($p['description'])): ?>
                 <p class="dish-desc"><?php echo esc_html($p['description']); ?></p>
               <?php endif; ?>
-              <?php if (!empty($p['labels'])): ?>
+              <?php if (!empty($p['labels']) || $is_m4_dish): ?>
                 <div class="dish-labels">
+                  <?php if ($is_m4_dish && !empty($hours_display['mittags_m4_note'])): ?>
+                    <span class="dish-label" style="background:rgba(212,163,89,0.18);color:#e5c478;border:1px solid rgba(212,163,89,0.45);font-weight:700;">🍣 Nur <?php echo esc_html($hours_display['mittags_m4_note']); ?></span>
+                  <?php endif; ?>
                   <?php foreach ($p['labels'] as $lbl): ?>
                     <span class="dish-label"><?php echo esc_html($lbl); ?></span>
                   <?php endforeach; ?>
                 </div>
               <?php endif; ?>
               <div class="dish-actions">
-                <button type="button" class="dish-control"
-                  data-product-id="<?php echo esc_attr($p['id']); ?>"
-                  data-modifier-groups="<?php echo esc_attr(wp_json_encode($p['modifier_groups'])); ?>"
-                  data-has-modifiers="<?php echo !empty($p['modifier_groups']) ? 'yes' : 'no'; ?>"
-                  data-has-variants="<?php echo $p['has_variants'] ? 'yes' : 'no'; ?>"
-                  data-title="<?php echo esc_attr($p['title']); ?>"
-                  data-description="<?php echo esc_attr($p['description']); ?>"
-                  data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
-                  <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
-                </button>
+                <?php if ($is_m4_dish && !$is_m4_day): ?>
+                  <button type="button" class="dish-control disabled" disabled style="opacity:0.65;cursor:not-allowed;background:#2b2620;color:#d4a359;border:1px solid rgba(212,163,89,0.3);" title="Mittagsmenü M4 (Sushi) wird nur Dienstag bis Freitag serviert">
+                    🍣 Nur Di – Fr verfügbar
+                  </button>
+                <?php else: ?>
+                  <button type="button" class="dish-control"
+                    data-product-id="<?php echo esc_attr($p['id']); ?>"
+                    data-modifier-groups="<?php echo esc_attr(wp_json_encode($p['modifier_groups'])); ?>"
+                    data-has-modifiers="<?php echo !empty($p['modifier_groups']) ? 'yes' : 'no'; ?>"
+                    data-has-variants="<?php echo $p['has_variants'] ? 'yes' : 'no'; ?>"
+                    data-title="<?php echo esc_attr($p['title']); ?>"
+                    data-description="<?php echo esc_attr($p['description']); ?>"
+                    data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
+                    <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
+                  </button>
+                <?php endif; ?>
               </div>
             </article>
           <?php endforeach; ?>

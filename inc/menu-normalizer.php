@@ -31,16 +31,45 @@ function wowthai_menu_typo_replacements(): array {
         'Truffel Rolls'                               => 'Trüffel Rolls',
         'mit Truffel'                                 => 'mit Trüffel',
         'Schwarzer Klebreis'                          => 'Schwarzer Klebereis',
+        'Osinko Maki'                                 => 'Oshinko Maki',
+        '(inkl.Reis)'                                 => '(inkl. Reis)',
+        '★M'                                          => '★ M',
     ];
 }
 
 /**
- * Bereinigt einen Titel- oder Beschreibungstext anhand des Wörterbuchs.
+ * Fallback-Beschreibungen für Gerichte, deren Beschreibung im Katalog leer ist.
+ */
+function wowthai_menu_fallback_descriptions(): array {
+    return [
+        'V9. Hausgemachte Frühlingsrollen'   => 'Knusprige hausgemachte Frühlingsrollen, serviert mit süß-saurer Chilisauce.',
+        'V11. WOW Platte für 1 Person'       => 'Gemischte Vorspeisenplatte für 1 Person mit beliebten Fingerfood-Spezialitäten des Hauses und Dips.',
+        'V12. WOW Überraschungsplatte für 2' => 'Große Vorspeisenvariation für 2 Personen – eine feine Auswahl unserer beliebtesten Vorspeisen mit hausgemachten Saucen.',
+        'Lachs Bowl mit Sushi-Reis'          => 'Frischer Lachs auf Sushi-Reis mit Avocado, Edamame, knackigem Salat, Sesam und feiner Haus-Sauce.',
+        'Vegi Bowl mit Sushi-Reis'           => 'Vegetarische Bowl auf Sushi-Reis mit Avocado, Tofu, Edamame, knackigem Gemüse, Sesam und feiner Sauce.',
+    ];
+}
+
+/**
+ * Bereinigt einen Titel- oder Beschreibungstext anhand des Wörterbuchs und dekodiert HTML-Entities (z.B. &#8211;).
  */
 function wowthai_normalize_menu_text(string $text, string $context_title = ''): string {
+    $text = trim(html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+    if ($text === '' && $context_title !== '') {
+        $norm_title = wowthai_normalize_menu_text($context_title);
+        foreach (wowthai_menu_fallback_descriptions() as $match_title => $fallback_desc) {
+            if (stripos($norm_title, $match_title) !== false) {
+                return $fallback_desc;
+            }
+        }
+        return '';
+    }
+
     if ($text === '') {
         return '';
     }
+
     // Fix V10. Tod Man Gung copy-pasted Saté Gai description
     if (
         $context_title !== '' &&
@@ -67,7 +96,7 @@ add_filter('woocommerce_product_get_description', function ($desc, $product) {
  * damit auch Admin-Bestelllisten und 80mm Küchenbons die korrekte Schreibweise nutzen.
  */
 function wowthai_fix_catalog_typos_once(): void {
-    if (get_option('wowthai_catalog_typos_v1') === 'done') {
+    if (get_option('wowthai_catalog_typos_v2') === 'done') {
         return;
     }
 
@@ -106,6 +135,6 @@ function wowthai_fix_catalog_typos_once(): void {
         }
     }
 
-    update_option('wowthai_catalog_typos_v1', 'done', true);
+    update_option('wowthai_catalog_typos_v2', 'done', true);
 }
 add_action('init', 'wowthai_fix_catalog_typos_once', 30);

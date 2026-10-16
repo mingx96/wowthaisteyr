@@ -46,7 +46,7 @@ function recordGate(id, name, issues, warnOnly = false) {
 // G1: Opening hours literals only in inc/hours.php
 {
     const issues = [];
-    const hourRegex = /\b(11:30|14:30|17:00|21:00|19:00)\b/g;
+    const hourRegex = /\b(11:00|11:30|14:30|17:00|21:00|19:00)\b/g;
     for (const rel of [...phpFiles, ...jsFiles]) {
         if (rel === 'inc/hours.php' || rel === 'inc/menu-normalizer.php') continue;
         const content = fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -152,7 +152,7 @@ function recordGate(id, name, issues, warnOnly = false) {
             }
         }
     }
-    recordGate('G5', 'JS & PHP Syntax Check + Hours Unit Suite (62 assertions)', issues, false);
+    recordGate('G5', 'JS & PHP Syntax Check + Hours Unit Suite (98 assertions)', issues, false);
 }
 
 // G6: Version Synchronization between style.css and functions.php
