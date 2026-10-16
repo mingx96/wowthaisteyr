@@ -95,6 +95,40 @@ function wowthai_sort_orders_priority_cpt( $clauses, $query ) {
 }
 add_filter( 'posts_clauses', 'wowthai_sort_orders_priority_cpt', 10, 2 );
 
+// Helper: Varianten & Modifier eines Bestellpostens sauber auslesen
+if ( ! function_exists( 'wowthai_get_order_item_customizations' ) ) {
+    function wowthai_get_order_item_customizations( $item ): array {
+        $lines = [];
+        if ( ! is_object( $item ) || ! method_exists( $item, 'get_meta_data' ) ) {
+            return $lines;
+        }
+        $formatted = method_exists( $item, 'get_formatted_meta_data' )
+            ? $item->get_formatted_meta_data( '_', true )
+            : [];
+        if ( ! empty( $formatted ) ) {
+            foreach ( $formatted as $meta ) {
+                $key = trim( wp_strip_all_tags( (string) ( $meta->display_key ?? $meta->key ?? '' ) ) );
+                $val = trim( wp_strip_all_tags( (string) ( $meta->display_value ?? $meta->value ?? '' ) ) );
+                if ( $key === '' || $val === '' || strpos( $key, '_' ) === 0 ) {
+                    continue;
+                }
+                $lines[] = $key . ': ' . $val;
+            }
+            return $lines;
+        }
+        foreach ( $item->get_meta_data() as $meta ) {
+            $data = $meta->get_data();
+            $key  = trim( (string) ( $data['key'] ?? '' ) );
+            $val  = is_scalar( $data['value'] ?? null ) ? trim( (string) $data['value'] ) : '';
+            if ( $key === '' || $val === '' || strpos( $key, '_' ) === 0 ) {
+                continue;
+            }
+            $lines[] = $key . ': ' . $val;
+        }
+        return $lines;
+    }
+}
+
 // 4. Inhalte für die benutzerdefinierten Spalten rendern
 function wowthai_render_order_admin_column( $column, $order ) {
     if ( is_numeric( $order ) ) {
@@ -152,11 +186,15 @@ function wowthai_render_order_admin_column( $column, $order ) {
         if ( ! empty( $items ) ) {
             echo '<div class="wowthai-order-items-list">';
             foreach ( $items as $item ) {
-                $qty  = $item->get_quantity();
-                $name = $item->get_name();
+                $qty            = $item->get_quantity();
+                $name           = $item->get_name();
+                $customizations = wowthai_get_order_item_customizations( $item );
                 echo '<div class="wowthai-item-line">';
                 echo '<span class="item-qty">' . esc_html( $qty ) . 'x</span> ';
                 echo '<span class="item-name">' . esc_html( $name ) . '</span>';
+                if ( ! empty( $customizations ) ) {
+                    echo '<small class="item-customizations" style="display:block;padding-left:22px;color:#b45309;font-size:11px;font-weight:600;">↳ ' . esc_html( implode( ' · ', $customizations ) ) . '</small>';
+                }
                 echo '</div>';
             }
             echo '</div>';
@@ -280,8 +318,15 @@ function wowthai_handle_print_order_bon() {
         wp_die( 'Bestellung #' . esc_html( $order_id ) . ' nicht gefunden.' );
     }
 
-    $pickup_time = $order->get_meta( '_wowthai_pickup_time', true ) ?: 'Sofort / ASAP';
-    $pickup_date = $order->get_meta( '_wowthai_pickup_date', true ) ?: date_i18n( 'd.m.Y' );
+    $abholzeit = trim( (string) $order->get_meta( 'Abholzeit', true ) );
+    if ( $abholzeit === '' ) {
+        $legacy_time = trim( (string) $order->get_meta( '_wowthai_pickup_time', true ) ); // legacy-fallback
+        $legacy_date = trim( (string) $order->get_meta( '_wowthai_pickup_date', true ) ); // legacy-fallback
+        $abholzeit   = trim( $legacy_date . ' ' . $legacy_time );
+    }
+    $is_asap     = ( $abholzeit === '' || stripos( $abholzeit, 'Schnell' ) !== false || stripos( $abholzeit, 'ASAP' ) !== false );
+    $pickup_time = $abholzeit !== '' ? $abholzeit : 'Schnellstmöglich (ASAP)';
+    $pickup_date = $order->get_date_created() ? $order->get_date_created()->date_i18n( 'd.m.Y · H:i' ) . ' Uhr' : wp_date( 'd.m.Y · H:i' ) . ' Uhr';
     $note        = $order->get_customer_note();
     $items       = $order->get_items();
     $total       = $order->get_formatted_order_total();
@@ -311,13 +356,13 @@ function wowthai_handle_print_order_bon() {
             .center { text-align: center; }
             .bold { font-weight: 800; }
             .large { font-size: 16px; }
-            .huge { font-size: 24px; letter-spacing: 0.5px; }
+            .huge { font-size: 20px; letter-spacing: 0.3px; }
             .divider { border-top: 1px dashed #000; margin: 6px 0; }
             .double-divider { border-top: 2px solid #000; margin: 8px 0; }
             .flex-between { display: flex; justify-content: space-between; align-items: baseline; }
             .item-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
             .item-name { flex: 1; padding-right: 6px; }
-            .item-variant { font-size: 11px; padding-left: 12px; font-style: italic; color: #222; }
+            .item-variant { font-size: 11px; padding-left: 12px; font-weight: 700; color: #111; margin-top: 2px; }
             .pickup-box {
                 border: 2px solid #000;
                 padding: 6px;
@@ -358,14 +403,16 @@ function wowthai_handle_print_order_bon() {
         <div class="double-divider"></div>
 
         <div class="pickup-box">
-            <div style="font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">ABHOLZEIT / TAKEAWAY</div>
+            <div style="font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">
+                <?php echo $is_asap ? '⚡ ABHOLZEIT (SOFORT)' : '⏰ VORBESTELLUNG / ABHOLTERMIN'; ?>
+            </div>
             <div class="huge bold"><?php echo esc_html( $pickup_time ); ?></div>
-            <div style="font-size: 11px; font-weight: 600;"><?php echo esc_html( $pickup_date ); ?></div>
+            <div style="font-size: 11px; font-weight: 600;">Bestellt am: <?php echo esc_html( $pickup_date ); ?></div>
         </div>
 
         <div class="flex-between" style="font-size: 12px;">
             <span><strong>Bestellung:</strong> #<?php echo esc_html( $order_id ); ?></span>
-            <span><?php echo esc_html( date_i18n( 'H:i' ) ); ?> Uhr</span>
+            <span>Bon: <?php echo esc_html( wp_date( 'H:i' ) ); ?> Uhr</span>
         </div>
         <div style="font-size: 12px;"><strong>Gast:</strong> <?php echo esc_html( $customer ); ?></div>
         <?php if ( $phone ) : ?>
@@ -383,13 +430,17 @@ function wowthai_handle_print_order_bon() {
         <div class="bold" style="font-size: 12px; margin-bottom: 6px;">SPEISEN:</div>
 
         <?php foreach ( $items as $item ) : 
-            $qty = $item->get_quantity();
-            $name = $item->get_name();
-            $line_total = wc_price( $item->get_total() );
+            $qty            = $item->get_quantity();
+            $name           = $item->get_name();
+            $line_total     = wc_price( $item->get_total() );
+            $customizations = wowthai_get_order_item_customizations( $item );
         ?>
             <div class="item-row">
                 <div class="item-name">
                     <span class="bold large"><?php echo esc_html( $qty ); ?>x</span> <strong><?php echo esc_html( $name ); ?></strong>
+                    <?php foreach ( $customizations as $custom_line ) : ?>
+                        <div class="item-variant">+ <?php echo esc_html( $custom_line ); ?></div>
+                    <?php endforeach; ?>
                 </div>
                 <div class="bold"><?php echo strip_tags( $line_total ); ?></div>
             </div>

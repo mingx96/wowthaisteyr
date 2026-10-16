@@ -39,6 +39,9 @@ defined( 'ABSPATH' ) || exit;
         }
         $order_date = wc_format_datetime( $order->get_date_created() );
         $payment_title = $order->get_payment_method_title() ?: 'Barzahlung bei Abholung';
+        $res_info = function_exists( 'wowthai_get_restaurant_data' )
+            ? wowthai_get_restaurant_data()
+            : [ 'phone' => '+43 7252 74973', 'phone_tel' => '+43725274973' ];
         ?>
 
         <!-- 1. Hero Confirmation Card (Warm & Celebratory) -->
@@ -109,7 +112,7 @@ defined( 'ABSPATH' ) || exit;
                             <span class="ticket-icon">📞</span>
                             <div>
                                 <strong>Rückfragen zu Ihrer Bestellung:</strong>
-                                <span><a href="tel:+43725245866" class="phone-link">+43 7252 45866</a> (Restaurant-Küche)</span>
+                                <span><a href="tel:<?php echo esc_attr( $res_info['phone_tel'] ); ?>" class="phone-link"><?php echo esc_html( $res_info['phone'] ); ?></a> (Restaurant-Küche)</span>
                             </div>
                         </div>
                         <div class="ticket-row">
@@ -134,7 +137,7 @@ defined( 'ABSPATH' ) || exit;
                         <a href="https://maps.google.com/?q=City+Point+Steyr+Leopold-Werndl-Straße+2+4400+Steyr" target="_blank" rel="noopener noreferrer" class="btn-action btn-gold">
                             <span>🗺️ Route planen (Google Maps) ↗</span>
                         </a>
-                        <a href="tel:+43725245866" class="btn-action btn-dark">
+                        <a href="tel:<?php echo esc_attr( $res_info['phone_tel'] ); ?>" class="btn-action btn-dark">
                             <span>📞 Restaurant anrufen</span>
                         </a>
                     </div>
@@ -171,16 +174,22 @@ defined( 'ABSPATH' ) || exit;
 
                     <div class="receipt-items-list">
                         <?php foreach ( $order->get_items() as $item_id => $item ) : 
-                            $product = $item->get_product();
-                            $variant = $item->get_meta('Variante');
+                            $product        = $item->get_product();
+                            $customizations = function_exists( 'wowthai_get_order_item_customizations' )
+                                ? wowthai_get_order_item_customizations( $item )
+                                : array_filter( [ $item->get_meta( 'Variante' ) ] );
                         ?>
                             <div class="receipt-item-row">
                                 <div class="item-main">
                                     <div class="item-qty-badge"><?php echo esc_html( $item->get_quantity() ); ?>×</div>
                                     <div class="item-info">
                                         <h4><?php echo esc_html( $item->get_name() ); ?></h4>
-                                        <?php if ( ! empty($variant) ) : ?>
-                                            <span class="item-variant-pill"><?php echo esc_html( $variant ); ?></span>
+                                        <?php if ( ! empty( $customizations ) ) : ?>
+                                            <div class="item-variants-wrap" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                                                <?php foreach ( $customizations as $custom_line ) : ?>
+                                                    <span class="item-variant-pill"><?php echo esc_html( $custom_line ); ?></span>
+                                                <?php endforeach; ?>
+                                            </div>
                                         <?php endif; ?>
                                     </div>
                                 </div>
