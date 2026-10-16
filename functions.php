@@ -563,7 +563,7 @@ function wowthai_get_menu_structure() {
     ];
 
     $sushi_cats = [
-        'Vorpseise Sushi', 'Set', 'Maki &amp; Sashimi', 'Maki & Sashimi',
+        'Vorspeise Sushi', 'Vorpseise Sushi', 'Set', 'Maki &amp; Sashimi', 'Maki & Sashimi',
         'Special Rolls', 'Bowl'
     ];
 
@@ -579,9 +579,10 @@ function wowthai_get_menu_structure() {
             $seen_sections[$term->term_id] = true;
             $products = wowthai_get_products_in_cat($term->term_id);
             if (!empty($products)) {
+                $disp_name = function_exists('wowthai_normalize_menu_text') ? wowthai_normalize_menu_text($term->name) : $term->name;
                 $output['restaurant'][] = [
                     'term_id' => $term->term_id,
-                    'name' => $term->name,
+                    'name' => $disp_name,
                     'slug' => $term->slug,
                     'products' => $products
                 ];
@@ -595,9 +596,10 @@ function wowthai_get_menu_structure() {
             $seen_sections[$term->term_id] = true;
             $products = wowthai_get_products_in_cat($term->term_id);
             if (!empty($products)) {
+                $disp_name = function_exists('wowthai_normalize_menu_text') ? wowthai_normalize_menu_text($term->name) : $term->name;
                 $output['sushi'][] = [
                     'term_id' => $term->term_id,
-                    'name' => $term->name,
+                    'name' => $disp_name,
                     'slug' => $term->slug,
                     'products' => $products
                 ];
@@ -643,12 +645,17 @@ function wowthai_get_products_in_cat($term_id) {
                 $formatted_price = 'ab €' . number_format($min_p, 2, ',', '.');
             }
 
-            $spice = function_exists('wowthai_get_dish_spice_level') ? wowthai_get_dish_spice_level(get_the_title(), get_the_content(), $labels) : ['level' => 0, 'icons' => '', 'pill' => ''];
+            $raw_title = get_the_title();
+            $raw_desc  = get_the_content();
+            $title     = function_exists('wowthai_normalize_menu_text') ? wowthai_normalize_menu_text($raw_title) : $raw_title;
+            $desc      = function_exists('wowthai_normalize_menu_text') ? wowthai_normalize_menu_text($raw_desc, $title) : $raw_desc;
+
+            $spice = function_exists('wowthai_get_dish_spice_level') ? wowthai_get_dish_spice_level($title, $desc, $labels) : ['level' => 0, 'icons' => '', 'pill' => ''];
 
             $products[] = [
                 'id' => $id,
-                'title' => get_the_title(),
-                'description' => get_the_content(),
+                'title' => $title,
+                'description' => $desc,
                 'price' => $price,
                 'formatted_price' => $formatted_price,
                 'has_variants' => $has_variants,
@@ -667,6 +674,7 @@ function wowthai_get_products_in_cat($term_id) {
 
 require_once get_template_directory() . '/inc/hours.php';
 require_once get_template_directory() . '/inc/pickup.php';
+require_once get_template_directory() . '/inc/menu-normalizer.php';
 
 // 14. Restaurant Stammdaten, Öffnungszeiten & Google Schema.org
 require_once get_template_directory() . '/inc/restaurant-info.php';
