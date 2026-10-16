@@ -6,7 +6,7 @@ get_header();
 $info = wowthai_get_restaurant_data();
 ?>
 
-<main class="legal-page">
+<main id="main" class="legal-page" tabindex="-1">
   <section class="page-intro wrap">
     <p class="eyebrow"><span class="eyebrow-dot"></span> RECHTLICHE INFORMATIONEN</p>
     <div class="page-intro-row">
@@ -19,29 +19,45 @@ $info = wowthai_get_restaurant_data();
 
   <section class="wrap legal-content">
     <div class="legal-card">
-      <h2>Angaben zum Medieninhaber & Dienstanbieter</h2>
+      <h2>Angaben zum Medieninhaber &amp; Dienstanbieter</h2>
       <p>
-        <strong><?php echo esc_html($info['name']); ?></strong><br>
+        <strong><?php echo esc_html($info['legal_name'] ?? $info['name']); ?></strong><br>
+        <?php echo esc_html($info['name']); ?><br>
         <?php echo esc_html($info['street']); ?><br>
         <?php echo esc_html($info['postal_code'] . ' ' . $info['city']); ?><br>
         <?php echo esc_html($info['country_name']); ?>
       </p>
 
+      <?php if (!empty($info['managing_director']) || !empty($info['uid']) || !empty($info['fn_number'])): ?>
+      <h3>Unternehmenskennzahlen &amp; Vertretung</h3>
+      <p>
+        <?php if (!empty($info['managing_director'])): ?>
+          <strong>Geschäftsführung:</strong> <?php echo esc_html($info['managing_director']); ?><br>
+        <?php endif; ?>
+        <?php if (!empty($info['uid'])): ?>
+          <strong>UID-Nummer:</strong> <?php echo esc_html($info['uid']); ?><br>
+        <?php endif; ?>
+        <?php if (!empty($info['fn_number'])): ?>
+          <strong>Firmenbuchnummer:</strong> <?php echo esc_html($info['fn_number']); ?> (<?php echo esc_html($info['fn_court'] ?? 'Landesgericht Steyr'); ?>)<br>
+        <?php endif; ?>
+        <strong>Unternehmenssitz:</strong> 4400 Steyr, Oberösterreich
+      </p>
+      <?php endif; ?>
+
       <h3>Kontakt</h3>
       <p>
         <strong>Telefon:</strong> <a href="tel:<?php echo esc_attr($info['phone_clean']); ?>" style="color:#d4a359;"><?php echo esc_html($info['phone']); ?></a><br>
         <strong>E-Mail:</strong> <a href="mailto:<?php echo esc_attr($info['email']); ?>" style="color:#d4a359;"><?php echo esc_html($info['email']); ?></a><br>
-        <strong>Website:</strong> <a href="<?php echo esc_url(home_url('/')); ?>" style="color:#d4a359;">wow-thai-steyr.at</a>
+        <strong>Website:</strong> <a href="<?php echo esc_url(home_url('/')); ?>" style="color:#d4a359;"><?php echo esc_html(wp_parse_url(home_url('/'), PHP_URL_HOST) ?: 'wow-thai-steyr.at'); ?></a>
       </p>
 
       <h3>Unternehmensgegenstand</h3>
-      <p>Gastronomiebetrieb (Restaurant, Zubereitung thailändischer Speisen, Sushi & Takeaway)</p>
+      <p>Gastronomiebetrieb (Restaurant, Zubereitung thailändischer Speisen, Sushi &amp; Takeaway)</p>
 
-      <h3>Kammerzugehörigkeit & Berufsrecht</h3>
+      <h3>Kammerzugehörigkeit &amp; Berufsrecht</h3>
       <p>
-        <strong>Mitglied bei:</strong> Wirtschaftskammer Oberösterreich (WKO)<br>
-        <strong>Fachgruppe:</strong> Gastronomie & Restaurantbetriebe<br>
-        <strong>Gewerbebehörde:</strong> Magistrat der Stadt Steyr / Bezirkshauptmannschaft Steyr<br>
+        <strong>Mitglied bei:</strong> Wirtschaftskammer Oberösterreich (WKO), Fachgruppe Gastronomie<br>
+        <strong>Aufsichts-/Gewerbebehörde:</strong> Magistrat der Stadt Steyr<br>
         <strong>Anwendbare Rechtsvorschriften:</strong> Österreichische Gewerbeordnung (GewO 1994), abrufbar unter <a href="https://www.ris.bka.gv.at" target="_blank" rel="noopener" style="color:#d4a359;">www.ris.bka.gv.at</a>
       </p>
 

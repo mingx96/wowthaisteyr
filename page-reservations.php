@@ -2,98 +2,73 @@
 /**
  * Template Name: Tisch reservieren
  */
-get_header();
-
-$booking_submitted = false;
-$booking_error = '';
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_nonce'])) {
-    if (wp_verify_nonce($_POST['wowthai_reservation_nonce'], 'wowthai_make_reservation')) {
-        $name = sanitize_text_field($_POST['res_name'] ?? '');
-        $email = sanitize_email($_POST['res_email'] ?? '');
-        $phone = sanitize_text_field($_POST['res_phone'] ?? '');
-        $date = sanitize_text_field($_POST['res_date'] ?? '');
-        $time = sanitize_text_field($_POST['res_time'] ?? '');
-        $party = intval($_POST['res_party'] ?? 2);
-        $notes = sanitize_textarea_field($_POST['res_notes'] ?? '');
-
-        if (!empty($name) && !empty($phone) && !empty($date) && !empty($time)) {
-            // Save as native Tischanfrage
-            $formatted_date = date_i18n('D, d. M Y', strtotime($date));
-            $res_id = wp_insert_post([
-                'post_title'   => "$name · $party Pers. · $date $time",
-                'post_content' => $notes,
-                'post_status'  => 'publish',
-                'post_type'    => 'tischanfrage',
-            ]);
-
-            if ($res_id && !is_wp_error($res_id)) {
-                update_post_meta($res_id, '_res_name', $name);
-                update_post_meta($res_id, '_res_phone', $phone);
-                update_post_meta($res_id, '_res_email', $email);
-                update_post_meta($res_id, '_res_date', $date);
-                update_post_meta($res_id, '_res_time', $time);
-                update_post_meta($res_id, '_res_party', $party);
-                update_post_meta($res_id, '_res_notes', $notes);
-                update_post_meta($res_id, '_res_status', 'pending');
-
-                // 1. Send branded HTML notification email to restaurant
-                $to = get_option('admin_email');
-                $dashboard_url = admin_url('edit.php?post_type=tischanfrage');
-                $subject = "🔔 Neue Reservierungsanfrage: $name ($party Pers. am $date um $time Uhr)";
-                
-                $admin_body = "
-                <p>Eine neue Tischreservierungsanfrage ist über die Website eingegangen:</p>
-                <div class=\"card-box\">
-                    <p style=\"margin:0 0 6px 0;\"><strong>Gast:</strong> " . esc_html($name) . "</p>
-                    <p style=\"margin:0 0 6px 0;\"><strong>Personen:</strong> " . esc_html($party) . " Personen</p>
-                    <p style=\"margin:0 0 6px 0;\"><strong>Datum & Zeit:</strong> " . esc_html($formatted_date) . " um " . esc_html($time) . " Uhr</p>
-                    <p style=\"margin:0 0 6px 0;\"><strong>Telefon:</strong> <a href=\"tel:" . esc_attr($phone) . "\" style=\"color:#d4a359;\">" . esc_html($phone) . "</a></p>
-                    <p style=\"margin:0 0 6px 0;\"><strong>E-Mail:</strong> " . esc_html($email ?: 'Keine Angabe') . "</p>
-                    <p style=\"margin:0;\"><strong>Wünsche:</strong> " . esc_html($notes ?: 'Keine Anmerkungen') . "</p>
-                </div>
-                <p style=\"font-size:13px;color:#999;\">Sie können diese Reservierung direkt mit einem Klick im WordPress-Dashboard annehmen oder bearbeiten.</p>
-                ";
-
-                if (function_exists('wowthai_send_branded_email')) {
-                    wowthai_send_branded_email($to, $subject, 'Neue Tischreservierung', $admin_body, $dashboard_url, 'In Dashboard verwalten ↗');
-                } else {
-                    wp_mail($to, $subject, strip_tags($admin_body));
-                }
-
-                // 2. Send branded HTML confirmation email to Guest
-                if (!empty($email) && is_email($email)) {
-                    $guest_subject = "Ihre Reservierungsanfrage bei WOW Thai Steyr";
-                    $guest_body = "
-                    <p>Guten Tag " . esc_html($name) . ",</p>
-                    <p>vielen Dank für Ihre Reservierungsanfrage! Wir haben Ihre Angaben erhalten und prüfen die Tischverfügbarkeit:</p>
-                    <div class=\"card-box\">
-                        <p style=\"margin:0 0 6px 0;\"><strong>Datum:</strong> " . esc_html($formatted_date) . "</p>
-                        <p style=\"margin:0 0 6px 0;\"><strong>Uhrzeit:</strong> " . esc_html($time) . " Uhr</p>
-                        <p style=\"margin:0 0 6px 0;\"><strong>Gästeanzahl:</strong> " . esc_html($party) . " Personen</p>
-                        <p style=\"margin:0;\"><strong>Ort:</strong> City Point Steyr (1. OG), Leopold-Werndl-Straße 2</p>
-                    </div>
-                    <p>Unser Team prüft Ihre Anfrage. Sobald Ihr Tisch fest reserviert ist, erhalten Sie eine Bestätigung von uns.</p>
-                    <p>Wir freuen uns darauf, Sie bald mit authentischer thailändischer Küche begrüßen zu dürfen!</p>
-                    ";
-
-                    if (function_exists('wowthai_send_branded_email')) {
-                        wowthai_send_branded_email($email, $guest_subject, 'Reservierung eingegangen', $guest_body, home_url('/menu/'), 'Schon jetzt Speisekarte ansehen ↗');
-                    }
-                }
-
-                $booking_submitted = true;
-            } else {
-                $booking_error = 'Fehler beim Speichern der Anfrage. Bitte versuchen Sie es erneut oder rufen Sie uns direkt an.';
-            }
-        } else {
-            $booking_error = 'Bitte füllen Sie alle erforderlichen Felder aus (Name, Telefon, Datum, Uhrzeit).';
-        }
+    if (function_exists('wowthai_handle_reservation_post')) {
+        wowthai_handle_reservation_post();
     }
+}
+
+get_header();
+
+$wow_hd   = function_exists('wowthai_hours_display') ? wowthai_hours_display() : [];
+$wow_info = function_exists('wowthai_get_restaurant_data') ? wowthai_get_restaurant_data() : [];
+$wow_tel  = $wow_info['phone_tel'] ?? '+43725274973';
+$wow_ph   = $wow_info['phone'] ?? '+43 7252 74973';
+
+$now_vienna = wowthai_now();
+$today_ymd  = $now_vienna->format('Y-m-d');
+$max_ymd    = $now_vienna->modify('+90 days')->format('Y-m-d');
+
+// Default to today if slots remain today, otherwise tomorrow
+$default_date_obj = $now_vienna;
+$initial_slots    = wowthai_reservation_slots($default_date_obj, $now_vienna);
+if (empty($initial_slots)) {
+    $default_date_obj = $now_vienna->modify('+1 day');
+    $initial_slots    = wowthai_reservation_slots($default_date_obj, $now_vienna);
+}
+$default_date_ymd = $default_date_obj->format('Y-m-d');
+$slots_by_weekday = wowthai_reservation_slots_by_weekday();
+$today_slots      = wowthai_reservation_slots($now_vienna, $now_vienna);
+
+$res_ok        = isset($_GET['res']) && sanitize_text_field(wp_unslash($_GET['res'])) === 'ok';
+$res_bot       = isset($_GET['bot']) && sanitize_text_field(wp_unslash($_GET['bot'])) === '1';
+$res_id        = isset($_GET['rid']) ? absint($_GET['rid']) : 0;
+$res_token     = isset($_GET['k']) ? sanitize_text_field(wp_unslash($_GET['k'])) : '';
+$res_err_code  = isset($_GET['res_err']) ? sanitize_text_field(wp_unslash($_GET['res_err'])) : '';
+$booking_error = $res_err_code !== '' && function_exists('wowthai_res_error_message')
+    ? wowthai_res_error_message($res_err_code)
+    : '';
+
+$cancel_req_id    = isset($_GET['res_cancel']) ? absint($_GET['res_cancel']) : 0;
+$cancel_req_token = isset($_GET['t']) ? sanitize_text_field(wp_unslash($_GET['t'])) : '';
+$is_cancelled_ok  = isset($_GET['res_cancelled']) && sanitize_text_field(wp_unslash($_GET['res_cancelled'])) === '1';
+
+$booking_submitted = false;
+$confirmed_data    = null;
+if ($res_ok && $res_bot) {
+    $booking_submitted = true;
+    $confirmed_data = [
+        'date'  => $default_date_ymd,
+        'time'  => $initial_slots[0] ?? '',
+        'party' => 2,
+        'id'    => 0,
+    ];
+} elseif ($res_ok && $res_id > 0 && function_exists('wowthai_res_token') && hash_equals(wowthai_res_token($res_id), $res_token)) {
+    $booking_submitted = true;
+    $confirmed_data = [
+        'id'    => $res_id,
+        'date'  => (string) get_post_meta($res_id, '_res_date', true),
+        'time'  => (string) get_post_meta($res_id, '_res_time', true),
+        'party' => (int) get_post_meta($res_id, '_res_party', true),
+    ];
 }
 ?>
 
-<main>
+<main id="main" tabindex="-1">
   <section class="page-intro wrap reservation-intro">
     <p class="eyebrow"><span class="eyebrow-dot"></span> WOW THAI · STEYR</p>
     <div class="page-intro-row">
@@ -107,17 +82,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
 
   <section class="wrap reservation-layout">
     <div class="reservation-aside">
-      <span class="aside-mark">W</span>
+      <span class="aside-mark" aria-hidden="true">W</span>
       <p class="eyebrow">PERSÖNLICH FÜR SIE DA</p>
       <h2>Wir freuen uns<br>auf Ihren Besuch.</h2>
       <p>Fragen zu Ihrer Reservierung oder besondere Wünsche? Rufen Sie uns gern direkt an – wir beraten Sie persönlich.</p>
-      <a class="phone-large" href="tel:+43725274973">+43 7252 74973</a>
+      <a class="phone-large" href="tel:<?php echo esc_attr($wow_tel); ?>"><?php echo esc_html($wow_ph); ?></a>
 
       <div class="aside-hours-hint" style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:var(--muted);line-height:1.6;">
         <strong style="color:var(--ink);display:block;margin-bottom:4px;">🕒 Öffnungszeiten Küche:</strong>
-        Mo–Sa: 11:30–14:30 &amp; 17:00–21:00 Uhr<br>
-        So: 11:30–19:00 Uhr (durchgehend)<br>
-        <span style="color:#d4a359;font-weight:600;">🍣 Montags Sushi-Ruhetag (warme Küche regulär)</span>
+        <?php foreach (($wow_hd['rows'] ?? []) as $row): ?>
+          <?php echo esc_html($row['days'] . ': ' . $row['hours']); ?><br>
+        <?php endforeach; ?>
+        <span style="color:#d4a359;font-weight:600;">🍣 <?php echo esc_html($wow_hd['sushi_note'] ?? 'Montags Sushi-Ruhetag (warme Küche regulär)'); ?></span>
       </div>
 
       <div class="aside-parking-hint" style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:var(--muted);line-height:1.6;">
@@ -126,58 +102,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
       </div>
     </div>
 
-    <div class="reservation-panel" id="reservation-root" aria-live="polite">
-      <?php if ($booking_submitted): 
-        // Build Google Calendar Event Link
-        $start_iso = date('Ymd\THis', strtotime("$date $time"));
-        $end_iso = date('Ymd\THis', strtotime("$date $time") + 7200); // 2 hours
-        $cal_title = urlencode("Tischreservierung: WOW Thai Steyr ($party Pers.)");
-        $cal_desc = urlencode("Ihre Reservierung bei WOW Thai Steyr für $party Personen. Bei Verspätungen erreichen Sie uns unter +43 7252 74973.");
-        $cal_loc = urlencode("WOW Thai Steyr, City Point 1. OG, Leopold-Werndl-Straße 2, 4400 Steyr");
-        $cal_url = "https://calendar.google.com/calendar/render?action=TEMPLATE&text={$cal_title}&dates={$start_iso}/{$end_iso}&details={$cal_desc}&location={$cal_loc}";
+    <div class="reservation-panel" id="reservation-root">
+      <?php if ($is_cancelled_ok): ?>
+        <div class="booking-success" role="status">
+          <h2>Ihre Reservierung wurde storniert.</h2>
+          <p>Vielen Dank für Ihre Mitteilung. Wir haben Ihren Tisch wieder freigegeben und hoffen, Sie bald zu einem anderen Zeitpunkt bei uns begrüßen zu dürfen!</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+            <a class="button button-dark" href="<?php echo esc_url(home_url('/reservations/')); ?>">Neue Reservierung anfragen →</a>
+            <a class="button button-quiet" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte ansehen ↗</a>
+          </div>
+        </div>
+
+      <?php elseif ($cancel_req_id > 0 && function_exists('wowthai_res_cancel_token') && hash_equals(wowthai_res_cancel_token($cancel_req_id), $cancel_req_token)):
+        $c_date  = wowthai_format_date_vienna((string) get_post_meta($cancel_req_id, '_res_date', true), 'd.m.Y');
+        $c_time  = (string) get_post_meta($cancel_req_id, '_res_time', true);
+        $c_party = (int) get_post_meta($cancel_req_id, '_res_party', true);
       ?>
         <div class="booking-success">
+          <h2>Reservierung stornieren?</h2>
+          <p>Möchten Sie Ihre Tischreservierung für den <strong><?php echo esc_html($c_date); ?> um <?php echo esc_html($c_time); ?> Uhr</strong> (<?php echo esc_html((string) $c_party); ?> Personen) verbindlich absagen?</p>
+          <form method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+            <input type="hidden" name="action" value="wowthai_res_cancel">
+            <input type="hidden" name="res_cancel_id" value="<?php echo esc_attr((string) $cancel_req_id); ?>">
+            <input type="hidden" name="res_cancel_token" value="<?php echo esc_attr($cancel_req_token); ?>">
+            <button type="submit" class="button button-dark">Ja, Reservierung jetzt stornieren</button>
+            <a class="button button-quiet" href="<?php echo esc_url(home_url('/reservations/')); ?>">Abbrechen</a>
+          </form>
+        </div>
+
+      <?php elseif ($booking_submitted && $confirmed_data):
+        $c_date  = $confirmed_data['date'];
+        $c_time  = $confirmed_data['time'];
+        $c_party = $confirmed_data['party'];
+        $c_id    = (int) $confirmed_data['id'];
+        try {
+            $start_dt = new DateTimeImmutable($c_date . ' ' . $c_time . ':00', wowthai_timezone());
+        } catch (Exception $e) {
+            $start_dt = $now_vienna;
+        }
+        $end_dt    = $start_dt->modify('+2 hours');
+        $start_iso = $start_dt->format('Ymd\THis');
+        $end_iso   = $end_dt->format('Ymd\THis');
+        $cal_title = rawurlencode("Tischreservierung: WOW Thai Steyr ({$c_party} Pers.)");
+        $cal_desc  = rawurlencode("Ihre Reservierung bei WOW Thai Steyr für {$c_party} Personen. Tel: {$wow_ph}");
+        $cal_loc   = rawurlencode('WOW Thai Steyr, City Point 1. OG, Leopold-Werndl-Straße 2, 4400 Steyr');
+        $cal_url   = "https://calendar.google.com/calendar/render?action=TEMPLATE&text={$cal_title}&dates={$start_iso}/{$end_iso}&ctz=Europe/Vienna&details={$cal_desc}&location={$cal_loc}";
+        $ics_url   = $c_id > 0 ? wowthai_res_ics_url($c_id) : '';
+        $disp_date = wowthai_format_date_vienna($c_date, 'd.m.Y');
+      ?>
+        <div class="booking-success" role="status">
           <h2>Vielen Dank für Ihre Reservierung!</h2>
-          <p>Wir haben Ihre Anfrage für <strong><?php echo esc_html($date); ?> um <?php echo esc_html($time); ?> Uhr</strong> für <strong><?php echo esc_html($party); ?> Personen</strong> erhalten.</p>
+          <p>Wir haben Ihre Anfrage für den <strong><?php echo esc_html($disp_date); ?> um <?php echo esc_html($c_time); ?> Uhr</strong> für <strong><?php echo esc_html((string) $c_party); ?> Personen</strong> erhalten.</p>
           <p>Wir freuen uns darauf, Sie bald im Restaurant begrüßen zu dürfen!</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
             <a class="button button-dark" href="<?php echo esc_url(home_url('/menu/')); ?>">Schon jetzt Speisekarte ansehen ↗</a>
-            <a class="button button-quiet" href="<?php echo esc_url($cal_url); ?>" target="_blank" rel="noopener">📅 In Google Kalender eintragen ↗</a>
+            <a class="button button-quiet" href="<?php echo esc_url($cal_url); ?>" target="_blank" rel="noopener">📅 Google Kalender ↗</a>
+            <?php if ($ics_url !== ''): ?>
+              <a class="button button-quiet" href="<?php echo esc_url($ics_url); ?>">📲 Apple / Outlook Kalender (.ics)</a>
+            <?php endif; ?>
           </div>
         </div>
+
       <?php else: ?>
         <h2 class="booking-title">Tisch online reservieren</h2>
         <p class="booking-copy">Füllen Sie das Formular aus – wir reservieren Ihren Tisch umgehend.</p>
 
-        <?php if ($booking_error): ?>
-          <p class="booking-error"><?php echo esc_html($booking_error); ?></p>
+        <?php if ($booking_error !== ''): ?>
+          <p class="booking-error" role="alert"><?php echo esc_html($booking_error); ?></p>
         <?php endif; ?>
 
-        <form class="booking-form" method="POST" action="">
+        <form class="booking-form" method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+          <input type="hidden" name="action" value="wowthai_reserve">
           <?php wp_nonce_field('wowthai_make_reservation', 'wowthai_reservation_nonce'); ?>
+
+          <!-- Honeypot field against automated spam bots -->
+          <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+            <label for="res_website">Website</label>
+            <input type="text" id="res_website" name="website" value="" tabindex="-1" autocomplete="off">
+          </div>
 
           <div class="field">
             <label for="res_date">Datum *</label>
-            <input type="date" id="res_date" name="res_date" required min="<?php echo date('Y-m-d'); ?>" value="<?php echo date('Y-m-d'); ?>">
+            <input type="date" id="res_date" name="res_date" required min="<?php echo esc_attr($today_ymd); ?>" max="<?php echo esc_attr($max_ymd); ?>" value="<?php echo esc_attr($default_date_ymd); ?>">
           </div>
 
           <div class="field">
             <label for="res_time">Uhrzeit *</label>
             <select id="res_time" name="res_time" required>
-              <option value="11:30">11:30 Uhr</option>
-              <option value="12:00">12:00 Uhr</option>
-              <option value="12:30">12:30 Uhr</option>
-              <option value="13:00">13:00 Uhr</option>
-              <option value="13:30">13:30 Uhr</option>
-              <option value="14:00">14:00 Uhr</option>
-              <option value="17:00">17:00 Uhr</option>
-              <option value="17:30">17:30 Uhr</option>
-              <option value="18:00" selected>18:00 Uhr</option>
-              <option value="18:30" class="opt-mosa">18:30 Uhr</option>
-              <option value="19:00" class="opt-mosa">19:00 Uhr</option>
-              <option value="19:30" class="opt-mosa">19:30 Uhr</option>
-              <option value="20:00" class="opt-mosa">20:00 Uhr</option>
-              <option value="20:30" class="opt-mosa">20:30 Uhr</option>
+              <?php foreach ($initial_slots as $idx => $slot_hm): ?>
+                <option value="<?php echo esc_attr($slot_hm); ?>"<?php selected($idx === 0); ?>><?php echo esc_html($slot_hm); ?> Uhr</option>
+              <?php endforeach; ?>
             </select>
             <div id="res_sushi_monday_hint" style="display:none;margin-top:6px;font-size:12px;color:#d4a359;font-weight:600;">🍣 Hinweis: Montags hat die Sushi-Bar Ruhetag. Warme Speisen &amp; Currys bereiten wir sehr gerne für Sie zu!</div>
           </div>
@@ -193,28 +207,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_n
               <option value="6">6 Personen</option>
               <option value="7">7 Personen</option>
               <option value="8">8 Personen</option>
-              <option value="10">10+ Personen (Größere Gruppe)</option>
+              <option value="10">10–12 Personen (Größere Gruppe)</option>
             </select>
           </div>
 
           <div class="field">
             <label for="res_name">Ihr Name *</label>
-            <input type="text" id="res_name" name="res_name" required placeholder="Vor- und Nachname">
+            <input type="text" id="res_name" name="res_name" required maxlength="80" autocomplete="name" placeholder="Vor- und Nachname">
           </div>
 
           <div class="field">
             <label for="res_phone">Telefonnummer *</label>
-            <input type="tel" id="res_phone" name="res_phone" required placeholder="+43 ...">
+            <input type="tel" id="res_phone" name="res_phone" required maxlength="25" inputmode="tel" autocomplete="tel" placeholder="+43 ...">
           </div>
 
           <div class="field full">
-            <label for="res_email">E-Mail-Adresse</label>
-            <input type="email" id="res_email" name="res_email" placeholder="ihre@email.at">
+            <label for="res_email">E-Mail-Adresse (für Ihre Bestätigung)</label>
+            <input type="email" id="res_email" name="res_email" maxlength="120" autocomplete="email" placeholder="ihre@email.at">
           </div>
 
           <div class="field full">
             <label for="res_notes">Besondere Wünsche / Anmerkungen (optional)</label>
-            <textarea id="res_notes" name="res_notes" placeholder="z. B. Hochstuhl benötigt, Allergien, Geburtstag..."></textarea>
+            <textarea id="res_notes" name="res_notes" maxlength="500" placeholder="z. B. Hochstuhl benötigt, Allergien, Geburtstag..."></textarea>
+          </div>
+
+          <div class="field full" style="margin-top:4px;">
+            <label for="res_consent" style="display:flex;align-items:flex-start;gap:10px;font-size:12px;line-height:1.5;color:var(--muted);cursor:pointer;">
+              <input type="checkbox" id="res_consent" name="res_consent" value="1" required style="margin-top:3px;min-width:18px;min-height:18px;accent-color:var(--orange);">
+              <span>Ich stimme zu, dass meine Angaben zur Bearbeitung dieser Tischreservierung gemäß der <a href="<?php echo esc_url(home_url('/datenschutz/')); ?>" target="_blank" rel="noopener" style="color:#d4a359;text-decoration:underline;">Datenschutzerklärung (DSGVO)</a> verarbeitet werden. *</span>
+            </label>
           </div>
 
           <div class="booking-submit">
@@ -231,6 +252,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const dateInput = document.getElementById('res_date');
   const timeSelect = document.getElementById('res_time');
   const sushiHint = document.getElementById('res_sushi_monday_hint');
+  const slotsByDow = <?php echo wp_json_encode($slots_by_weekday); ?>;
+  const todayYmd = <?php echo wp_json_encode($today_ymd); ?>;
+  const todaySlots = <?php echo wp_json_encode($today_slots); ?>;
 
   if (!dateInput || !timeSelect) return;
 
@@ -238,29 +262,30 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!dateInput.value) return;
     const parts = dateInput.value.split('-');
     if (parts.length < 3) return;
-    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    const dayOfWeek = d.getDay(); // 0 = So, 1 = Mo
+    const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    const jsDay = d.getDay(); // 0 = So, 1 = Mo .. 6 = Sa
+    const isoDow = jsDay === 0 ? 7 : jsDay;
 
-    // Monday Sushi hint
     if (sushiHint) {
-      sushiHint.style.display = (dayOfWeek === 1) ? 'block' : 'none';
+      sushiHint.style.display = (isoDow === 1) ? 'block' : 'none';
     }
 
-    // Sunday slots: restaurant closes at 19:00, hide slots > 18:00
-    const moSaOpts = timeSelect.querySelectorAll('.opt-mosa');
-    if (dayOfWeek === 0) {
-      moSaOpts.forEach(opt => {
-        opt.disabled = true;
-        opt.style.display = 'none';
-      });
-      if (['18:30', '19:00', '19:30', '20:00', '20:30'].includes(timeSelect.value)) {
-        timeSelect.value = '18:00';
-      }
-    } else {
-      moSaOpts.forEach(opt => {
-        opt.disabled = false;
-        opt.style.display = '';
-      });
+    const available = (dateInput.value === todayYmd && todaySlots.length > 0)
+      ? todaySlots
+      : (slotsByDow[isoDow] || []);
+
+    const prevVal = timeSelect.value;
+    timeSelect.innerHTML = '';
+    available.forEach(function(hm) {
+      const opt = document.createElement('option');
+      opt.value = hm;
+      opt.textContent = hm + ' Uhr';
+      timeSelect.appendChild(opt);
+    });
+    if (available.includes(prevVal)) {
+      timeSelect.value = prevVal;
+    } else if (available.length > 0) {
+      timeSelect.value = available[0];
     }
   }
 

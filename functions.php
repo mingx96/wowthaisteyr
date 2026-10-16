@@ -665,6 +665,7 @@ function wowthai_get_products_in_cat($term_id) {
     return $products;
 }
 
+require_once get_template_directory() . '/inc/hours.php';
 require_once get_template_directory() . '/inc/pickup.php';
 
 // 14. Restaurant Stammdaten, Öffnungszeiten & Google Schema.org
@@ -681,3 +682,5 @@ require_once get_template_directory() . '/inc/admin-orders.php';
 
 // 18. Tischanfragen & Reservierungsverwaltung in WP-Admin (Resmio/Wix Style)
 require_once get_template_directory() . '/inc/admin-reservations.php';
+require_once get_template_directory() . '/inc/reservations-front.php';
+
