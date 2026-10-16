@@ -9,9 +9,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 function wowthai_send_branded_email( $to, $subject, $headline, $body_html, $action_url = '', $action_label = '' ) {
-    $logo_url = get_template_directory_uri() . '/assets/img/logo.png';
-    $phone    = '+43 7252 74973';
-    $address  = 'City Point · 1. Obergeschoss, Leopold-Werndl-Straße 2, 4400 Steyr';
+    $res_info   = function_exists( 'wowthai_get_restaurant_data' ) ? wowthai_get_restaurant_data() : [];
+    $logo_url   = get_template_directory_uri() . '/assets/img/logo.png';
+    $phone      = $res_info['phone'] ?? '+43 7252 74973';
+    $phone_tel  = $res_info['phone_clean'] ?? '+43725274973';
+    $address    = 'City Point · 1. Obergeschoss, Leopold-Werndl-Straße 2, 4400 Steyr';
+    $from_email = function_exists( 'wowthai_get_notification_email' )
+        ? wowthai_get_notification_email()
+        : ( $res_info['email'] ?? 'info@wow-thai-restaurant.at' );
 
     ob_start();
     ?>
@@ -68,7 +73,7 @@ function wowthai_send_branded_email( $to, $subject, $headline, $body_html, $acti
                         <td class="footer-td">
                             <strong>WOW Thai Steyr</strong><br>
                             <?php echo esc_html( $address ); ?><br>
-                            Telefon: <a href="tel:<?php echo esc_attr( $phone ); ?>"><?php echo esc_html( $phone ); ?></a> · 
+                            Telefon: <a href="tel:<?php echo esc_attr( $phone_tel ); ?>"><?php echo esc_html( $phone ); ?></a> · 
                             Web: <a href="<?php echo esc_url( home_url('/') ); ?>">wow-thai-steyr.at</a>
                             <p style="margin: 12px 0 0 0; padding-top: 10px; border-top: 1px dashed #26231c; font-size: 11px; color: #a39c8e;">
                                 ⭐⭐⭐⭐⭐ Hat es Ihnen geschmeckt? Wir freuen uns über Ihre <a href="https://maps.google.com/?q=WOW+Thai+Steyr" target="_blank" style="color: #d4a359; text-decoration: underline;">5-Sterne-Bewertung auf Google</a>!
@@ -85,7 +90,7 @@ function wowthai_send_branded_email( $to, $subject, $headline, $body_html, $acti
 
     $headers = [
         'Content-Type: text/html; charset=UTF-8',
-        'From: WOW Thai Steyr <' . get_option( 'admin_email' ) . '>',
+        'From: WOW Thai Steyr <' . $from_email . '>',
     ];
 
     return wp_mail( $to, $subject, $message, $headers );

@@ -289,9 +289,35 @@ function wowthai_display_cart_item_variant($item_data, $cart_item) {
 }
 add_filter('woocommerce_get_item_data', 'wowthai_display_cart_item_variant', 10, 2);
 
+// Ensure /impressum/ and /datenschutz/ pages exist without manual DB sync
+function wowthai_ensure_legal_pages() {
+    if (get_option('wowthai_legal_pages_v1') === 'done') {
+        return;
+    }
+    $legal_pages = [
+        'impressum'   => 'Impressum',
+        'datenschutz' => 'Datenschutzerklärung',
+    ];
+    foreach ($legal_pages as $slug => $title) {
+        if (!get_page_by_path($slug, OBJECT, 'page')) {
+            wp_insert_post([
+                'post_type'      => 'page',
+                'post_name'      => $slug,
+                'post_title'     => $title,
+                'post_status'    => 'publish',
+                'post_content'   => '',
+                'comment_status' => 'closed',
+                'ping_status'    => 'closed',
+            ]);
+        }
+    }
+    update_option('wowthai_legal_pages_v1', 'done', true);
+}
+add_action('init', 'wowthai_ensure_legal_pages', 20);
+
 function wowthai_redirect_legacy_pages() {
     $path = wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
-    $path = untrailingslashit($path);
+    $path = untrailingslashit((string) $path);
     if ($path === '/speisekarte') {
         wp_safe_redirect(home_url('/menu/'), 301);
         exit;
@@ -299,6 +325,20 @@ function wowthai_redirect_legacy_pages() {
     if ($path === '/tisch-reservieren') {
         wp_safe_redirect(home_url('/reservations/'), 301);
         exit;
+    }
+    if (is_404() && ($path === '/impressum' || $path === '/datenschutz')) {
+        global $wp_query;
+        if ($wp_query) {
+            $wp_query->is_404      = false;
+            $wp_query->is_page     = true;
+            $wp_query->is_singular = true;
+        }
+        status_header(200);
+        $tpl = get_template_directory() . ($path === '/impressum' ? '/page-impressum.php' : '/page-datenschutz.php');
+        if (file_exists($tpl)) {
+            include $tpl;
+            exit;
+        }
     }
     if (function_exists('is_product') && is_product()) {
         // Product pages cannot display the custom restaurant choices safely.
