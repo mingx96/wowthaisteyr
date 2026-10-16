@@ -6,7 +6,7 @@
 - **Data scope**: Selective import of Wix contact profiles only from `a1e58c2c-1fca-4e4b-a015-e14b156d3a32`. No historical orders/reservations, no account creation, no marketing sends, no full database sync. Customer files stay outside Git and public uploads.
 - **Deployment status**: Implementation started; online installation awaits an authenticated wp-admin browser session. Record actual import counts and release revision here before handover.
 - **Handover Timestamp**: 2026-10-16 11:35 (Europe/Vienna)
-- **Current Theme Version**: `v1.3.0`
+- **Current Theme Version**: `v1.3.1`
 - **Git Repository**: `https://github.com/mingx96/wowthaisteyr.git`
 - **Primary Branch**: `main`
 
@@ -15,13 +15,37 @@
 ## 🔒 QUY TẮC PHỐI HỢP (RULES OF ENGAGEMENT)
 1. **Chỉ Agent giữ lượt được ghi vào site chung**: Trước khi ghi vào Studio hoặc push lên Live (`wpcomstaging.com`), kiểm tra và cập nhật `COORDINATION.md`.
 2. **Triển khai Theme — KHÔNG đồng bộ Database**: Mọi thay đổi nằm hoàn toàn trong mã nguồn theme `wp-content/themes/wowthai`. Tuyệt đối không import/overwrite database (`--options "themes"` duy nhất) để bảo toàn dữ liệu đơn hàng và cấu hình thực tế.
-3. **Kiểm định Tự động Bắt buộc**: Luôn chạy `node dev/verify.mjs` (10/10 cổng G1–G10 PASS + 62 unit assertions trong `dev/tests/hours.test.php`) trước khi đóng gói `node dev/build.mjs` và đẩy lên Live.
+3. **Kiểm định Tự động Bắt buộc**: Luôn chạy `node dev/verify.mjs` (10/10 cổng G1–G10 PASS + 98 unit assertions trong `dev/tests/hours.test.php`) trước khi đóng gói `node dev/build.mjs` và đẩy lên Live.
 
 ---
 
-## 🚀 TÓM TẮT THAY ĐỔI TỪ v1.1.4 ĐẾN v1.3.0 (CHANGELOG)
+## 🚀 TÓM TẮT THAY ĐỔI TỪ v1.1.4 ĐẾN v1.3.1 (CHANGELOG)
 
-### 1. Phiên bản v1.2.0 – v1.2.3
+### 1. Phiên bản v1.3.1 (Chuẩn hóa Giờ mở cửa 11:00–14:30 Mo–Sa, Mittagsmenü M4 Di–Fr, Kết nối Email Toàn diện)
+- **Chuẩn hóa Giờ Mở Cửa Mới (`inc/hours.php`)**:
+  - Thứ 2 đến Thứ 7 (`Mo–Sa`): Bếp mở từ **`11:00 – 14:30`** và **`17:00 – 21:00`** (điều chỉnh ca trưa từ `11:30` thành `11:00`).
+  - Chủ Nhật (`So`): Mở liên tục từ **`11:30 – 19:00`**.
+  - Thứ 2 giữ nguyên là ngày nghỉ Sushi (`Montags Sushi-Ruhetag`, bếp nóng mở bình thường).
+- **Quy tắc Nghiêm ngặt cho Mittagsmenü M4 (`★ M4 – Spicy Crunchy Tuna Rolls`, ID 84)**:
+  - Khác với Mittagsmenü thường (phục vụ `Mo–Sa`), riêng **M4 Sushi chỉ phục vụ từ Thứ 3 đến Thứ 6 (`Di – Fr` `[2, 3, 4, 5]`) trong khung giờ `11:00 – 14:30`**.
+  - Bổ sung `wowthai_product_is_mittagsmenu_m4()`, `wowthai_cart_has_mittagsmenu_m4()`, `wowthai_mittagsmenu_m4_available_on_dow()`, `wowthai_is_slot_valid_for_mittagsmenu_m4()`.
+  - Trên `/menu/`: Gắn badge nổi bật `🍣 Nur Di – Fr · 11:00 – 14:30 Uhr` trên thẻ món M4; vô hiệu hóa nút đặt món M4 vào Thứ 2, Thứ 7, Chủ Nhật (`🍣 Nur Di – Fr verfügbar`).
+  - Tại Giỏ hàng / Kasse: Chỉ hiển thị các khung giờ Thứ 3–Thứ 6 cho đơn chứa M4; tự động chặn đặt ASAP ngoài giờ M4 với thông báo lịch sự tiếng Đức.
+- **Giải quyết Triệt để Lỗi Ký tự Thực thể HTML & Bổ sung Mô tả Món Ăn (`inc/menu-normalizer.php`)**:
+  - Giải mã thực thể HTML (`html_entity_decode`) tránh lỗi đúp mã hóa `&#8211;` của WordPress `wptexturize()`.
+  - Đồng bộ khoảng trắng tên món: `★M` → `★ M` (nhất quán `★ M1`, `★ M2`, `★ M3R`, `★ M3H`, `★ M4`, `★ M2V`, `★ M3V`).
+  - Sửa lỗi chính tả `(inkl.Reis)` → `(inkl. Reis)`, `Osinko Maki` → `Oshinko Maki`.
+  - Bổ sung mô tả ẩm thực chuyên nghiệp cho 5 món bị bỏ trống trên Live (`V9`, `V11`, `V12`, `Lachs Bowl`, `Vegi Bowl`).
+- **Nâng cấp Hệ thống Kết nối Email Khách hàng & Bếp (`inc/email-templates.php`, `inc/admin-orders.php`, `inc/admin-reservations.php`)**:
+  - Thêm header `Reply-To: WOW Thai Steyr <info@wow-thai-restaurant.at>`.
+  - Bổ sung `wowthai_email_log` (ring buffer 20 email gần nhất) và hook `wp_mail_failed` để bắt lỗi SMTP từ server.
+  - Tự động gửi email HTML Branded khi nhân viên bấm **✓ Annehmen** (`✓ Bestellung #... angenommen – In Zubereitung`).
+  - Tự động gửi email HTML Branded khi nhân viên bấm **🥡 Abholbereit** (`🥡 Ihre Bestellung #... ist abholbereit!`).
+  - Đính kèm link tải file lịch `.ics` và link tự hủy đặt bàn 1-click trong email xác nhận bàn của khách.
+  - Tích hợp thanh trạng thái kết nối E-mail trực quan ngay tại bảng điều khiển Admin Orders.
+- **Bộ Kiểm định Tự động**: Tăng từ 62 lên **98 unit assertions** trong `dev/tests/hours.test.php`; vượt qua 10/10 cổng kiểm định tự động `dev/verify.mjs`.
+
+### 2. Phiên bản v1.2.0 – v1.2.3
 - **Live Search & Filter**, **In Phiếu Bếp 80mm (`[🖨️ Bon]`)**, **Chuông báo Web Audio Ding-Dong**, **Email HTML Branded Luxury**, **Trang pháp lý `/impressum/` & `/datenschutz/`**, **Schema.org JSON-LD & PWA Manifest**.
 - **Thang độ cay (`🌶️`)**, **Bảng tra dị ứng Codex EU (A–R)**, **Slide-Cart Upsell 1-Click**, **Điều tiết nhịp độ Bếp ("Küchen-Taktung")**, **Bảo mật tính giá Server-side**, **Modifier Groups**, **`inc/pickup.php`**.
 
