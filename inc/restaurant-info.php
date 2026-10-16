@@ -1,131 +1,114 @@
 <?php
 /**
  * WOW Thai Steyr - Restaurant Info, Opening Hours & Structured Data (Schema.org)
- * Zentrale, verbindliche Restaurant- & Küchenzeiten:
- * - Montag bis Samstag: 11:30–14:30 Uhr (Mittag) & 17:00–21:00 Uhr (Abend)
- * - Sonntag: 11:30–19:00 Uhr (durchgehend)
- * - Montags: Sushi-Ruhetag (Warme Küche regulär geöffnet)
+ * Delegiert sämtliche Öffnungs- und Küchenzeiten an inc/hours.php (Single Source of Truth).
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+require_once __DIR__ . '/hours.php';
+
 /**
  * Zentrale Restaurant-Stammdaten (Steyr)
  */
 function wowthai_get_restaurant_data() {
-    return [
-        'name'            => 'WOW Thai Steyr',
-        'legal_name'      => 'WOW Thai Steyr Gastronomie GmbH',
-        'cuisine'         => ['Thailändisch', 'Asiatisch', 'Sushi', 'Wok'],
-        'street'          => 'Leopold-Werndl-Straße 2 (City Point · 1. OG)',
-        'postal_code'     => '4400',
-        'city'            => 'Steyr',
-        'region'          => 'Oberösterreich',
-        'country'         => 'AT',
-        'country_name'    => 'Österreich',
-        'phone'           => '+43 7252 74973',
-        'phone_clean'     => '+43725274973',
-        'email'           => 'info@wow-thai-restaurant.at',
-        'price_range'     => '€€',
-        'geo'             => [
-            'latitude'    => '48.0435',
-            'longitude'   => '14.4178',
+    $hd = wowthai_hours_display();
+    $data = [
+        'name'               => 'WOW Thai Steyr',
+        'legal_name'         => 'WOW Thai Steyr Gastronomie GmbH',
+        'cuisine'            => ['Thailändisch', 'Asiatisch', 'Sushi', 'Wok'],
+        'street'             => 'Leopold-Werndl-Straße 2 (City Point · 1. OG)',
+        'postal_code'        => '4400',
+        'city'               => 'Steyr',
+        'region'             => 'Oberösterreich',
+        'country'            => 'AT',
+        'country_name'       => 'Österreich',
+        'phone'              => '+43 7252 74973',
+        'phone_clean'        => '+43725274973',
+        'phone_tel'          => '+43725274973',
+        'email'              => 'info@wow-thai-restaurant.at',
+        'price_range'        => '€€',
+        'chamber'            => 'Wirtschaftskammer Oberösterreich, Fachgruppe Gastronomie',
+        'authority'          => 'Magistrat der Stadt Steyr',
+        'trade_regulation'   => 'Gewerbeordnung 1994 (abrufbar unter www.ris.bka.gv.at)',
+        'uid'                => (string) get_option('wowthai_legal_uid', ''),
+        'fn_number'          => (string) get_option('wowthai_legal_fn', ''),
+        'fn_court'           => (string) get_option('wowthai_legal_court', 'Landesgericht Steyr'),
+        'managing_director'  => (string) get_option('wowthai_legal_director', ''),
+        'geo'                => [
+            'latitude'       => '48.0435',
+            'longitude'      => '14.4178',
         ],
-        'google_maps_url' => 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr',
+        'google_maps_url'    => 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr',
         'opening_hours_text' => [
-            'Mo–Sa'   => '11:30–14:30 · 17:00–21:00 Uhr',
-            'So'      => '11:30–19:00 Uhr (durchgehend)',
-            'Hinweis' => 'Montags Sushi-Ruhetag (Warme Küche regulär)',
+            'Mo–Sa'   => $hd['mosa_hours_uhr'],
+            'So'      => $hd['sun_hours_uhr'],
+            'Hinweis' => $hd['sushi_note'],
         ],
     ];
+    return apply_filters('wowthai_restaurant_data', $data);
 }
+
+/**
+ * Liefert eine verlässliche E-Mail-Adresse für Reservierungs- & Systembenachrichtigungen.
+ * Verhindert, dass E-Mails an Platzhalter wie dev-email@wpengine.local verloren gehen.
+ */
+function wowthai_get_notification_email(): string {
+    $custom = trim((string) get_option('wowthai_notification_email', ''));
+    if ($custom !== '' && is_email($custom)) {
+        return $custom;
+    }
+    $admin_email = trim((string) get_option('admin_email'));
+    if (
+        !is_email($admin_email) ||
+        preg_match('/\.(local|invalid|test|example)$/i', $admin_email) ||
+        stripos($admin_email, 'wpengine.local') !== false
+    ) {
+        $info = wowthai_get_restaurant_data();
+        return $info['email'];
+    }
+    return $admin_email;
+}
+
+/**
+ * Korrigiert die Absender-E-Mail-Adresse, falls WordPress noch auf .local steht.
+ */
+function wowthai_filter_wp_mail_from($from_email) {
+    if (
+        empty($from_email) ||
+        preg_match('/\.(local|invalid|test|example)$/i', (string) $from_email) ||
+        stripos((string) $from_email, 'wpengine.local') !== false ||
+        stripos((string) $from_email, 'wordpress@') === 0
+    ) {
+        return wowthai_get_notification_email();
+    }
+    return $from_email;
+}
+add_filter('wp_mail_from', 'wowthai_filter_wp_mail_from', 20);
+
+function wowthai_filter_wp_mail_from_name($from_name) {
+    if (empty($from_name) || $from_name === 'WordPress') {
+        return 'WOW Thai Steyr';
+    }
+    return $from_name;
+}
+add_filter('wp_mail_from_name', 'wowthai_filter_wp_mail_from_name', 20);
 
 /**
  * Prüft ob am angegebenen Wochentag Sushi verfügbar ist
  * $day_of_week: 1 (Montag) bis 7 (Sonntag)
  */
 function wowthai_is_sushi_available_on_day($day_of_week = null) {
-    if ($day_of_week === null) {
-        $now = wowthai_pickup_now();
-        $day_of_week = (int) $now->format('N');
-    }
-    // Montag (1) ist Sushi-Ruhetag!
-    return ((int)$day_of_week !== 1);
+    return wowthai_sushi_available_on_dow($day_of_week !== null ? (int) $day_of_week : null);
 }
 
 /**
  * Ermittelt aktuellen Öffnungsstatus basierend auf der aktuellen Uhrzeit (Europe/Vienna)
  */
 function wowthai_get_opening_status() {
-    $now = wowthai_pickup_now(); // DateTimeImmutable in WordPress timezone
-    $day_of_week = (int) $now->format('N'); // 1 = Mo, 7 = So
-    $hour_min = $now->format('H:i');
-
-    $is_open = false;
-    $status_label = 'Vorbestellung möglich';
-    $status_detail = '';
-    $status_type = 'preorder'; // 'open' oder 'preorder'
-    $next_open_label = '';
-
-    $prep_time = function_exists('wowthai_get_kitchen_prep_time') ? wowthai_get_kitchen_prep_time() : '20–30 Min.';
-
-    if ($day_of_week >= 1 && $day_of_week <= 6) {
-        // Mo - Sa: 11:30 - 14:30 & 17:00 - 21:00
-        if ($hour_min >= '11:30' && $hour_min < '14:30') {
-            $is_open = true;
-            $status_type = 'open';
-            $status_label = 'Jetzt geöffnet';
-            $status_detail = 'Mittagsservice bis 14:30 Uhr · Abholung bereit in ca. ' . $prep_time;
-        } elseif ($hour_min >= '17:00' && $hour_min < '21:00') {
-            $is_open = true;
-            $status_type = 'open';
-            $status_label = 'Jetzt geöffnet';
-            $status_detail = 'Abendservice bis 21:00 Uhr · Abholung bereit in ca. ' . $prep_time;
-        } elseif ($hour_min < '11:30') {
-            $next_open_label = 'heute um 11:30 Uhr';
-            $status_detail = 'Küche öffnet heute um 11:30 Uhr. Sie können jetzt für den Mittag vorbestellen!';
-        } elseif ($hour_min >= '14:30' && $hour_min < '17:00') {
-            $next_open_label = 'heute um 17:00 Uhr';
-            $status_detail = 'Nachmittagspause · Küche öffnet wieder um 17:00 Uhr. Vorbestellung jetzt möglich!';
-        } else {
-            // Nach 21:00 Uhr
-            if ($day_of_week === 6) {
-                $next_open_label = 'morgen (Sonntag) ab 11:30 Uhr';
-                $status_detail = 'Küche für heute geschlossen. Vorbestellung für Sonntag ab 11:30 Uhr möglich!';
-            } else {
-                $next_open_label = 'morgen ab 11:30 Uhr';
-                $status_detail = 'Küche für heute geschlossen. Vorbestellung für morgen ab 11:30 Uhr möglich!';
-            }
-        }
-    } elseif ($day_of_week === 7) {
-        // So: 11:30 - 19:00 durchgehend
-        if ($hour_min >= '11:30' && $hour_min < '19:00') {
-            $is_open = true;
-            $status_type = 'open';
-            $status_label = 'Jetzt geöffnet';
-            $status_detail = 'Sonntag durchgehend geöffnet bis 19:00 Uhr · Abholung bereit in ca. ' . $prep_time;
-        } elseif ($hour_min < '11:30') {
-            $next_open_label = 'heute um 11:30 Uhr';
-            $status_detail = 'Küche öffnet am Sonntag um 11:30 Uhr. Vorbestellung jetzt möglich!';
-        } else {
-            // Nach 19:00 Uhr am Sonntag
-            $next_open_label = 'morgen (Montag) ab 11:30 Uhr';
-            $status_detail = 'Schönen Sonntagabend! Wir sind morgen ab 11:30 Uhr wieder für Sie da (Montags Sushi-Ruhetag).';
-        }
-    }
-
-    return [
-        'is_open'         => $is_open,
-        'status_type'     => $status_type,
-        'status_label'    => $status_label,
-        'status_detail'   => $status_detail,
-        'next_open_label' => $next_open_label,
-        'time_now'        => $hour_min,
-        'day_now'         => $day_of_week,
-        'is_sushi_day'    => wowthai_is_sushi_available_on_day($day_of_week),
-    ];
+    return wowthai_compute_opening_status();
 }
 
 /**
@@ -207,29 +190,10 @@ function wowthai_output_restaurant_schema() {
             'latitude'  => $info['geo']['latitude'],
             'longitude' => $info['geo']['longitude'],
         ],
-        'openingHoursSpecification' => [
-            [
-                '@type'     => 'OpeningHoursSpecification',
-                'dayOfWeek' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-                'opens'     => '11:30',
-                'closes'    => '14:30',
-            ],
-            [
-                '@type'     => 'OpeningHoursSpecification',
-                'dayOfWeek' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-                'opens'     => '17:00',
-                'closes'    => '21:00',
-            ],
-            [
-                '@type'     => 'OpeningHoursSpecification',
-                'dayOfWeek' => 'Sunday',
-                'opens'     => '11:30',
-                'closes'    => '19:00',
-            ],
-        ],
+        'openingHoursSpecification' => wowthai_schema_opening_hours(),
     ];
 
-    echo "\n<!-- WOW Thai Steyr Structured Data -->\n";
-    echo '<script type="application/ld+json">' . wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) . "</script>\n";
+    echo "\n<!-- WOW Thai Steyr - Google Restaurant Schema.org JSON-LD -->\n";
+    echo '<script type="application/ld+json">' . wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT ) . "</script>\n";
 }
-add_action( 'wp_head', 'wowthai_output_restaurant_schema', 20 );
+add_action( 'wp_head', 'wowthai_output_restaurant_schema', 5 );

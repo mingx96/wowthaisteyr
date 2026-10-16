@@ -261,7 +261,7 @@ function wowthai_res_column_content( $column, $post_id ) {
             break;
 
         case 'res_datetime':
-            $formatted_date = $date ? date_i18n( 'D, d. M Y', strtotime( $date ) ) : '–';
+            $formatted_date = $date ? wowthai_format_date_vienna( (string) $date, 'D, d. M Y' ) : '–';
             echo '<div style="font-size:14px;font-weight:700;color:#1d2327;">' . esc_html( $formatted_date );
             if ( $is_today ) {
                 echo ' <span style="background:#e53935;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;vertical-align:middle;text-transform:uppercase;font-weight:800;margin-left:4px;">Heute</span>';
@@ -348,9 +348,10 @@ function wowthai_handle_res_status_change() {
     $res_party   = get_post_meta( $res_id, '_res_party', true );
 
     if ( ! empty( $guest_email ) && is_email( $guest_email ) ) {
-        $formatted_date = $res_date ? date_i18n( 'd.m.Y', strtotime( $res_date ) ) : $res_date;
-        $restaurant_name = 'WOW Thai Steyr';
-        $restaurant_phone = '+43 7252 74973';
+        $formatted_date = $res_date ? wowthai_format_date_vienna( (string) $res_date, 'd.m.Y' ) : $res_date;
+        $res_info       = function_exists( 'wowthai_get_restaurant_data' ) ? wowthai_get_restaurant_data() : [];
+        $restaurant_name  = $res_info['name'] ?? 'WOW Thai Steyr';
+        $restaurant_phone = $res_info['phone'] ?? '+43 7252 74973';
 
         if ( $new_status === 'confirmed' ) {
             $subject = "✓ Bestätigt: Ihre Tischreservierung bei $restaurant_name";

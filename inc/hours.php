@@ -377,3 +377,23 @@ function wowthai_schema_opening_hours(): array {
 
     return $specs;
 }
+
+/**
+ * Formatiert ein Datum ("YYYY-MM-DD") zeitzonensicher in Europe/Vienna.
+ */
+function wowthai_format_date_vienna(string $ymd, string $format = 'D, d. M Y'): string {
+    $ymd = trim($ymd);
+    if ($ymd === '') {
+        return '–';
+    }
+    try {
+        $dt = new DateTimeImmutable($ymd . ' 12:00:00', wowthai_timezone());
+        if (function_exists('wp_date')) {
+            return (string) wp_date($format, $dt->getTimestamp(), wowthai_timezone());
+        }
+        return $dt->format($format);
+    } catch (Exception $e) {
+        return $ymd;
+    }
+}
+
