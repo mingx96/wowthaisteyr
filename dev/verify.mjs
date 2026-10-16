@@ -116,7 +116,7 @@ function recordGate(id, name, issues, warnOnly = false) {
     recordGate('G4', 'UTF-8 no BOM & LF Line Endings', issues, isBaseline);
 }
 
-// G5: JS & PHP Syntax Check
+// G5: JS & PHP Syntax Check + Hours Unit Tests
 {
     const issues = [];
     for (const rel of jsFiles) {
@@ -126,7 +126,33 @@ function recordGate(id, name, issues, warnOnly = false) {
             issues.push(`JS syntax error in ${rel}: ${err.message}`);
         }
     }
-    recordGate('G5', 'JavaScript Syntax Check (node --check)', issues, false);
+    const localPhp = 'C:\\Users\\mnguy\\AppData\\Roaming\\Local\\lightning-services\\php-8.2.29+0\\bin\\win64\\php.exe';
+    const phpBin = fs.existsSync(localPhp) ? localPhp : 'php';
+    let phpAvailable = false;
+    try {
+        execFileSync(phpBin, ['-v'], { stdio: 'pipe' });
+        phpAvailable = true;
+    } catch {
+        phpAvailable = false;
+    }
+    if (phpAvailable) {
+        for (const rel of phpFiles) {
+            try {
+                execFileSync(phpBin, ['-l', path.join(ROOT, rel)], { stdio: 'pipe' });
+            } catch (err) {
+                issues.push(`PHP syntax error in ${rel}: ${err.message}`);
+            }
+        }
+        const hoursTest = path.join(ROOT, 'dev', 'tests', 'hours.test.php');
+        if (fs.existsSync(hoursTest)) {
+            try {
+                execFileSync(phpBin, [hoursTest], { stdio: 'pipe' });
+            } catch (err) {
+                issues.push(`PHP unit test failure in dev/tests/hours.test.php: ${err.message}`);
+            }
+        }
+    }
+    recordGate('G5', 'JS & PHP Syntax Check + Hours Unit Suite (62 assertions)', issues, false);
 }
 
 // G6: Version Synchronization between style.css and functions.php

@@ -5,7 +5,7 @@
 get_header();
 ?>
 
-<main class="wrap" style="padding-top: 60px; padding-bottom: 90px; min-height: 70vh;">
+<main id="main" tabindex="-1" class="wrap" style="padding-top: 60px; padding-bottom: 90px; min-height: 70vh;">
   <?php if (have_posts()) : while (have_posts()) : the_post(); ?>
     <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
       <header class="entry-header">

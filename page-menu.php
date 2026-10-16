@@ -6,11 +6,13 @@ get_header();
 
 $menu_data = wowthai_get_menu_structure();
 $opening_status = function_exists('wowthai_get_opening_status') ? wowthai_get_opening_status() : null;
+$hours_display = function_exists('wowthai_hours_display') ? wowthai_hours_display() : [];
 $allergens = function_exists('wowthai_get_allergen_list') ? wowthai_get_allergen_list() : [];
 $is_sushi_day = function_exists('wowthai_is_sushi_available_on_day') ? wowthai_is_sushi_available_on_day() : true;
+$is_mittags_now = function_exists('wowthai_mittagsmenu_available') ? wowthai_mittagsmenu_available() : false;
 ?>
 
-<main>
+<main id="main" tabindex="-1">
   <section class="page-intro wrap">
     <p class="eyebrow"><span class="eyebrow-dot"></span> WOW THAI · STEYR</p>
     <div class="page-intro-row">
@@ -34,23 +36,24 @@ $is_sushi_day = function_exists('wowthai_is_sushi_available_on_day') ? wowthai_i
 
     <div class="menu-tools">
       <div id="menu-tabs" class="menu-tabs" role="tablist" aria-label="Menüauswahl">
-        <button class="menu-tab active" data-menu="restaurant" type="button">Speisekarte Restaurant</button>
-        <button class="menu-tab" data-menu="sushi" type="button">Speisekarte Sushi<?php if (!$is_sushi_day): ?> <span style="font-size:11px;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:4px;font-weight:700;margin-left:4px;">Montags Ruhetag</span><?php endif; ?></button>
+        <button class="menu-tab active" role="tab" aria-selected="true" data-menu="restaurant" type="button">Speisekarte Restaurant</button>
+        <button class="menu-tab" role="tab" aria-selected="false" data-menu="sushi" type="button">Speisekarte Sushi<?php if (!$is_sushi_day): ?> <span style="font-size:12px;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:4px;font-weight:700;margin-left:4px;">Montags Ruhetag</span><?php endif; ?></button>
       </div>
 
       <!-- Live Search & Filter Bar -->
       <div class="menu-search-filter-bar">
         <div class="search-input-box">
           <span class="search-icon" aria-hidden="true">🔍</span>
+          <label for="dish-search-input" class="visually-hidden">Gericht oder Zutat suchen</label>
           <input type="search" id="dish-search-input" placeholder="Gericht oder Zutat suchen (z. B. Pad Thai, Curry, Frühlingsrollen, Lachs...)" autocomplete="off">
           <button type="button" id="dish-search-clear" class="search-clear-btn" aria-label="Suche löschen" style="display:none;">✕</button>
         </div>
         <div class="filter-chips-row" id="dish-filter-chips">
-          <button type="button" class="filter-chip active" data-filter="all">Alle</button>
-          <button type="button" class="filter-chip" data-filter="veggie">🌱 Vegetarisch / Vegan</button>
-          <button type="button" class="filter-chip" data-filter="spicy">🌶️ Scharf / Pikant</button>
-          <button type="button" class="filter-chip" data-filter="popular">⭐ Beliebt</button>
-          <button type="button" class="filter-chip chip-allergen-btn" id="btn-open-allergens" style="margin-left:auto;">ℹ️ Allergen-Legende (A–R)</button>
+          <button type="button" class="filter-chip active" aria-pressed="true" data-filter="all">Alle</button>
+          <button type="button" class="filter-chip" aria-pressed="false" data-filter="veggie">🌱 Vegetarisch / Vegan</button>
+          <button type="button" class="filter-chip" aria-pressed="false" data-filter="spicy">🌶️ Scharf / Pikant</button>
+          <button type="button" class="filter-chip" aria-pressed="false" data-filter="popular">⭐ Beliebt</button>
+          <button type="button" class="filter-chip chip-allergen-btn" id="btn-open-allergens" aria-haspopup="dialog" style="margin-left:auto;">ℹ️ Allergen-Legende (A–R)</button>
         </div>
       </div>
 
@@ -65,7 +68,8 @@ $is_sushi_day = function_exists('wowthai_is_sushi_available_on_day') ? wowthai_i
     </div>
   </section>
 
-  <section class="wrap menu-content" id="menu-root" aria-live="polite">
+  <section class="wrap menu-content" id="menu-root">
+    <p id="dish-result-status" class="visually-hidden" role="status" aria-live="polite"></p>
     <div class="menu-notice">
       Frisch zubereitet im City Point Steyr. Wählen Sie Ihre Speisen, legen Sie sie in den Warenkorb und holen Sie sie warm und frisch zur gewünschten Zeit ab.
     </div>
@@ -79,10 +83,22 @@ $is_sushi_day = function_exists('wowthai_is_sushi_available_on_day') ? wowthai_i
     </div>
 
     <!-- Restaurant Sections -->
-    <?php foreach ($menu_data['restaurant'] as $sec): ?>
+    <?php foreach ($menu_data['restaurant'] as $sec):
+      $is_mittag_sec = (stripos($sec['slug'], 'mittag') !== false || stripos($sec['name'], 'Mittagsmen') !== false);
+    ?>
       <section class="menu-section" id="sec-<?php echo esc_attr($sec['slug']); ?>" data-menu-type="restaurant">
         <div class="section-heading">
-          <h2><?php echo esc_html($sec['name']); ?></h2>
+          <div>
+            <h2><?php echo esc_html($sec['name']); ?></h2>
+            <?php if ($is_mittag_sec && !empty($hours_display['mittags_note'])): ?>
+              <p class="mittag-hours-badge" style="margin:6px 0 0 0;font-size:12px;color:#e5c478;font-weight:600;">
+                🕒 Mittagsmenü-Zeiten: <?php echo esc_html($hours_display['mittags_note']); ?>
+                <?php if (!$is_mittags_now): ?>
+                  <span style="color:#c4bcad;font-weight:400;"> · Vorbestellung für das Mittagsfenster möglich</span>
+                <?php endif; ?>
+              </p>
+            <?php endif; ?>
+          </div>
           <p class="section-count"><?php echo count($sec['products']); ?> Spezialitäten</p>
         </div>
         <div class="dish-grid">
@@ -206,31 +222,29 @@ $is_sushi_day = function_exists('wowthai_is_sushi_available_on_day') ? wowthai_i
   </section>
 
   <!-- Allergen Legende Modal (A - R Codex Österreich) -->
-  <div id="allergen-modal-wrap" class="modal-wrap" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="allergen-modal-title">
-    <div class="dish-modal allergen-modal" style="max-width: 680px;">
-      <div class="modal-head">
-        <div>
-          <span class="eyebrow" style="color:var(--green);font-size:11px;font-weight:700;letter-spacing:1px;">LEBENSMITTEL-INFORMATION</span>
-          <h2 id="allergen-modal-title" style="margin-top:4px;">Allergene &amp; Zusatzstoffe (A–R)</h2>
-        </div>
-        <button class="icon-close" id="allergen-modal-close" type="button" aria-label="Schließen">&times;</button>
+  <dialog id="allergen-modal-wrap" class="wowthai-dialog dish-modal allergen-modal" closedby="any" aria-labelledby="allergen-modal-title" style="max-width: 680px;">
+    <div class="modal-head">
+      <div>
+        <span class="eyebrow" style="color:var(--green);font-size:12px;font-weight:700;letter-spacing:1px;">LEBENSMITTEL-INFORMATION</span>
+        <h2 id="allergen-modal-title" style="margin-top:4px;">Allergene &amp; Zusatzstoffe (A–R)</h2>
       </div>
-      <p class="modal-description" style="margin-bottom:18px;">
-        Gemäß der EU-Lebensmittelinformationsverordnung (LMIV) und österreichischer Codex-Richtlinie informieren wir Sie transparent über enthaltene Allergene in unseren Speisen. Bei Fragen oder schweren Unverträglichkeiten wenden Sie sich gerne direkt an unser Küchenteam!
-      </p>
-      <div class="allergen-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:10px;">
-        <?php foreach ($allergens as $al): ?>
-          <div class="allergen-item" style="background:#201c18;border:1px solid #3d3529;border-radius:4px;padding:8px 12px;display:flex;gap:10px;align-items:flex-start;">
-            <span style="background:#d4a359;color:#100f0d;font-weight:800;font-size:12px;width:22px;height:22px;border-radius:3px;display:inline-grid;place-items:center;flex-shrink:0;"><?php echo esc_html($al['letter']); ?></span>
-            <div>
-              <strong style="color:#f7f3ec;font-size:13px;display:block;line-height:1.3;"><?php echo esc_html($al['name']); ?></strong>
-              <small style="color:#b7afa2;font-size:11px;line-height:1.4;display:block;"><?php echo esc_html($al['detail']); ?></small>
-            </div>
-          </div>
-        <?php endforeach; ?>
-      </div>
+      <button class="icon-close" id="allergen-modal-close" type="button" aria-label="Schließen">&times;</button>
     </div>
-  </div>
+    <p class="modal-description" style="margin-bottom:18px;">
+      Gemäß der EU-Lebensmittelinformationsverordnung (LMIV) und österreichischer Codex-Richtlinie informieren wir Sie transparent über enthaltene Allergene in unseren Speisen. Bei Fragen oder schweren Unverträglichkeiten wenden Sie sich gerne direkt an unser Küchenteam!
+    </p>
+    <div class="allergen-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:10px;">
+      <?php foreach ($allergens as $al): ?>
+        <div class="allergen-item" style="background:#201c18;border:1px solid #3d3529;border-radius:4px;padding:8px 12px;display:flex;gap:10px;align-items:flex-start;">
+          <span style="background:#d4a359;color:#100f0d;font-weight:800;font-size:12px;width:22px;height:22px;border-radius:3px;display:inline-grid;place-items:center;flex-shrink:0;"><?php echo esc_html($al['letter']); ?></span>
+          <div>
+            <strong style="color:#f7f3ec;font-size:13px;display:block;line-height:1.3;"><?php echo esc_html($al['name']); ?></strong>
+            <small style="color:#b7afa2;font-size:12px;line-height:1.4;display:block;"><?php echo esc_html($al['detail']); ?></small>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  </dialog>
 </main>
 
 <?php get_footer(); ?>

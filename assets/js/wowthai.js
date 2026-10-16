@@ -31,17 +31,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3200);
   }
 
-  // Update Cart Count
-  function updateCartBadge(count) {
-    if (cartCountEl) {
-      cartCountEl.textContent = String(count || 0);
+  // Helper: Native <dialog closedby="any"> light-dismiss with Safari/legacy coordinate fallback
+  function attachDialogLightDismiss(dialog, onClose) {
+    if (!dialog) return;
+    dialog.addEventListener('close', () => {
+      if (typeof onClose === 'function') onClose();
+    });
+    if (typeof HTMLDialogElement !== 'undefined' && !('closedBy' in HTMLDialogElement.prototype)) {
+      dialog.addEventListener('click', (e) => {
+        if (e.target !== dialog) return;
+        const rect = dialog.getBoundingClientRect();
+        const isInDialog =
+          rect.top <= e.clientY &&
+          e.clientY <= rect.top + rect.height &&
+          rect.left <= e.clientX &&
+          e.clientX <= rect.left + rect.width;
+        if (!isInDialog && dialog.open) {
+          dialog.close();
+        }
+      });
     }
   }
 
-  // Render Cart Drawer
+  // Update Cart Count & Accessible Name (WCAG 2.5.3 Label in Name)
+  function updateCartBadge(count) {
+    const num = Number(count || 0);
+    if (cartCountEl) {
+      cartCountEl.textContent = String(num);
+    }
+    if (cartTrigger) {
+      cartTrigger.setAttribute('aria-label', `Bestellung (${num} Artikel)`);
+    }
+  }
+
+  // Render Cart Drawer using native <dialog closedby="any">
   function renderCartDrawer(isOpen = false) {
     if (!cartRoot) return;
     if (!isOpen) {
+      const existing = cartRoot.querySelector('dialog');
+      if (existing && existing.open) {
+        existing.close();
+      }
       cartRoot.innerHTML = '';
       return;
     }
@@ -50,80 +80,83 @@ document.addEventListener('DOMContentLoaded', () => {
     const hasItems = items.length > 0;
 
     cartRoot.innerHTML = `
-      <div class="overlay" id="cart-overlay">
-        <aside class="drawer" role="dialog" aria-label="Ihre Bestellung">
-          <div class="drawer-head">
-            <h2>Ihre Bestellung</h2>
-            <button class="icon-close" id="cart-close" type="button" aria-label="Schließen">&times;</button>
-          </div>
-          <div class="drawer-body">
-            ${!hasItems ? `
-              <div class="empty-cart">
-                <p>Ihr Warenkorb ist noch leer.</p>
-                <p><small>Wählen Sie Ihre Lieblingsgerichte aus unserer Speisekarte.</small></p>
-              </div>
-            ` : `
-              <div class="drawer-timing-banner">
-                <span>🕒 <strong>Abholung</strong>: City Point Steyr</span>
-                <span class="badge-asap">${esc(window.wowthaiConfig?.prep_time || 'ca. 25–35 Min.')}</span>
-              </div>
-              <div class="cart-lines">
-                ${items.map(item => `
-                  <div class="cart-line" data-key="${esc(item.key)}">
-                    <div>
-                      <h3>${esc(item.name)}</h3>
-                      ${item.variant_name ? `<p><small>${esc(item.variant_name)}</small></p>` : ''}
-                      ${(item.modifier_names || []).map(choice => `<p><small>${esc(choice.group)}: ${esc(choice.name)}</small></p>`).join('')}
-                      <strong>${esc(item.line_total)}</strong>
-                    </div>
-                    <div class="cart-line-actions">
-                      <div class="quantity-control">
-                        <button type="button" class="btn-qty-minus" data-key="${esc(item.key)}">−</button>
-                        <span>${item.quantity}</span>
-                        <button type="button" class="btn-qty-plus" data-key="${esc(item.key)}">+</button>
-                      </div>
-                      <button type="button" class="remove-line" data-key="${esc(item.key)}">Entfernen</button>
-                    </div>
+      <dialog class="wowthai-drawer-dialog drawer" id="cart-overlay" closedby="any" aria-labelledby="cart-drawer-title">
+        <div class="drawer-head">
+          <h2 id="cart-drawer-title">Ihre Bestellung</h2>
+          <button class="icon-close" id="cart-close" type="button" aria-label="Schließen">&times;</button>
+        </div>
+        <div class="drawer-body">
+          ${!hasItems ? `
+            <div class="empty-cart">
+              <p>Ihr Warenkorb ist noch leer.</p>
+              <p><small>Wählen Sie Ihre Lieblingsgerichte aus unserer Speisekarte.</small></p>
+            </div>
+          ` : `
+            <div class="drawer-timing-banner">
+              <span>🕒 <strong>Abholung</strong>: City Point Steyr</span>
+              <span class="badge-asap">${esc(window.wowthaiConfig?.prep_time || 'ca. 25–35 Min.')}</span>
+            </div>
+            <div class="cart-lines">
+              ${items.map(item => `
+                <div class="cart-line" data-key="${esc(item.key)}">
+                  <div>
+                    <h3>${esc(item.name)}</h3>
+                    ${item.variant_name ? `<p><small>${esc(item.variant_name)}</small></p>` : ''}
+                    ${(item.modifier_names || []).map(choice => `<p><small>${esc(choice.group)}: ${esc(choice.name)}</small></p>`).join('')}
+                    <strong>${esc(item.line_total)}</strong>
                   </div>
-                `).join('')}
-              </div>
-
-              ${(window.wowthaiConfig?.upsell_items || []).length > 0 ? `
-                <div class="drawer-upsell-box">
-                  <p class="drawer-upsell-title">✨ Dazu passt perfekt:</p>
-                  <div class="drawer-upsell-list">
-                    ${(window.wowthaiConfig.upsell_items).map((u, idx) => `
-                      <div class="drawer-upsell-item">
-                        <span class="upsell-emoji">${esc(u.icon || '🥤')}</span>
-                        <div class="upsell-text">
-                          <strong>${esc(u.title)}</strong>
-                          <small>${esc(u.price)}</small>
-                        </div>
-                        <button type="button" class="btn-add-upsell" data-idx="${idx}">+ Hinzufügen</button>
-                      </div>
-                    `).join('')}
+                  <div class="cart-line-actions">
+                    <div class="quantity-control">
+                      <button type="button" class="btn-qty-minus" data-key="${esc(item.key)}" aria-label="Menge verringern">−</button>
+                      <span>${item.quantity}</span>
+                      <button type="button" class="btn-qty-plus" data-key="${esc(item.key)}" aria-label="Menge erhöhen">+</button>
+                    </div>
+                    <button type="button" class="remove-line" data-key="${esc(item.key)}">Entfernen</button>
                   </div>
                 </div>
-              ` : ''}
-            `}
-          </div>
-          ${hasItems ? `
-            <div class="drawer-foot">
-              <div class="subtotal">
-                <span>Zwischensumme:</span>
-                <strong>${esc(currentCart.subtotal)}</strong>
-              </div>
-              <a href="${checkoutUrl}" class="button button-dark checkout-button">Zur Kasse (Abholung) &rarr;</a>
+              `).join('')}
             </div>
-          ` : ''}
-        </aside>
-      </div>
+
+            ${(window.wowthaiConfig?.upsell_items || []).length > 0 ? `
+              <div class="drawer-upsell-box">
+                <p class="drawer-upsell-title">✨ Dazu passt perfekt:</p>
+                <div class="drawer-upsell-list">
+                  ${(window.wowthaiConfig.upsell_items).map((u, idx) => `
+                    <div class="drawer-upsell-item">
+                      <span class="upsell-emoji" aria-hidden="true">${esc(u.icon || '🥤')}</span>
+                      <div class="upsell-text">
+                        <strong>${esc(u.title)}</strong>
+                        <small>${esc(u.price)}</small>
+                      </div>
+                      <button type="button" class="btn-add-upsell" data-idx="${idx}">+ Hinzufügen</button>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+          `}
+        </div>
+        ${hasItems ? `
+          <div class="drawer-foot">
+            <div class="subtotal">
+              <span>Zwischensumme:</span>
+              <strong>${esc(currentCart.subtotal)}</strong>
+            </div>
+            <a href="${checkoutUrl}" class="button button-dark checkout-button">Zur Kasse (Abholung) &rarr;</a>
+          </div>
+        ` : ''}
+      </dialog>
     `;
 
+    const dialog = document.getElementById('cart-overlay');
+    if (dialog && typeof dialog.showModal === 'function') {
+      dialog.showModal();
+      attachDialogLightDismiss(dialog, () => {
+        cartRoot.innerHTML = '';
+      });
+    }
+
     document.getElementById('cart-close')?.addEventListener('click', () => renderCartDrawer(false));
-    document.getElementById('cart-overlay')?.addEventListener('click', (e) => {
-      if (e.target.id === 'cart-overlay') renderCartDrawer(false);
-    });
 
     // Upsell button handlers
     cartRoot.querySelectorAll('.btn-add-upsell').forEach(btn => {
@@ -236,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Modal for Dish Variants
+  // Modal for Dish Variants using native <dialog closedby="any">
   function openDishModal(dish) {
     if (!sheetRoot) return;
     const variants = dish.variants || [];
@@ -244,55 +277,60 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatPrice = amount => new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR' }).format(Number(amount));
 
     sheetRoot.innerHTML = `
-      <div class="modal-wrap" id="dish-modal-wrap">
-        <div class="dish-modal" role="dialog" aria-label="${esc(dish.title)}">
-          <div class="modal-head">
-            <h2>${esc(dish.title)}</h2>
-            <button type="button" class="icon-close" id="dish-modal-close" aria-label="Schließen">&times;</button>
-          </div>
-          ${dish.description ? `<p class="modal-description">${esc(dish.description)}</p>` : ''}
-          ${variants.length ? `<div class="choice-group">
-            <div class="choice-head">
-              <strong>Variante wählen</strong>
-              <span>Preis je Variante</span>
-            </div>
-            ${variants.map((v, idx) => `
-              <label class="choice-option">
-                <input type="radio" name="dish_variant" value="${esc(v.id)}" ${idx === 0 ? 'checked' : ''} data-name="${esc(v.name)}" data-price="${esc(v.price)}">
-                <span>${esc(v.name)}</span>
-                <small>${esc(v.formatted)}</small>
-              </label>
-            `).join('')}
-          </div>` : ''}
-          ${modifierGroups.map(group => {
-            const single = Number(group.max) === 1;
-            return `<fieldset class="choice-group modifier-group" data-group-id="${esc(group.id)}" data-min="${esc(group.min)}" data-max="${esc(group.max)}">
-              <legend>${esc(group.name)} ${Number(group.min) > 0 ? '<span class="required-mark">*</span>' : '<span class="optional-mark">(optional)</span>'}</legend>
-              ${single && Number(group.min) === 0 ? `<label class="choice-option"><input type="radio" name="modifier_${esc(group.id)}" value="" checked><span>Kein Extra</span></label>` : ''}
-              ${(group.options || []).map(option => `<label class="choice-option">
-                <input type="${single ? 'radio' : 'checkbox'}" name="modifier_${esc(group.id)}" value="${esc(option.id)}">
-                <span>${esc(option.name)}</span>
-                <small>${Number(option.price) > 0 ? `+${esc(formatPrice(option.price))}` : 'Inklusive'}</small>
-              </label>`).join('')}
-            </fieldset>`;
-          }).join('')}
-          <p class="sheet-validation" id="dish-validation" role="alert" hidden></p>
-          <div class="sheet-bottom">
-            <input type="number" id="dish-qty" value="1" min="1" max="50" aria-label="Menge">
-            <button type="button" class="button button-dark" id="btn-add-modal">In den Warenkorb</button>
-          </div>
+      <dialog class="wowthai-dialog dish-modal" id="dish-modal-wrap" closedby="any" aria-labelledby="dish-modal-title">
+        <div class="modal-head">
+          <h2 id="dish-modal-title">${esc(dish.title)}</h2>
+          <button type="button" class="icon-close" id="dish-modal-close" aria-label="Schließen">&times;</button>
         </div>
-      </div>
+        ${dish.description ? `<p class="modal-description">${esc(dish.description)}</p>` : ''}
+        ${variants.length ? `<div class="choice-group">
+          <div class="choice-head">
+            <strong>Variante wählen</strong>
+            <span>Preis je Variante</span>
+          </div>
+          ${variants.map((v, idx) => `
+            <label class="choice-option">
+              <input type="radio" name="dish_variant" value="${esc(v.id)}" ${idx === 0 ? 'checked' : ''} data-name="${esc(v.name)}" data-price="${esc(v.price)}">
+              <span>${esc(v.name)}</span>
+              <small>${esc(v.formatted)}</small>
+            </label>
+          `).join('')}
+        </div>` : ''}
+        ${modifierGroups.map(group => {
+          const single = Number(group.max) === 1;
+          return `<fieldset class="choice-group modifier-group" data-group-id="${esc(group.id)}" data-min="${esc(group.min)}" data-max="${esc(group.max)}">
+            <legend>${esc(group.name)} ${Number(group.min) > 0 ? '<span class="required-mark">*</span>' : '<span class="optional-mark">(optional)</span>'}</legend>
+            ${single && Number(group.min) === 0 ? `<label class="choice-option"><input type="radio" name="modifier_${esc(group.id)}" value="" checked><span>Kein Extra</span></label>` : ''}
+            ${(group.options || []).map(option => `<label class="choice-option">
+              <input type="${single ? 'radio' : 'checkbox'}" name="modifier_${esc(group.id)}" value="${esc(option.id)}">
+              <span>${esc(option.name)}</span>
+              <small>${Number(option.price) > 0 ? `+${esc(formatPrice(option.price))}` : 'Inklusive'}</small>
+            </label>`).join('')}
+          </fieldset>`;
+        }).join('')}
+        <p class="sheet-validation" id="dish-validation" role="alert" hidden></p>
+        <div class="sheet-bottom">
+          <input type="number" id="dish-qty" value="1" min="1" max="50" aria-label="Menge">
+          <button type="button" class="button button-dark" id="btn-add-modal">In den Warenkorb</button>
+        </div>
+      </dialog>
     `;
 
+    const dialog = document.getElementById('dish-modal-wrap');
     const closeBtn = document.getElementById('dish-modal-close');
-    const wrap = document.getElementById('dish-modal-wrap');
-    const close = () => { sheetRoot.innerHTML = ''; };
+    const close = () => {
+      if (dialog && dialog.open) dialog.close();
+      sheetRoot.innerHTML = '';
+    };
+
+    if (dialog && typeof dialog.showModal === 'function') {
+      dialog.showModal();
+      attachDialogLightDismiss(dialog, () => {
+        sheetRoot.innerHTML = '';
+      });
+    }
 
     closeBtn?.addEventListener('click', close);
-    wrap?.addEventListener('click', (e) => {
-      if (e.target.id === 'dish-modal-wrap') close();
-    });
 
     document.getElementById('btn-add-modal')?.addEventListener('click', () => {
       const checked = sheetRoot.querySelector('input[name="dish_variant"]:checked');
@@ -351,12 +389,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const dishResetBtn = document.getElementById('dish-reset-search');
   const dishFilterChips = document.querySelectorAll('#dish-filter-chips .filter-chip');
   const dishSearchEmpty = document.getElementById('dish-search-empty');
+  const dishResultStatus = document.getElementById('dish-result-status');
 
   let currentActiveTab = 'restaurant';
   let currentChipFilter = 'all';
   let currentSearchQuery = '';
 
-  function filterMenuDishes() {
+  function filterMenuDishes(announce = false) {
     let totalVisible = 0;
     const query = currentSearchQuery.trim().toLowerCase();
 
@@ -415,12 +454,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dishSearchClear) {
       dishSearchClear.style.display = query.length > 0 ? 'block' : 'none';
     }
+
+    if (dishResultStatus && announce) {
+      dishResultStatus.textContent = totalVisible === 0
+        ? 'Keine Gerichte gefunden.'
+        : `${totalVisible} ${totalVisible === 1 ? 'Gericht' : 'Gerichte'} angezeigt.`;
+    }
   }
 
   if (dishSearchInput) {
     dishSearchInput.addEventListener('input', (e) => {
       currentSearchQuery = e.target.value;
-      filterMenuDishes();
+      filterMenuDishes(true);
     });
 
     if (dishSearchClear) {
@@ -428,7 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dishSearchInput.value = '';
         currentSearchQuery = '';
         dishSearchInput.focus();
-        filterMenuDishes();
+        filterMenuDishes(true);
       });
     }
 
@@ -437,38 +482,52 @@ document.addEventListener('DOMContentLoaded', () => {
         dishSearchInput.value = '';
         currentSearchQuery = '';
         currentChipFilter = 'all';
-        dishFilterChips.forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
-        filterMenuDishes();
+        dishFilterChips.forEach(c => {
+          if (c.id === 'btn-open-allergens') return;
+          const isAll = c.dataset.filter === 'all';
+          c.classList.toggle('active', isAll);
+          c.setAttribute('aria-pressed', isAll ? 'true' : 'false');
+        });
+        filterMenuDishes(true);
       });
     }
 
     dishFilterChips.forEach(chip => {
       chip.addEventListener('click', () => {
         if (chip.id === 'btn-open-allergens') return;
-        dishFilterChips.forEach(c => c.classList.remove('active'));
+        dishFilterChips.forEach(c => {
+          if (c.id === 'btn-open-allergens') return;
+          c.classList.remove('active');
+          c.setAttribute('aria-pressed', 'false');
+        });
         chip.classList.add('active');
+        chip.setAttribute('aria-pressed', 'true');
         currentChipFilter = chip.dataset.filter || 'all';
-        filterMenuDishes();
+        filterMenuDishes(true);
       });
     });
   }
 
-  // Allergen Modal Toggle
+  // Allergen Modal Toggle (native <dialog closedby="any"> with light-dismiss fallback)
   const btnOpenAllergens = document.getElementById('btn-open-allergens');
   const allergenModalWrap = document.getElementById('allergen-modal-wrap');
   const allergenModalClose = document.getElementById('allergen-modal-close');
 
   if (btnOpenAllergens && allergenModalWrap) {
+    attachDialogLightDismiss(allergenModalWrap);
+
     btnOpenAllergens.addEventListener('click', () => {
-      allergenModalWrap.style.display = 'grid';
+      if (typeof allergenModalWrap.showModal === 'function') {
+        if (!allergenModalWrap.open) allergenModalWrap.showModal();
+      } else {
+        allergenModalWrap.style.display = 'grid';
+      }
     });
 
     allergenModalClose?.addEventListener('click', () => {
-      allergenModalWrap.style.display = 'none';
-    });
-
-    allergenModalWrap.addEventListener('click', (e) => {
-      if (e.target.id === 'allergen-modal-wrap') {
+      if (typeof allergenModalWrap.close === 'function' && allergenModalWrap.open) {
+        allergenModalWrap.close();
+      } else {
         allergenModalWrap.style.display = 'none';
       }
     });
@@ -479,8 +538,12 @@ document.addEventListener('DOMContentLoaded', () => {
       tab.addEventListener('click', () => {
         const targetMenu = tab.dataset.menu; // 'restaurant' or 'sushi'
         currentActiveTab = targetMenu;
-        menuTabs.forEach(t => t.classList.remove('active'));
+        menuTabs.forEach(t => {
+          t.classList.remove('active');
+          t.setAttribute('aria-selected', 'false');
+        });
         tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
 
         // Filter section badges
         sectionLinks.forEach(link => {
@@ -497,7 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
           sushiBanner.style.display = (targetMenu === 'sushi') ? 'flex' : 'none';
         }
 
-        filterMenuDishes();
+        filterMenuDishes(false);
       });
     });
 
@@ -611,9 +674,29 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!data.asap && mode.value === 'asap') document.getElementById('btn-later').click();
     } catch (error) { console.warn('Abholzeiten konnten nicht aktualisiert werden.'); }
   }
+
+  // Visibility-aware pickup availability polling (pauses when tab is hidden)
+  let pickupPollTimer = null;
+  function startPickupPolling() {
+    if (pickupPollTimer) return;
+    pickupPollTimer = setInterval(refreshPickupAvailability, 30000);
+  }
+  function stopPickupPolling() {
+    if (pickupPollTimer) {
+      clearInterval(pickupPollTimer);
+      pickupPollTimer = null;
+    }
+  }
   refreshPickupAvailability();
-  setInterval(refreshPickupAvailability, 30000);
-  document.addEventListener('visibilitychange', refreshPickupAvailability);
+  if (!document.hidden) startPickupPolling();
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopPickupPolling();
+    } else {
+      refreshPickupAvailability();
+      startPickupPolling();
+    }
+  });
 
   // Client-side Validation for Checkout Fields
   function validateCheckoutFields(showFeedback = true) {
@@ -731,24 +814,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, true);
 
-  // Auto-unblock WooCommerce checkout if blockUI hangs
+  // Event-driven WooCommerce checkout unblocker (no continuous 1s polling loop)
   if (window.jQuery) {
     const $ = window.jQuery;
-    $(document.body).on('updated_checkout checkout_error payment_method_selected', () => {
-      $('.woocommerce-checkout-payment, .woocommerce-checkout-review-order-table, form.checkout, #order_review').unblock();
-    });
+    let unblockTimeout = null;
+    const unblockTargets = '.woocommerce-checkout-payment, .woocommerce-checkout-review-order-table, form.checkout, #order_review';
 
-    // Failsafe unblocker: Ensures checkout is never permanently greyed out
-    setInterval(() => {
-      const $overlays = $('.blockUI.blockOverlay');
-      if ($overlays.length > 0) {
-        setTimeout(() => {
+    const scheduleCheckoutUnblock = (delayMs = 0) => {
+      if (unblockTimeout) clearTimeout(unblockTimeout);
+      if (delayMs <= 0) {
+        $(unblockTargets).unblock();
+      } else {
+        unblockTimeout = setTimeout(() => {
           if ($('.blockUI.blockOverlay').length > 0) {
-            $('.woocommerce-checkout-payment, .woocommerce-checkout-review-order-table, form.checkout, #order_review').unblock();
+            $(unblockTargets).unblock();
           }
-        }, 1500);
+        }, delayMs);
       }
-    }, 1000);
+    };
+
+    $(document.body).on('updated_checkout checkout_error payment_method_selected', () => {
+      scheduleCheckoutUnblock(0);
+    });
+    $(document.body).on('update_checkout checkout_place_order', () => {
+      scheduleCheckoutUnblock(2500);
+    });
   }
 
   // Open the correct selector when a WooCommerce product link lands on the menu.
@@ -766,10 +856,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Modern web accessibility: Escape key closes active modal or drawer
+  // Modern web accessibility: Escape key fallback if native <dialog> is not used
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' || e.key === 'Esc') {
       if (sheetRoot && sheetRoot.innerHTML !== '') {
+        const dlg = sheetRoot.querySelector('dialog');
+        if (dlg && dlg.open) dlg.close();
         sheetRoot.innerHTML = '';
       } else if (cartRoot && cartRoot.innerHTML !== '') {
         renderCartDrawer(false);
