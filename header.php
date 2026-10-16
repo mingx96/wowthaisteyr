@@ -1,29 +1,70 @@
+<?php
+/**
+ * WOW Thai Steyr — Global Header Template
+ */
+if (!defined('ABSPATH')) {
+    exit;
+}
+$wow_info      = function_exists('wowthai_get_restaurant_data') ? wowthai_get_restaurant_data() : [];
+$wow_tel       = $wow_info['phone_tel'] ?? '+43725274973';
+$wow_ph        = $wow_info['phone'] ?? '+43 7252 74973';
+$theme_uri     = get_template_directory_uri();
+$special_today = function_exists('wowthai_get_special_closed_day') ? wowthai_get_special_closed_day() : null;
+
+if (is_page('menu') || is_page('speisekarte')) {
+    $meta_title = 'Speisekarte & Online Bestellen | WOW Thai Steyr';
+    $meta_desc  = 'Original thailändische Currys, Wok-Spezialitäten & frisches Sushi bei WOW Thai im City Point Steyr online zur Selbstabholung bestellen.';
+} elseif (is_page('reservations') || is_page('tisch-reservieren')) {
+    $meta_title = 'Tisch online reservieren | WOW Thai Steyr';
+    $meta_desc  = 'Reservieren Sie Ihren Tisch bei WOW Thai Steyr (City Point · 1. OG, Leopold-Werndl-Straße 2, 4400 Steyr) bequem online.';
+} else {
+    $meta_title = 'WOW Thai Steyr | Thailändisches Restaurant, Wok & Sushi im City Point';
+    $meta_desc  = 'Authentische thailändische Küche, Wok-Gerichte & frisches Sushi im City Point Steyr (1. OG). Tisch online reservieren oder Takeaway vorbestellen.';
+}
+?>
 <!doctype html>
 <html <?php language_attributes(); ?>>
 <head>
   <meta charset="<?php bloginfo('charset'); ?>">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="<?php echo esc_attr($meta_desc); ?>">
+  <meta property="og:locale" content="de_AT">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="WOW Thai Steyr">
+  <meta property="og:title" content="<?php echo esc_attr($meta_title); ?>">
+  <meta property="og:description" content="<?php echo esc_attr($meta_desc); ?>">
+  <meta property="og:url" content="<?php echo esc_url(home_url(add_query_arg([], $GLOBALS['wp']->request ?? ''))); ?>">
+  <meta property="og:image" content="<?php echo esc_url($theme_uri . '/assets/img/hero.jpg'); ?>">
   <meta name="theme-color" content="#100f0d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="WOW Thai">
-  <link rel="manifest" href="<?php echo get_template_directory_uri(); ?>/assets/pwa/manifest.json">
-  <link rel="apple-touch-icon" href="<?php echo get_template_directory_uri(); ?>/assets/img/logo.png">
-  <link rel="preload" as="image" href="<?php echo get_template_directory_uri(); ?>/assets/img/hero.jpg" fetchpriority="high">
+  <link rel="manifest" href="<?php echo esc_url($theme_uri . '/assets/pwa/manifest.json'); ?>">
+  <link rel="apple-touch-icon" href="<?php echo esc_url($theme_uri . '/assets/img/logo-sm.png'); ?>">
+  <?php if (is_front_page()): ?>
+  <link rel="preload" as="image" href="<?php echo esc_url($theme_uri . '/assets/img/hero.jpg'); ?>" fetchpriority="high">
+  <?php endif; ?>
   <?php wp_head(); ?>
 </head>
 <body <?php body_class(); ?>>
 <?php wp_body_open(); ?>
+<a href="#main" class="skip-link visually-hidden">Zum Hauptinhalt springen</a>
+
+<?php if ($special_today !== null): ?>
+<div class="special-closed-banner" role="status" style="background:#3a1d16;border-bottom:1px solid #d4a359;color:#fff9f5;padding:10px 16px;text-align:center;font-size:13px;font-weight:600;">
+  📢 <strong>Hinweis:</strong> Heute geschlossen (<?php echo esc_html($special_today['reason']); ?>). Vorbestellungen und Reservierungen für unsere nächsten Öffnungstage sind weiterhin online möglich!
+</div>
+<?php endif; ?>
 
 <header class="site-header wrap<?php if (is_front_page()) echo ' home-header'; ?>">
-  <a class="brand" href="<?php echo esc_url(home_url('/')); ?>" aria-label="WOW Thai Startseite">
-    <img class="brand-logo" src="<?php echo get_template_directory_uri(); ?>/assets/img/logo.png" alt="WOW Thai Steyr">
+  <a class="brand" href="<?php echo esc_url(home_url('/')); ?>" aria-label="WOW Thai Steyr Startseite">
+    <img class="brand-logo" src="<?php echo esc_url($theme_uri . '/assets/img/logo-sm.png'); ?>" alt="WOW Thai Steyr" width="60" height="40" decoding="async">
     <span>STEYR <i>·</i> CITY POINT</span>
   </a>
   <nav class="nav-links" aria-label="Hauptnavigation">
     <a class="<?php if (is_page('menu') || is_page('speisekarte')) echo 'active'; ?>" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte</a>
     <a class="<?php if (is_page('reservations') || is_page('tisch-reservieren')) echo 'active'; ?>" href="<?php echo esc_url(home_url('/reservations/')); ?>">Tisch reservieren</a>
-    <a class="phone-link" href="tel:+43725274973">+43 7252 74973</a>
+    <a class="phone-link" href="tel:<?php echo esc_attr($wow_tel); ?>"><?php echo esc_html($wow_ph); ?></a>
   </nav>
-  <button class="cart-trigger" id="cart-trigger" type="button" aria-label="Warenkorb öffnen">Bestellung <span id="cart-count">0</span></button>
+  <button class="cart-trigger" id="cart-trigger" type="button" aria-label="Bestellung öffnen (0 Artikel)">Bestellung <span id="cart-count" aria-hidden="true">0</span></button>
 </header>
