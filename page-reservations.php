@@ -165,7 +165,7 @@ if ($res_ok && $res_bot) {
 
       <?php else: ?>
         <h2 class="booking-title">Tisch online reservieren</h2>
-        <p class="booking-copy">Füllen Sie das Formular aus – wir reservieren Ihren Tisch umgehend.</p>
+        <p class="booking-copy">Füllen Sie das Formular aus – unser Team prüft und bestätigt Ihre Reservierungsanfrage umgehend per E-Mail.</p>
 
         <?php if ($booking_error !== ''): ?>
           <p class="booking-error" role="alert"><?php echo esc_html($booking_error); ?></p>
@@ -239,7 +239,7 @@ if ($res_ok && $res_bot) {
           </div>
 
           <div class="booking-submit">
-            <button type="submit" class="button button-dark">Tisch verbindlich reservieren →</button>
+            <button type="submit" class="button button-dark">Reservierungsanfrage senden →</button>
           </div>
         </form>
       <?php endif; ?>

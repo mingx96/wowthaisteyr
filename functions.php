@@ -315,6 +315,26 @@ function wowthai_ensure_legal_pages() {
 }
 add_action('init', 'wowthai_ensure_legal_pages', 20);
 
+// Ensure WooCommerce checkout privacy policy always resolves to /datenschutz/
+add_filter('woocommerce_get_privacy_policy_url', function() {
+    return home_url('/datenschutz/');
+});
+
+// Normalize WooCommerce checkout review table header strings to German
+add_filter('gettext', function($translation, $text, $domain) {
+    if ($domain === 'woocommerce') {
+        switch ($text) {
+            case 'Product':
+                return 'Produkt';
+            case 'Subtotal':
+                return 'Zwischensumme';
+            case 'Total':
+                return 'Gesamtsumme';
+        }
+    }
+    return $translation;
+}, 20, 3);
+
 function wowthai_redirect_legacy_pages() {
     $path = wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
     $path = untrailingslashit((string) $path);
