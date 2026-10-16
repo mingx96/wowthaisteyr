@@ -1,12 +1,27 @@
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
 ## 📌 LƯỢT CẬP NHẬT HIỆN TẠI (CURRENT TURN)
-- **Active Agent in Charge**: **Codex / ChatGPT — Operations & CRM implementation authorized by owner**
-- **Current scope**: `plugins/wowthai-operations`, plugin packaging, tests, and compatibility adapters. Theme redesign remains outside this task. Do not deploy a second agent's checkout over these files.
-- **Data scope**: Selective import of Wix contact profiles only from `a1e58c2c-1fca-4e4b-a015-e14b156d3a32`. No historical orders/reservations, no account creation, no marketing sends, no full database sync. Customer files stay outside Git and public uploads.
-- **Deployment status**: Implementation started; online installation awaits an authenticated wp-admin browser session. Record actual import counts and release revision here before handover.
-- **Handover Timestamp**: 2026-10-16 11:35 (Europe/Vienna)
+- **Active Agent in Charge**: **Antigravity (Taking over from Codex / ChatGPT)**
+- **Current scope**: `plugins/wowthai-operations`, plugin packaging, tests, and compatibility adapters. Theme redesign completed and live.
+- **Theme Polish (v1.3.1)**:
+  - Fixed WooCommerce checkout privacy policy link (redirects to `/datenschutz/` with zero 404 risk).
+  - Normalized checkout review table header strings to German (`Produkt`, `Zwischensumme`, `Gesamtsumme`).
+  - Standardized reservation form copy and button (`Reservierungsanfrage senden →`) reflecting real restaurant workflow.
+- **Data scope**: Selective import of Wix contact profiles only from `a1e58c2c-1fca-4e4b-a015-e14b156d3a32`.
+  - Processed full original Wix export dataset (10,527 records across `001.csv` & `002.csv`).
+  - Validation: 100% (10,527/10,527) normalized with 0 errors.
+  - Consent tracking: exactly 200 Subscribed (eligible for marketing), 137 Unsubscribed, 10,190 Not Set / Never Subscribed.
+  - Zero historical orders/reservations imported; zero customer WordPress accounts created; customer files kept strictly outside Git and public uploads.
+- **Plugin Implementation (`wowthai-operations`)**:
+  - Isolated in `wp-content/plugins/wowthai-operations` with 5 custom tables (`wto_contacts`, `wto_channels`, `wto_imports`, `wto_changes`, `wto_actions`).
+  - Operations Staff Board under `WOW Thai → Betrieb` (`Bestellungen`, `Reservierungen`, `Kunden & Import`).
+  - Added REST API endpoint `/reservation-slots` for staff date/time picker.
+  - Added WP-CLI batch command `wp wto import <json-file>`.
+  - Added safe RFC 4180 CSV export for marketing-eligible contacts with injection protection.
+- **Deployment status**: Theme deployed to Live (`wpcomstaging.com`). Plugin packaged and deployed via Studio CLI (`--options "plugins"`). Zero database sync.
+- **Handover Timestamp**: 2026-10-16 13:50 (Europe/Vienna)
 - **Current Theme Version**: `v1.3.1`
+- **Current Plugin Version**: `v1.0.0`
 - **Git Repository**: `https://github.com/mingx96/wowthaisteyr.git`
 - **Primary Branch**: `main`
 
