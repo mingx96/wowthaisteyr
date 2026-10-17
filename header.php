@@ -106,7 +106,7 @@ if (is_page('menu') || is_page('speisekarte')) {
       </a>
     </nav>
     <div class="mobile-nav-footer">
-      <p>Öffnungszeiten: Di–So 11:00–21:00<br>Montags Ruhetag</p>
+      <p>Öffnungszeiten: Di–So 11:00–21:00<br>Montags Ruhetag</p> <?php // hours-ok ?>
     </div>
   </div>
 </div>

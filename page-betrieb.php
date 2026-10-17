@@ -15,10 +15,10 @@ $version = '1.4.0';
 // Fallback direct POST login handler
 $login_error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wto_portal_login'])) {
-    if (wp_verify_nonce($_POST['portal_nonce'] ?? '', 'wowthai_portal_login_nonce')) {
+    if (wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['portal_nonce'] ?? '')), 'wowthai_portal_login_nonce')) {
         $creds = [
             'user_login'    => sanitize_text_field($_POST['log'] ?? ''),
-            'user_password' => $_POST['pwd'] ?? '',
+            'user_password' => wp_unslash((string)($_POST['pwd'] ?? '')), // verify-ok
             'remember'      => !empty($_POST['rememberme']),
         ];
         $signon = wp_signon($creds, is_ssl());

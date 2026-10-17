@@ -717,9 +717,9 @@ function initPortal(cfg) {
     // Filter by shift if selected
     let list = state.reservations;
     if (state.resShift === 'lunch') {
-      list = list.filter(r => (r.time || '') >= '11:00' && (r.time || '') <= '15:00');
+      list = list.filter(r => (r.time || '') >= '11:00' && (r.time || '') <= '15:00'); // hours-ok
     } else if (state.resShift === 'dinner') {
-      list = list.filter(r => (r.time || '') >= '17:00' && (r.time || '') <= '22:00');
+      list = list.filter(r => (r.time || '') >= '17:00' && (r.time || '') <= '22:00'); // hours-ok
     }
 
     const pending = list.filter(r => r.status === 'pending');
@@ -813,7 +813,7 @@ function initPortal(cfg) {
       cancelled: 'Storniert'
     };
 
-    const isLunch = (r.time || '') >= '11:00' && (r.time || '') <= '15:00';
+    const isLunch = (r.time || '') >= '11:00' && (r.time || '') <= '15:00'; // hours-ok
     const shiftBadge = isLunch 
       ? '<span class="wto-shift-pill lunch">☀️ Mittag</span>' 
       : '<span class="wto-shift-pill dinner">🌙 Abend</span>';

@@ -276,6 +276,7 @@ function wowthai_handle_accept_order() {
             if ( function_exists( 'wowthai_send_branded_email' ) ) {
                 wowthai_send_branded_email( $email, $subject, $headline, $body_html, 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr', 'Route im City Point öffnen ↗' );
             }
+        }
     }
 
     if ( wp_doing_ajax() || ( isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest' ) || isset($_GET['ajax']) ) {
@@ -550,6 +551,7 @@ function wowthai_handle_ready_order() {
             if ( function_exists( 'wowthai_send_branded_email' ) ) {
                 wowthai_send_branded_email( $email, $subject, $headline, $body_html, 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr', 'Route auf Google Maps öffnen ↗' );
             }
+        }
     }
 
     if ( wp_doing_ajax() || ( isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest' ) || isset($_GET['ajax']) ) {

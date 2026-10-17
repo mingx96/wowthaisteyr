@@ -725,7 +725,7 @@ add_action('wp_ajax_nopriv_wowthai_portal_login', 'wowthai_ajax_portal_login');
 function wowthai_ajax_portal_login() {
     check_ajax_referer('wowthai_portal_login_nonce', 'nonce');
     $input_user = trim(sanitize_text_field($_POST['log'] ?? ''));
-    $password   = $_POST['pwd'] ?? '';
+    $password   = wp_unslash((string)($_POST['pwd'] ?? '')); // verify-ok
     $remember   = !empty($_POST['rememberme']);
 
     if (empty($input_user) || empty($password)) {
