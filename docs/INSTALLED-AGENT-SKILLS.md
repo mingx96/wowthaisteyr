@@ -12,7 +12,7 @@
 | `wp-performance` | Vendored | WordPress/agent-skills at [55cd0f78](https://github.com/WordPress/agent-skills/tree/55cd0f78b996f453c194a1a6ecc5c9a2e0f6cf15/skills/wp-performance) (GPL-2.0-or-later), path adapted | Optional diagnosis; read-only local/staging only |
 | `web-design-guidelines` | Vendored/adapted | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills/tree/063bee94c3f4df8453406c830b0a7df0f2860278/skills/web-design-guidelines), guidelines snapshot from [web-interface-guidelines command.md](https://github.com/vercel-labs/web-interface-guidelines/blob/main/command.md) (MIT) | Offline review of UI/a11y, German copy and forms |
 
-WordPress source `SKILL.md` paths were adapted to this repository's `.agents/skills/` layout. The full upstream support references/scripts and license notice are retained. A copy of the GPL text is at [third_party/licenses/wordpress-gpl.txt](../third_party/licenses/wordpress-gpl.txt). The Vercel skill no longer fetches unreviewed remote guidelines every time it runs; it uses a local snapshot.
+WordPress source `SKILL.md` paths were adapted to this repository's `.agents/skills/` layout. The full upstream support references/scripts and license notice are retained. A copy of the GPL text is at [.agents/licenses/gpl-v2.txt](../.agents/licenses/gpl-v2.txt). The Vercel skill no longer fetches unreviewed remote guidelines every time it runs; it uses a local snapshot.
 
 ## Compatibility and security
 

@@ -22,7 +22,7 @@ for (const p of [
   '.agents/skills/wp-project-triage/scripts/detect_wp_project.mjs',
   '.agents/skills/wp-performance/scripts/perf_inspect.mjs',
   '.agents/skills/web-design-guidelines/references/web-interface-guidelines.md',
-  'third_party/licenses/wordpress-gpl.txt',
+  '.agents/licenses/gpl-v2.txt',
 ]) {
   if (!fs.existsSync(path.join(root, p))) errors.push('Missing bundled dependency: ' + p);
 }
