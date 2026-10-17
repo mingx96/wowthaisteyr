@@ -19,9 +19,9 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
     <div class="page-intro-row">
       <div>
         <h1>Unsere <em>Speisekarte</em></h1>
-        <p>Was darf es heute sein? Entdecken Sie unsere Spezialitäten und bestellen Sie zur frischen Zubereitung und bequemen Abholung im City Point Steyr.</p>
+        <p class="page-intro-desc">Was darf es heute sein? Entdecken Sie unsere Spezialitäten und bestellen Sie zur frischen Zubereitung und bequemen Abholung im City Point Steyr.</p>
       </div>
-      <a class="button button-quiet" href="<?php echo esc_url(home_url('/reservations/')); ?>">Tisch reservieren <span aria-hidden="true">↗</span></a>
+      <a class="button button-quiet menu-res-btn" href="<?php echo esc_url(home_url('/reservations/')); ?>">Tisch reservieren <span aria-hidden="true">↗</span></a>
     </div>
 
     <!-- Öffnungszeiten / Vorbestellungs-Banner -->
@@ -37,8 +37,8 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
 
     <div class="menu-tools">
       <div id="menu-tabs" class="menu-tabs" role="tablist" aria-label="Menüauswahl">
-        <button class="menu-tab active" role="tab" aria-selected="true" data-menu="restaurant" type="button">Speisekarte Restaurant</button>
-        <button class="menu-tab" role="tab" aria-selected="false" data-menu="sushi" type="button">Speisekarte Sushi<?php if (!$is_sushi_day): ?> <span style="font-size:12px;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:4px;font-weight:700;margin-left:4px;">Montags Ruhetag</span><?php endif; ?></button>
+        <button class="menu-tab active" role="tab" aria-selected="true" data-menu="restaurant" type="button">🍜 Speisekarte Restaurant</button>
+        <button class="menu-tab" role="tab" aria-selected="false" data-menu="sushi" type="button">🍣 Speisekarte Sushi<?php if (!$is_sushi_day): ?> <span class="tab-badge-closed">Montags Ruhetag</span><?php endif; ?></button>
       </div>
 
       <!-- Live Search & Filter Bar -->
@@ -46,7 +46,7 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
         <div class="search-input-box">
           <span class="search-icon" aria-hidden="true">🔍</span>
           <label for="dish-search-input" class="visually-hidden">Gericht oder Zutat suchen</label>
-          <input type="search" id="dish-search-input" placeholder="Gericht oder Zutat suchen (z. B. Pad Thai, Curry, Frühlingsrollen, Lachs...)" autocomplete="off">
+          <input type="search" id="dish-search-input" placeholder="Gericht oder Zutat suchen …" autocomplete="off">
           <button type="button" id="dish-search-clear" class="search-clear-btn" aria-label="Suche löschen" style="display:none;">✕</button>
         </div>
         <div class="filter-chips-row" id="dish-filter-chips">
@@ -54,7 +54,7 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
           <button type="button" class="filter-chip" aria-pressed="false" data-filter="veggie">🌱 Vegetarisch / Vegan</button>
           <button type="button" class="filter-chip" aria-pressed="false" data-filter="spicy">🌶️ Scharf / Pikant</button>
           <button type="button" class="filter-chip" aria-pressed="false" data-filter="popular">⭐ Beliebt</button>
-          <button type="button" class="filter-chip chip-allergen-btn" id="btn-open-allergens" aria-haspopup="dialog" style="margin-left:auto;">ℹ️ Allergen-Legende (A–R)</button>
+          <button type="button" class="filter-chip chip-allergen-btn" id="btn-open-allergens" aria-haspopup="dialog">ℹ️ Allergen-Legende (A–R)</button>
         </div>
       </div>
 

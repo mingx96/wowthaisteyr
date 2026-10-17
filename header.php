@@ -66,5 +66,47 @@ if (is_page('menu') || is_page('speisekarte')) {
     <a class="<?php if (is_page('reservations') || is_page('tisch-reservieren')) echo 'active'; ?>" href="<?php echo esc_url(home_url('/reservations/')); ?>">Tisch reservieren</a>
     <a class="phone-link" href="tel:<?php echo esc_attr($wow_tel); ?>"><?php echo esc_html($wow_ph); ?></a>
   </nav>
-  <button class="cart-trigger" id="cart-trigger" type="button" aria-label="Bestellung öffnen (0 Artikel)">Bestellung <span id="cart-count" aria-hidden="true">0</span></button>
+  <div class="header-right-actions">
+    <button class="cart-trigger" id="cart-trigger" type="button" aria-label="Bestellung öffnen (0 Artikel)">Bestellung <span id="cart-count" aria-hidden="true">0</span></button>
+    <button class="mobile-nav-toggle" id="mobile-nav-toggle" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="mobile-nav-drawer">
+      <span class="hamburger-bar"></span>
+      <span class="hamburger-bar"></span>
+      <span class="hamburger-bar"></span>
+    </button>
+  </div>
 </header>
+
+<!-- Mobile Navigation Drawer / Sheet -->
+<div id="mobile-nav-drawer" class="mobile-nav-drawer" aria-hidden="true">
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+  <div class="mobile-nav-panel">
+    <div class="mobile-nav-head">
+      <div class="brand-mini-info">
+        <strong>WOW Thai Steyr</strong>
+        <span>City Point · 1. OG</span>
+      </div>
+      <button type="button" class="mobile-nav-close" id="mobile-nav-close" aria-label="Menü schließen">×</button>
+    </div>
+    <nav class="mobile-nav-links">
+      <a class="<?php if (is_page('menu') || is_page('speisekarte')) echo 'active'; ?>" href="<?php echo esc_url(home_url('/menu/')); ?>">
+        <span class="nav-icon">🍜</span>
+        <span>Speisekarte &amp; Bestellen</span>
+      </a>
+      <a class="<?php if (is_page('reservations') || is_page('tisch-reservieren')) echo 'active'; ?>" href="<?php echo esc_url(home_url('/reservations/')); ?>">
+        <span class="nav-icon">📅</span>
+        <span>Tisch online reservieren</span>
+      </a>
+      <a href="tel:<?php echo esc_attr($wow_tel); ?>">
+        <span class="nav-icon">📞</span>
+        <span>Jetzt anrufen (<?php echo esc_html($wow_ph); ?>)</span>
+      </a>
+      <a href="<?php echo esc_url(home_url('/betrieb/')); ?>" style="opacity:0.75;font-size:12px;margin-top:12px;border-top:1px solid #332d25;padding-top:14px;">
+        <span class="nav-icon">🔐</span>
+        <span>Personal / Betriebs-Portal</span>
+      </a>
+    </nav>
+    <div class="mobile-nav-footer">
+      <p>Öffnungszeiten: Di–So 11:00–21:00<br>Montags Ruhetag</p>
+    </div>
+  </div>
+</div>

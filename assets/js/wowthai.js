@@ -863,12 +863,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const dlg = sheetRoot.querySelector('dialog');
         if (dlg && dlg.open) dlg.close();
         sheetRoot.innerHTML = '';
+      } else if (navDrawer && navDrawer.classList.contains('open')) {
+        toggleMobileNav(false);
       } else if (cartRoot && cartRoot.innerHTML !== '') {
         renderCartDrawer(false);
       }
     }
   });
 
+  // --- Mobile Navigation Drawer Controller ---
+  const navToggle = document.getElementById('mobile-nav-toggle');
+  const navDrawer = document.getElementById('mobile-nav-drawer');
+  const navClose = document.getElementById('mobile-nav-close');
+  const navBackdrop = document.getElementById('mobile-nav-backdrop');
+
+  function toggleMobileNav(open) {
+    if (!navDrawer) return;
+    const shouldOpen = (open !== undefined) ? open : !navDrawer.classList.contains('open');
+    navDrawer.classList.toggle('open', shouldOpen);
+    navDrawer.setAttribute('aria-hidden', String(!shouldOpen));
+    if (navToggle) {
+      navToggle.setAttribute('aria-expanded', String(shouldOpen));
+      navToggle.classList.toggle('active', shouldOpen);
+    }
+    document.body.classList.toggle('mobile-nav-locked', shouldOpen);
+  }
+
+  if (navToggle) navToggle.addEventListener('click', () => toggleMobileNav());
+  if (navClose) navClose.addEventListener('click', () => toggleMobileNav(false));
+  if (navBackdrop) navBackdrop.addEventListener('click', () => toggleMobileNav(false));
+  navDrawer?.querySelectorAll('.mobile-nav-links a').forEach(a => {
+    a.addEventListener('click', () => toggleMobileNav(false));
+  });
   // Initial cart load
   fetchCart();
 });

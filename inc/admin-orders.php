@@ -276,7 +276,17 @@ function wowthai_handle_accept_order() {
             if ( function_exists( 'wowthai_send_branded_email' ) ) {
                 wowthai_send_branded_email( $email, $subject, $headline, $body_html, 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr', 'Route im City Point öffnen ↗' );
             }
-        }
+    }
+
+    if ( wp_doing_ajax() || ( isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest' ) || isset($_GET['ajax']) ) {
+        wp_send_json_success([
+            'order_id'          => $order_id,
+            'action'            => 'accept',
+            'status'            => 'processing',
+            'status_html'       => '<div class="kitchen-status in-prep">🍳 In Zubereitung (' . esc_html( $current_time ?? current_time('H:i') ) . ')</div>',
+            'next_actions_html' => '<button type="button" class="btn-quick-order btn-bon-print" onclick="window.open(\'' . esc_url( admin_url( 'admin-post.php?action=wowthai_print_order_bon&order_id=' . $order_id ) ) . '\', \'bon_print\', \'width=380,height=650,scrollbars=yes\')" title="80mm Küchenbon drucken">🖨️ Bon</button>' .
+                                  '<a href="' . esc_url( admin_url( 'admin-post.php?action=wowthai_ready_order&order_id=' . $order_id . '&_wpnonce=' . wp_create_nonce( 'wowthai_order_action_' . $order_id ) ) ) . '" class="btn-quick-order btn-ready" title="Speisen sind abholbereit">🥡 Abholbereit</a>',
+        ]);
     }
 
     $redirect_url = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=wc-orders' );
@@ -323,6 +333,16 @@ function wowthai_handle_reject_order() {
                 wp_mail( $email, $subject, strip_tags( $body_html ) );
             }
         }
+    }
+
+    if ( wp_doing_ajax() || ( isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest' ) || isset($_GET['ajax']) ) {
+        wp_send_json_success([
+            'order_id'          => $order_id,
+            'action'            => 'reject',
+            'status'            => 'cancelled',
+            'status_html'       => '<div class="kitchen-status cancelled">✕ Storniert</div>',
+            'next_actions_html' => '<button type="button" class="btn-quick-order btn-bon-print" onclick="window.open(\'' . esc_url( admin_url( 'admin-post.php?action=wowthai_print_order_bon&order_id=' . $order_id ) ) . '\', \'bon_print\', \'width=380,height=650,scrollbars=yes\')" title="80mm Küchenbon drucken">🖨️ Bon</button>',
+        ]);
     }
 
     $redirect_url = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=wc-orders' );
@@ -530,7 +550,17 @@ function wowthai_handle_ready_order() {
             if ( function_exists( 'wowthai_send_branded_email' ) ) {
                 wowthai_send_branded_email( $email, $subject, $headline, $body_html, 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr', 'Route auf Google Maps öffnen ↗' );
             }
-        }
+    }
+
+    if ( wp_doing_ajax() || ( isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest' ) || isset($_GET['ajax']) ) {
+        wp_send_json_success([
+            'order_id'          => $order_id,
+            'action'            => 'ready',
+            'status'            => 'processing',
+            'status_html'       => '<div class="kitchen-status ready">🥡 Abholbereit (' . esc_html( $current_time ?? current_time('H:i') ) . ')</div>',
+            'next_actions_html' => '<button type="button" class="btn-quick-order btn-bon-print" onclick="window.open(\'' . esc_url( admin_url( 'admin-post.php?action=wowthai_print_order_bon&order_id=' . $order_id ) ) . '\', \'bon_print\', \'width=380,height=650,scrollbars=yes\')" title="80mm Küchenbon drucken">🖨️ Bon</button>' .
+                                  '<a href="' . esc_url( admin_url( 'admin-post.php?action=wowthai_complete_order&order_id=' . $order_id . '&_wpnonce=' . wp_create_nonce( 'wowthai_order_action_' . $order_id ) ) ) . '" class="btn-quick-order btn-complete" title="Bestellung wurde abgeholt">✓ Abgeholt</a>',
+        ]);
     }
 
     $redirect_url = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=wc-orders' );
@@ -553,6 +583,16 @@ function wowthai_handle_complete_order() {
     if ( $order ) {
         $order->set_status( 'completed', 'Bestellung wurde vom Kunden abgeholt und erfolgreich abgeschlossen.' );
         $order->save();
+    }
+
+    if ( wp_doing_ajax() || ( isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest' ) || isset($_GET['ajax']) ) {
+        wp_send_json_success([
+            'order_id'          => $order_id,
+            'action'            => 'complete',
+            'status'            => 'completed',
+            'status_html'       => '<div class="kitchen-status completed">✓ Abgeholt</div>',
+            'next_actions_html' => '<button type="button" class="btn-quick-order btn-bon-print" onclick="window.open(\'' . esc_url( admin_url( 'admin-post.php?action=wowthai_print_order_bon&order_id=' . $order_id ) ) . '\', \'bon_print\', \'width=380,height=650,scrollbars=yes\')" title="80mm Küchenbon drucken">🖨️ Bon</button>',
+        ]);
     }
 
     $redirect_url = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=wc-orders' );
@@ -1092,6 +1132,65 @@ function wowthai_admin_order_styles_and_scripts() {
                 });
             });
 
+            // Instant Smooth AJAX for Quick Action buttons (No page reload lag!)
+            document.addEventListener('click', function(e) {
+                var btn = e.target.closest('.btn-quick-order');
+                if (!btn || btn.classList.contains('btn-bon-print')) return;
+
+                var href = btn.getAttribute('href');
+                if (!href) return;
+
+                if (btn.classList.contains('btn-reject') && !confirm('Bestellung wirklich ablehnen und stornieren?')) {
+                    e.preventDefault();
+                    return;
+                }
+
+                e.preventDefault();
+                var row = btn.closest('tr');
+                var actionsCell = btn.closest('.column-wowthai_quick_actions') || btn.closest('.wowthai-right-actions');
+                var pickupCell = row ? (row.querySelector('.column-wowthai_pickup') || row.querySelector('.wowthai-col-pickup')) : null;
+
+                var oldText = btn.innerHTML;
+                btn.style.pointerEvents = 'none';
+                btn.style.opacity = '0.7';
+                btn.innerHTML = '⏳ …';
+
+                var ajaxUrl = href + (href.indexOf('?') >= 0 ? '&' : '?') + 'ajax=1';
+
+                fetch(ajaxUrl, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (res && res.success && res.data) {
+                        if (row) {
+                            row.style.transition = 'background 0.4s';
+                            row.style.background = '#e8f7ee';
+                            setTimeout(function() { row.style.background = ''; }, 1500);
+                        }
+                        if (pickupCell && res.data.status_html) {
+                            var oldStatus = pickupCell.querySelector('.kitchen-status');
+                            if (oldStatus) {
+                                oldStatus.outerHTML = res.data.status_html;
+                            } else {
+                                pickupCell.insertAdjacentHTML('beforeend', res.data.status_html);
+                            }
+                        }
+                        if (actionsCell && res.data.next_actions_html) {
+                            actionsCell.innerHTML = res.data.next_actions_html;
+                        }
+                    } else {
+                        alert((res && res.data && res.data.message) ? res.data.message : 'Aktion konnte nicht ausgeführt werden.');
+                        btn.innerHTML = oldText;
+                        btn.style.opacity = '1';
+                        btn.style.pointerEvents = '';
+                    }
+                })
+                .catch(function(err) {
+                    window.location.href = href;
+                });
+            });
+
             // If there are incoming unaccepted orders, alert kitchen!
             if (hasNewOrders && isSoundOn) {
                 // Play immediately after user interaction or if context available
@@ -1099,12 +1198,16 @@ function wowthai_admin_order_styles_and_scripts() {
             }
         });
 
-        // Live Auto-Refresh (Alle 30 Sekunden)
-        setTimeout(function() {
-            if (!document.querySelector('input:focus, textarea:focus, select:focus')) {
+        // Gentle auto-refresh (only when idle and not interacting)
+        var lastUserActivity = Date.now();
+        ['click', 'keydown', 'mousemove', 'scroll'].forEach(function(evt) {
+            document.addEventListener(evt, function() { lastUserActivity = Date.now(); }, { passive: true });
+        });
+        setInterval(function() {
+            if (Date.now() - lastUserActivity > 45000 && !document.querySelector('input:focus, textarea:focus, select:focus')) {
                 window.location.reload();
             }
-        }, 30000);
+        }, 15000);
     })();
     </script>
     <?php

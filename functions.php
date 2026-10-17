@@ -26,7 +26,7 @@ add_action('after_setup_theme', 'wowthai_theme_setup');
 // 2. Enqueue Styles & Scripts
 function wowthai_enqueue_scripts() {
     $theme_uri = get_template_directory_uri();
-    $version = '1.3.1';
+    $version = '1.4.0';
 
     // Fonts & Base Styles
     wp_enqueue_style('wowthai-fonts', $theme_uri . '/assets/css/fonts.css', [], $version);
@@ -711,4 +711,60 @@ require_once get_template_directory() . '/inc/admin-orders.php';
 // 18. Tischanfragen & Reservierungsverwaltung in WP-Admin (Resmio/Wix Style)
 require_once get_template_directory() . '/inc/admin-reservations.php';
 require_once get_template_directory() . '/inc/reservations-front.php';
+
+// 19. WOW Thai Staff Operations Portal (/betrieb/)
+add_filter('show_admin_bar', function($show) {
+    if (is_page('betrieb') || (isset($GLOBALS['post']) && $GLOBALS['post']->post_name === 'betrieb')) {
+        return false;
+    }
+    return $show;
+});
+
+add_action('wp_ajax_wowthai_portal_login', 'wowthai_ajax_portal_login');
+add_action('wp_ajax_nopriv_wowthai_portal_login', 'wowthai_ajax_portal_login');
+function wowthai_ajax_portal_login() {
+    check_ajax_referer('wowthai_portal_login_nonce', 'nonce');
+    $input_user = trim(sanitize_text_field($_POST['log'] ?? ''));
+    $password   = $_POST['pwd'] ?? '';
+    $remember   = !empty($_POST['rememberme']);
+
+    if (empty($input_user) || empty($password)) {
+        wp_send_json_error(['message' => 'Bitte Benutzername / E-Mail und Passwort eingeben.']);
+    }
+
+    // Resolve user by email or login
+    $found_user = is_email($input_user) ? get_user_by('email', $input_user) : get_user_by('login', $input_user);
+    $login_name = $found_user ? $found_user->user_login : $input_user;
+
+    $creds = [
+        'user_login'    => $login_name,
+        'user_password' => $password,
+        'remember'      => $remember,
+    ];
+    $user = wp_signon($creds, is_ssl());
+
+    if (is_wp_error($user)) {
+        if ($found_user) {
+            wp_send_json_error([
+                'message' => 'Passwort ungültig. Da dieses Konto über WordPress.com (SSO) verwaltet wird, bitte den goldenen Button "Mit WordPress.com anmelden" oben nutzen.',
+                'is_wpcom_account' => true,
+            ]);
+        } else {
+            wp_send_json_error(['message' => 'Benutzerkonto nicht gefunden. Bitte Zugangsdaten prüfen.']);
+        }
+    }
+
+    $is_staff = user_can($user, 'manage_woocommerce') 
+             || user_can($user, 'manage_options') 
+             || user_can($user, 'edit_shop_orders')
+             || in_array('shop_manager', (array)($user->roles ?? []), true)
+             || in_array('administrator', (array)($user->roles ?? []), true);
+
+    if (!$is_staff) {
+        wp_logout();
+        wp_send_json_error(['message' => 'Ihr Konto (' . esc_html($user->user_email) . ') hat keine Berechtigung für das Restaurant-Betriebsportal. Erforderliche Rolle: Administrator oder Shop-Manager.']);
+    }
+
+    wp_send_json_success(['redirect' => home_url('/betrieb/'), 'user' => $user->display_name]);
+}
 
