@@ -17,3 +17,10 @@
 - CI installs Node.js and PHP so syntax and unit checks run on pull requests.
 - `node dev/build.mjs` creates a local ZIP only after verification; it does not deploy. Run only when packaging is needed.
 - For checkout changes, follow [docs/woocommerce-qa.md](docs/woocommerce-qa.md). State which checks are static, unit, or browser-level; do not claim end-to-end coverage from the current hours suite.
+
+## Available repository skills
+- Read [the skill inventory](docs/INSTALLED-AGENT-SKILLS.md) before installing or using third-party skills.
+- All project skills live in `.agents/skills/`; current Codex and Antigravity workspace versions can discover this layout. Confirm actual discovery on each local/cloud agent.
+- Use `wordpress-theme` and `woocommerce-checkout-qa` for task-specific behavior. `wp-project-triage`, `wp-performance` and `web-design-guidelines` are curated third-party skills with pinned provenance and references.
+- WordPress upstream skills were authored for WordPress **7.0+**. The live core/WooCommerce versions are **unverified**: never apply core-7-only instructions without first confirming compatibility; prefer read-only analysis.
+- Web design checks use a checked-in, versioned guideline snapshot, not live remote instructions.
