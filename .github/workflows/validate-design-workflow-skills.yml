@@ -1,0 +1,29 @@
+name: Validate design and workflow skills
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ai-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify installed skills and WordPress detector
+        run: node dev/check-agent-skills.mjs
+      - name: Check Python runtime script syntax
+        run: |
+          python -m py_compile .agents/skills/ui-ux-pro-max/scripts/core.py .agents/skills/ui-ux-pro-max/scripts/search.py .agents/skills/ui-ux-pro-max/scripts/design_system.py
+      - name: Run offline UX skill smoke search
+        run: python .agents/skills/ui-ux-pro-max/scripts/search.py "restaurant checkout usability" --domain ux

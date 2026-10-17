@@ -24,3 +24,9 @@
 - Use `wordpress-theme` and `woocommerce-checkout-qa` for task-specific behavior. `wp-project-triage`, `wp-performance` and `web-design-guidelines` are curated third-party skills with pinned provenance and references.
 - WordPress upstream skills were authored for WordPress **7.0+**. The live core/WooCommerce versions are **unverified**: never apply core-7-only instructions without first confirming compatibility; prefer read-only analysis.
 - Web design checks use a checked-in, versioned guideline snapshot, not live remote instructions.
+
+## Optional installed design and engineering workflow skills (project-scoped)
+- `ui-ux-pro-max`: use for UI design systems, page layout and visual decisions. It includes a local Python search and data catalogs; run only on local development or approved staging. WordPress PHP/WooCommerce business rules always take precedence.
+- **Superpowers core (curated)**: `writing-plans`, `executing-plans`, `test-driven-development`, `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `requesting-code-review`, `receiving-code-review`, `finishing-a-development-branch`. Activate only the relevant workflow for the task. This project install deliberately **does not** include Superpowers' auto-enforcing `using-superpowers` bootstrap.
+- Never let brainstorming/design rules justify changing production menus, payments, tax rates, database or order logic without verification.
+- Read [docs/INSTALLED-AGENT-SKILLS.md](docs/INSTALLED-AGENT-SKILLS.md) for pinned upstream commits, prerequisites and smoke tests. This branch installation does not activate global Codex plugins or Antigravity plugins outside the project.
