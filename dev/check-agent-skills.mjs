@@ -4,7 +4,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const root = process.cwd();
-const names = ['wordpress-theme', 'woocommerce-checkout-qa', 'wp-project-triage', 'wp-performance', 'web-design-guidelines'];
+const names = ['wordpress-theme', 'woocommerce-checkout-qa', 'wp-project-triage', 'wp-performance', 'web-design-guidelines', "ui-ux-pro-max", "writing-plans", "executing-plans", "test-driven-development", "systematic-debugging", "verification-before-completion", "using-git-worktrees", "requesting-code-review", "receiving-code-review", "finishing-a-development-branch"];
 const errors = [];
 for (const name of names) {
   const file = path.join(root, '.agents', 'skills', name, 'SKILL.md');
@@ -23,6 +23,14 @@ for (const p of [
   '.agents/skills/wp-performance/scripts/perf_inspect.mjs',
   '.agents/skills/web-design-guidelines/references/web-interface-guidelines.md',
   '.agents/licenses/gpl-v2.txt',
+  '.agents/licenses/ui-ux-pro-max-MIT.txt',
+  '.agents/licenses/superpowers-MIT.txt',
+  '.agents/skills/ui-ux-pro-max/scripts/search.py',
+  '.agents/skills/ui-ux-pro-max/scripts/core.py',
+  '.agents/skills/ui-ux-pro-max/scripts/design_system.py',
+  '.agents/skills/ui-ux-pro-max/data/ux-guidelines.csv',
+  '.agents/skills/ui-ux-pro-max/data/styles.csv',
+  '.agents/skills/ui-ux-pro-max/data/stacks/html-tailwind.csv',
 ]) {
   if (!fs.existsSync(path.join(root, p))) errors.push('Missing bundled dependency: ' + p);
 }

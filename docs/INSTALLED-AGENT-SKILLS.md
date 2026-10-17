@@ -20,7 +20,7 @@ WordPress source `SKILL.md` paths were adapted to this repository's `.agents/ski
 2. `wp-performance` includes WP-CLI diagnostics. **Do not run on production** without explicit permission; even diagnostic commands may disclose environment data or affect server load.
 3. This repo is **public**. Never add API keys, customer records, employee information, real orders, DB dumps or credentials.
 4. `web-design-guidelines` provides code review, **not a browser E2E test**. Playwright + an isolated WooCommerce site are a separate future installation.
-5. [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) (large Python/data-powered CLI) and [Superpowers](https://github.com/obra/superpowers) (agent plugin) are *not* installed by this PR. Install them using the official agent-specific installer **locally**, only if needed. Avoid stacking competing workflow frameworks.
+5. UI UX Pro Max and nine Superpowers core workflows are included in the **new stacked feature branch** (see below); they are *not* installed globally as official plugins. Avoid stacking duplicate workflows.
 6. No WordPress plugins, WP-CLI packages, PHPCS, Playwright dependencies or external server integrations have been installed.
 
 ## Verify after the PR is merged / branch is checked out
@@ -39,3 +39,36 @@ Check that each skill's `SKILL.md` appears under `.agents/skills`. **Ask each lo
 2. Update complete supporting files and the source commit in this inventory.
 3. Run the validator and existing `node dev/verify.mjs` (with PHP installed for its PHP suite).
 4. Open a new PR and review the diff; do not auto-update external skills into `main`.
+
+## Added in this branch — UI UX Pro Max and Superpowers core
+
+**UI UX Pro Max**: vendored **47 runtime files** from [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill/tree/56ea9cf174ed86786187daa9de0e6247cb0747e4/.claude/skills/ui-ux-pro-max) at commit `56ea9cf174ed86786187daa9de0e6247cb0747e4`, MIT; tests/fixtures omitted, runtime dataset, search, design system, references and Python scripts retained. Main `SKILL.md` has CLI command paths adapted to project-local `.agents/skills/ui-ux-pro-max/`. Python 3 is required; no npm package is installed.
+
+**Superpowers core**: project-local selected workflow skills from [obra/superpowers](https://github.com/obra/superpowers/tree/bb92a77741419a4ab5f06e711a283343f1ada0c3/skills) at source tree `bb92a77741419a4ab5f06e711a283343f1ada0c3`, MIT:
+
+- `writing-plans`
+- `executing-plans`
+- `test-driven-development`
+- `systematic-debugging`
+- `verification-before-completion`
+- `using-git-worktrees`
+- `requesting-code-review`
+- `receiving-code-review`
+- `finishing-a-development-branch`
+
+The selected core includes necessary skill references and plan scripts. **It is not the full automatic Superpowers plugin installation**: the force-every-prompt `using-superpowers` bootstrap, visual brainstorm helper and subagent orchestration components are not installed. These work best when invoked deliberately per feature/bug. For full Codex/Antigravity plugin startup features, follow upstream's **official** plugin instructions locally, after reviewing its behavior; don't install duplicate skill copies alongside this project set.
+
+**Licenses:** [UI UX Pro Max MIT](../.agents/licenses/ui-ux-pro-max-MIT.txt) and [Superpowers MIT](../.agents/licenses/superpowers-MIT.txt).
+
+**Smoke tests after checking out this branch:**
+
+```powershell
+node dev/check-agent-skills.mjs
+python .agents/skills/ui-ux-pro-max/scripts/search.py "restaurant checkout usability" --domain ux
+python .agents/skills/ui-ux-pro-max/scripts/search.py "restaurant ordering site" --design-system
+node dev/verify.mjs
+```
+
+CI checks skill structure and can run the Python search CLI without WordPress/network credentials. If your terminal calls Python `py` rather than `python`, use `py -3` locally. The existing PHP theme CI is separate; neither proves end-to-end WooCommerce checkout.
+
+These GitHub project files **only become available** to Codex/Antigravity when the agent opens a checkout containing this branch (or `main` after merge). No claim is made about global skill installation on Windows, Codex plugins in the app or Antigravity plugins.
