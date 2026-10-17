@@ -11,16 +11,16 @@ $wow_ph        = $wow_info['phone'] ?? '+43 7252 74973';
 $theme_uri     = get_template_directory_uri();
 $special_today = function_exists('wowthai_get_special_closed_day') ? wowthai_get_special_closed_day() : null;
 
-if (is_page('menu') || is_page('speisekarte')) {
-    $meta_title = 'Speisekarte & Online Bestellen | WOW Thai Steyr';
-    $meta_desc  = 'Original thailändische Currys, Wok-Spezialitäten & frisches Sushi bei WOW Thai im City Point Steyr online zur Selbstabholung bestellen.';
-} elseif (is_page('reservations') || is_page('tisch-reservieren')) {
-    $meta_title = 'Tisch online reservieren | WOW Thai Steyr';
-    $meta_desc  = 'Reservieren Sie Ihren Tisch bei WOW Thai Steyr (City Point · 1. OG, Leopold-Werndl-Straße 2, 4400 Steyr) bequem online.';
-} else {
-    $meta_title = 'WOW Thai Steyr | Thailändisches Restaurant, Wok & Sushi im City Point';
-    $meta_desc  = 'Authentische thailändische Küche, Wok-Gerichte & frisches Sushi im City Point Steyr (1. OG). Tisch online reservieren oder Takeaway vorbestellen.';
-}
+$seo_meta = function_exists('wowthai_get_seo_meta') ? wowthai_get_seo_meta() : [
+    'title'    => 'WOW Thai Steyr | Thailändisches Restaurant & Sushi Bar im City Point',
+    'desc'     => 'Authentische thailändische Küche, Wok-Gerichte & frisches Sushi im City Point Steyr (1. OG). Tisch online reservieren oder Takeaway vorbestellen.',
+    'og_type'  => 'website',
+    'og_image' => $theme_uri . '/assets/img/hero.jpg',
+];
+$meta_title = $seo_meta['title'];
+$meta_desc  = $seo_meta['desc'];
+$og_type    = $seo_meta['og_type'] ?? 'website';
+$og_image   = $seo_meta['og_image'] ?? ($theme_uri . '/assets/img/hero.jpg');
 ?>
 <!doctype html>
 <html <?php language_attributes(); ?>>
@@ -29,12 +29,16 @@ if (is_page('menu') || is_page('speisekarte')) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="<?php echo esc_attr($meta_desc); ?>">
   <meta property="og:locale" content="de_AT">
-  <meta property="og:type" content="website">
+  <meta property="og:type" content="<?php echo esc_attr($og_type); ?>">
   <meta property="og:site_name" content="WOW Thai Steyr">
   <meta property="og:title" content="<?php echo esc_attr($meta_title); ?>">
   <meta property="og:description" content="<?php echo esc_attr($meta_desc); ?>">
   <meta property="og:url" content="<?php echo esc_url(home_url(add_query_arg([], $GLOBALS['wp']->request ?? ''))); ?>">
-  <meta property="og:image" content="<?php echo esc_url($theme_uri . '/assets/img/hero.jpg'); ?>">
+  <meta property="og:image" content="<?php echo esc_url($og_image); ?>">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<?php echo esc_attr($meta_title); ?>">
+  <meta name="twitter:description" content="<?php echo esc_attr($meta_desc); ?>">
+  <meta name="twitter:image" content="<?php echo esc_url($og_image); ?>">
   <meta name="theme-color" content="#100f0d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">

@@ -233,10 +233,52 @@ function recordGate(id, name, issues, warnOnly = false) {
     recordGate('G10', 'Kitchen 80mm Bon & Admin Order Customizations', issues, isBaseline);
 }
 
+// G11: SEO Architecture & Metadata Integrity
+{
+    const issues = [];
+    const seoFile = path.join(ROOT, 'inc/seo.php');
+    if (!fs.existsSync(seoFile)) {
+        issues.push('inc/seo.php does not exist');
+    } else {
+        const seoContent = fs.readFileSync(seoFile, 'utf8');
+        if (!seoContent.includes('wowthai_get_seo_meta')) {
+            issues.push('inc/seo.php is missing wowthai_get_seo_meta()');
+        }
+        if (!seoContent.includes('pre_get_document_title')) {
+            issues.push('inc/seo.php is missing pre_get_document_title filter');
+        }
+        if (!seoContent.includes('wp_sitemaps_post_types')) {
+            issues.push('inc/seo.php is missing wp_sitemaps_post_types filter');
+        }
+        if (!seoContent.includes('wp_sitemaps_add_provider')) {
+            issues.push('inc/seo.php is missing wp_sitemaps_add_provider filter to protect users sitemap');
+        }
+    }
+    const resInfo = fs.readFileSync(path.join(ROOT, 'inc/restaurant-info.php'), 'utf8');
+    if (!resInfo.includes('hasMap')) {
+        issues.push('inc/restaurant-info.php is missing hasMap schema');
+    }
+    if (!resInfo.includes('wowthai_output_menu_schema')) {
+        issues.push('inc/restaurant-info.php is missing wowthai_output_menu_schema()');
+    }
+    const frontPage = fs.readFileSync(path.join(ROOT, 'front-page.php'), 'utf8');
+    if (!frontPage.includes('hero-seo-badge')) {
+        issues.push('front-page.php is missing hero-seo-badge in H1 heading');
+    }
+    if (frontPage.includes('alt=""')) {
+        issues.push('front-page.php has empty hero alt attribute');
+    }
+    const funcPhp = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
+    if (!funcPhp.includes("require_once get_template_directory() . '/inc/seo.php'")) {
+        issues.push('functions.php does not require inc/seo.php');
+    }
+    recordGate('G11', 'SEO Engine & Structured Data Integrity', issues, isBaseline);
+}
+
 // Summary Output
 let failedCount = 0;
 console.log('==============================================================');
-console.log(' WOW THAI STEYR — AUTOMATED VERIFICATION REPORT (G1–G10)');
+console.log(' WOW THAI STEYR — AUTOMATED VERIFICATION REPORT (G1–G11)');
 console.log('==============================================================');
 for (const r of results) {
     const icon = r.status === 'PASS' ? '✅' : (r.status === 'WARN' ? '⚠️' : '❌');
@@ -256,3 +298,4 @@ if (failedCount > 0) {
 } else {
     console.log('Verification PASSED.');
 }
+

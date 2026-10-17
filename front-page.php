@@ -13,11 +13,14 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
 <main id="main" tabindex="-1">
   <section class="hero hero-full" aria-labelledby="home-title">
     <div class="hero-media" aria-hidden="true">
-      <img class="hero-photo" src="<?php echo esc_url(get_template_directory_uri() . '/assets/img/hero.jpg'); ?>" alt="" width="1600" height="1067" fetchpriority="high" decoding="async">
+      <img class="hero-photo" src="<?php echo esc_url(get_template_directory_uri() . '/assets/img/hero.jpg'); ?>" alt="WOW Thai Restaurant &amp; Sushi Bar im City Point Steyr – Authentische thailändische Küche und Wok-Spezialitäten" width="1600" height="1067" fetchpriority="high" decoding="async">
     </div>
     <div class="hero-copy">
       <p class="eyebrow"><span class="eyebrow-dot"></span> THAI · SUSHI · WOK &nbsp; / &nbsp; STEYR</p>
-      <h1 id="home-title">Schön, dass<br><em>Sie da sind.</em></h1>
+      <h1 id="home-title">
+        <span class="hero-seo-badge">Authentische Thai-Küche &amp; frisches Sushi in Steyr</span>
+        Schön, dass<br><em>Sie da sind.</em>
+      </h1>
       <p class="hero-lead">Lust auf ein aromatisches Curry, frisch gebratenen Wok oder Sushi? Wir freuen uns, Sie im City Point in Steyr zu begrüßen – oder bereiten Ihre Lieblingsgerichte zur Abholung vor.</p>
       <div class="button-row">
         <a class="button button-dark" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte &amp; bestellen <span aria-hidden="true">↗</span></a>

@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 $theme_uri = get_template_directory_uri();
-$version = '1.4.0';
+$version = '1.4.1';
 
 // Fallback direct POST login handler
 $login_error = '';

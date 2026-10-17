@@ -190,6 +190,7 @@ function wowthai_output_restaurant_schema() {
             'latitude'  => $info['geo']['latitude'],
             'longitude' => $info['geo']['longitude'],
         ],
+        'hasMap' => $info['google_maps_url'],
         'openingHoursSpecification' => wowthai_schema_opening_hours(),
     ];
 
@@ -197,3 +198,75 @@ function wowthai_output_restaurant_schema() {
     echo '<script type="application/ld+json">' . wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT ) . "</script>\n";
 }
 add_action( 'wp_head', 'wowthai_output_restaurant_schema', 5 );
+
+/**
+ * Gibt Schema.org JSON-LD für die Speisekarte (Menu & MenuSection) auf /menu/ aus.
+ */
+function wowthai_output_menu_schema() {
+    if (!is_page('menu') && !is_page('speisekarte')) {
+        return;
+    }
+
+    if (!function_exists('wowthai_get_menu_structure')) {
+        return;
+    }
+
+    $menu_data = wowthai_get_menu_structure();
+    $menu_url  = home_url('/menu/');
+
+    $sections = [];
+    foreach (['restaurant', 'sushi'] as $type) {
+        if (empty($menu_data[$type])) {
+            continue;
+        }
+        foreach ($menu_data[$type] as $sec) {
+            $items = [];
+            foreach (array_slice($sec['products'] ?? [], 0, 10) as $p) {
+                $raw_price = is_numeric($p['price'] ?? null) ? (float) $p['price'] : 0.0;
+                $item = [
+                    '@type'       => 'MenuItem',
+                    'name'        => $p['title'] ?? '',
+                    'description' => $p['description'] ?? '',
+                ];
+                if ($raw_price > 0) {
+                    $item['offers'] = [
+                        '@type'         => 'Offer',
+                        'price'         => number_format($raw_price, 2, '.', ''),
+                        'priceCurrency' => 'EUR',
+                    ];
+                }
+                if (!empty($p['image_url'])) {
+                    $item['image'] = $p['image_url'];
+                }
+                $items[] = $item;
+            }
+
+            if (!empty($items)) {
+                $sections[] = [
+                    '@type'       => 'MenuSection',
+                    'name'        => $sec['name'] ?? '',
+                    'hasMenuItem' => $items,
+                ];
+            }
+        }
+    }
+
+    if (empty($sections)) {
+        return;
+    }
+
+    $schema = [
+        '@context'       => 'https://schema.org',
+        '@type'          => 'Menu',
+        '@id'            => $menu_url . '#menu',
+        'name'           => 'Speisekarte & Sushi – WOW Thai Steyr',
+        'url'            => $menu_url,
+        'inLanguage'     => 'de',
+        'hasMenuSection' => $sections,
+    ];
+
+    echo "\n<!-- WOW Thai Steyr - Menu Schema.org JSON-LD -->\n";
+    echo '<script type="application/ld+json">' . wp_json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "</script>\n";
+}
+add_action('wp_head', 'wowthai_output_menu_schema', 6);
+
