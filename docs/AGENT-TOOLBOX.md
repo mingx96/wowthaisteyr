@@ -1,18 +1,29 @@
-# Agent toolbox selection for WOW Thai
+# AI agent toolbox — WOW Thai Steyr (curated)
 
-## For WordPress PHP changes
-Prefer `WordPress/agent-skills` project triage and the repository's existing `dev/verify.mjs`. Verify WP core/PHP/WooCommerce versions before applying code patterns. Avoid applying React/Next.js instructions to this server-rendered theme.
+This document describes **selection and installation**, not a claim that any upstream package is installed. Installation guide: [INSTALL-AGENT-SKILLS.md](INSTALL-AGENT-SKILLS.md).
 
-## For web design
-Start from customer flow and business rules. Use `UI UX Pro Max` for consistent visual direction, or `vercel-labs/agent-skills` `web-design-guidelines` for UX/a11y audit. They are **not installed** merely because mentioned in a documentation file. Review responsive cart, selected modifiers, allergen information, German copy, checkout and staff portal.
+## Tool selection (minimum viable stack)
 
-## For workflow
-Use `AGENTS.md` from the existing workspace PR when approved and follow the existing `COORDINATION.md`. Optionally pilot Superpowers for planning/TDD in a development branch. Never let two agents write concurrently to a shared staging/live instance.
+| Task | Tool / skill | What is covered |
+|---|---|---|
+| Understand PHP theme before edits | Local `AGENTS.md` after PR #1 + `WordPress/agent-skills` `wp-project-triage` | Identify actual WP/Woo versions, PHP code and repo verification. Upstream WordPress skills target 7.0+; do not assume site compatibility. |
+| Build UI direction | UI UX Pro Max **optional** | Layout, responsive typography and visual design; verify changes do not break checkout. |
+| Audit UI/a11y | Vercel `web-design-guidelines` **optional** | Forms, focus, keyboard, mobile and errors; not React-specific dependencies. |
+| Plan complex changes | Superpowers **optional** | Specification, plan, TDD and review; pilot in one feature branch instead of adding several overlapping workflow frameworks. |
+| Catch WordPress style issues | WordPress Coding Standards | Separate Composer/PHPCS CI integration, **not yet installed**. |
+| Test WooCommerce order flow | Playwright + staging | Separate browser E2E harness, **not yet configured**; use synthetic products and non-live payments. |
 
-## For QA
-- Existing `dev/verify.mjs`: static checks, PHP syntax and opening-hour unit assertions when PHP is installed.
-- WP Coding Standards: future Composer/PHPCS integration, **not yet configured**.
-- Playwright: future E2E harness for checkout and pickup, **not yet configured**.
-- Deployment, order email and database migrations require a distinct reviewed plan.
+## Existing project verification
 
-Install instructions: [INSTALL-AGENT-SKILLS.md](INSTALL-AGENT-SKILLS.md).
+- `dev/verify.mjs` has G1–G10, JavaScript and conditional PHP checks. It does **not** prove purchase flow behavior.
+- PR [#1](https://github.com/mingx96/wowthaisteyr/pull/1) proposes `AGENTS.md`, two internal skills and CI, with success reported on its PR run. It has **not** been merged into `main` at this revision.
+- PR [#2](https://github.com/mingx96/wowthaisteyr/pull/2) is documentation-only: it does not deploy code, run installers on your PC or connect WordPress to AI.
+- `COORDINATION.md` records handover only; it is not a technical write lock for shared environments.
+
+## What to check before completion
+
+1. Verify WP core / WooCommerce / PHP compatibility, not just theme header version.
+2. Verify each installed skill directory appears in the **actual** agent environment (Codex desktop, Antigravity desktop, or Codex Cloud).
+3. Record the commands **actually executed** and results; distinguish static/unit/CI from browser checkout tests.
+4. Keep projects and branch histories separate. Never copy live customer or order data into a test fixture.
+5. PR review does not grant authority to change production WordPress DB, configuration, email, payment processing or live site.
