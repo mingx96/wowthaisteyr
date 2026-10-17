@@ -1,0 +1,25 @@
+name: Validate agent skills
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  agent-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate skill metadata and bundled detector
+        run: node dev/check-agent-skills.mjs
+      - name: Check skill scripts syntax
+        run: |
+          node --check .agents/skills/wp-project-triage/scripts/detect_wp_project.mjs
+          node --check .agents/skills/wp-performance/scripts/perf_inspect.mjs
