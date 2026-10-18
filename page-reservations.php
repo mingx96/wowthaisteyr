@@ -6,6 +6,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+$has_reservations = !function_exists('wowthai_branch_has_reservations') || wowthai_branch_has_reservations();
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wowthai_reservation_nonce'])) {
     if (function_exists('wowthai_handle_reservation_post')) {
         wowthai_handle_reservation_post();
@@ -70,11 +72,15 @@ if ($res_ok && $res_bot) {
 
 <main id="main" tabindex="-1">
   <section class="page-intro wrap reservation-intro">
-    <p class="eyebrow"><span class="eyebrow-dot"></span> WOW THAI · STEYR</p>
+    <p class="eyebrow"><span class="eyebrow-dot"></span> <?php echo esc_html( mb_strtoupper( $wow_info['brand_sub'] ?? 'WOW THAI', 'UTF-8' ) ); ?></p>
     <div class="page-intro-row">
       <div>
         <h1>Ein Tisch für <em>Sie.</em></h1>
-        <p>Planen Sie Ihren Besuch bei uns. Wählen Sie Datum, Uhrzeit und Personenzahl – wir freuen uns auf Ihren Besuch im City Point in Steyr.</p>
+        <?php if (!$has_reservations): ?>
+          <p>Online-Tischreservierungen sind für diesen Standort nicht verfügbar. Bitte nutzen Sie unseren Lieferservice.</p>
+        <?php else: ?>
+          <p>Planen Sie Ihren Besuch bei uns. Wählen Sie Datum, Uhrzeit und Personenzahl – wir freuen uns auf Ihren Besuch im Restaurant <?php echo esc_html( $wow_info['name'] ?? 'WOW Thai' ); ?>.</p>
+        <?php endif; ?>
       </div>
       <a class="button button-quiet" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte ansehen <span aria-hidden="true">↗</span></a>
     </div>
@@ -93,17 +99,32 @@ if ($res_ok && $res_bot) {
         <?php foreach (($wow_hd['rows'] ?? []) as $row): ?>
           <?php echo esc_html($row['days'] . ': ' . $row['hours']); ?><br>
         <?php endforeach; ?>
-        <span style="color:#d4a359;font-weight:600;">🍣 <?php echo esc_html($wow_hd['sushi_note'] ?? 'Montags Sushi-Ruhetag (warme Küche regulär)'); ?></span>
+        <?php if ( ! empty( $wow_info['has_sushi'] ) ): ?>
+          <span style="color:#d4a359;font-weight:600;">🍣 <?php echo esc_html($wow_hd['sushi_note'] ?? 'Montags Sushi-Ruhetag (warme Küche regulär)'); ?></span>
+        <?php endif; ?>
       </div>
 
       <div class="aside-parking-hint" style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:var(--muted);line-height:1.6;">
         <strong style="color:var(--ink);display:block;margin-bottom:4px;">🚗 Parken &amp; Barrierefreiheit:</strong>
-        Tiefgarage City Point direkt im Haus verfügbar. Bequem mit dem Lift ins 1. Obergeschoss zu unserem Restaurant.
+        <?php if ( ( function_exists('wowthai_get_branch_id') ? wowthai_get_branch_id() : ($wow_info['id'] ?? '') ) === 'steyr' ): ?>
+          Tiefgarage City Point direkt im Haus verfügbar. Bequem mit dem Lift ins 1. Obergeschoss zu unserem Restaurant.
+        <?php else: ?>
+          Parkmöglichkeiten direkt vor Ort verfügbar. Bequem erreichbar für Ihren genussvollen Besuch.
+        <?php endif; ?>
       </div>
     </div>
 
     <div class="reservation-panel" id="reservation-root">
-      <?php if ($is_cancelled_ok): ?>
+      <?php if (!$has_reservations): ?>
+        <div class="booking-success" role="status">
+          <h2>Tischreservierungen nicht verfügbar</h2>
+          <p>Online-Tischreservierungen sind für diesen Standort nicht verfügbar. Bitte nutzen Sie unseren Lieferservice.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+            <a class="button button-dark" href="<?php echo esc_url(home_url('/menu/')); ?>">Zur Speisekarte &amp; Online-Bestellung →</a>
+          </div>
+        </div>
+
+      <?php elseif ($is_cancelled_ok): ?>
         <div class="booking-success" role="status">
           <h2>Ihre Reservierung wurde storniert.</h2>
           <p>Vielen Dank für Ihre Mitteilung. Wir haben Ihren Tisch wieder freigegeben und hoffen, Sie bald zu einem anderen Zeitpunkt bei uns begrüßen zu dürfen!</p>
@@ -143,10 +164,14 @@ if ($res_ok && $res_bot) {
         $end_dt    = $start_dt->modify('+2 hours');
         $start_iso = $start_dt->format('Ymd\THis');
         $end_iso   = $end_dt->format('Ymd\THis');
-        $cal_title = rawurlencode("Tischreservierung: WOW Thai Steyr ({$c_party} Pers.)");
-        $cal_desc  = rawurlencode("Ihre Reservierung bei WOW Thai Steyr für {$c_party} Personen. Tel: {$wow_ph}");
-        $cal_loc   = rawurlencode('WOW Thai Steyr, City Point 1. OG, Leopold-Werndl-Straße 2, 4400 Steyr');
-        $cal_url   = "https://calendar.google.com/calendar/render?action=TEMPLATE&text={$cal_title}&dates={$start_iso}/{$end_iso}&ctz=Europe/Vienna&details={$cal_desc}&location={$cal_loc}";
+        $res_branch_id  = function_exists('wowthai_get_branch_id') ? wowthai_get_branch_id() : 'steyr';
+        $res_branch_cfg = function_exists('wowthai_get_branch_config') ? wowthai_get_branch_config($res_branch_id) : [];
+        $res_bname      = $res_branch_cfg['name'] ?? 'WOW Thai Steyr';
+        $cal_title      = rawurlencode("Tischreservierung: {$res_bname} ({$c_party} Pers.)");
+        $cal_desc       = rawurlencode("Ihre Reservierung bei {$res_bname} für {$c_party} Personen. Tel: {$wow_ph}");
+        $full_addr      = trim(($res_branch_cfg['street'] ?? 'Leopold-Werndl-Straße 2') . ', ' . ($res_branch_cfg['postal_code'] ?? '4400') . ' ' . ($res_branch_cfg['city'] ?? 'Steyr'));
+        $cal_loc        = rawurlencode($res_bname . ', ' . $full_addr);
+        $cal_url        = "https://calendar.google.com/calendar/render?action=TEMPLATE&text={$cal_title}&dates={$start_iso}/{$end_iso}&ctz=Europe/Vienna&details={$cal_desc}&location={$cal_loc}";
         $ics_url   = $c_id > 0 ? wowthai_res_ics_url($c_id) : '';
         $disp_date = wowthai_format_date_vienna($c_date, 'd.m.Y');
       ?>
@@ -173,6 +198,7 @@ if ($res_ok && $res_bot) {
 
         <form class="booking-form" method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
           <input type="hidden" name="action" value="wowthai_reserve">
+          <input type="hidden" name="res_branch_id" value="<?php echo esc_attr(function_exists('wowthai_get_branch_id') ? wowthai_get_branch_id() : 'steyr'); ?>">
           <?php wp_nonce_field('wowthai_make_reservation', 'wowthai_reservation_nonce'); ?>
 
           <!-- Honeypot field against automated spam bots -->

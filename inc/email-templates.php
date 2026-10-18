@@ -10,13 +10,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 function wowthai_send_branded_email( $to, $subject, $headline, $body_html, $action_url = '', $action_label = '' ) {
     $res_info   = function_exists( 'wowthai_get_restaurant_data' ) ? wowthai_get_restaurant_data() : [];
+    $b_name     = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : ($res_info['name'] ?? 'WOW Thai Steyr');
+    $b_short    = function_exists('wowthai_get_branch_short_name') ? wowthai_get_branch_short_name() : 'WoW Thai';
+    $b_addr     = function_exists('wowthai_get_branch_address') ? wowthai_get_branch_address() : ($res_info['address'] ?? 'Leopold-Werndl-Straße 2, 4400 Steyr');
+    $b_site     = function_exists('wowthai_get_branch_website') ? wowthai_get_branch_website() : 'wow-thai-steyr.at';
+    $b_maps     = function_exists('wowthai_get_branch_maps_url') ? wowthai_get_branch_maps_url() : 'https://maps.google.com/?q=' . urlencode($b_name);
+    $phone      = function_exists('wowthai_get_branch_phone') ? wowthai_get_branch_phone() : ($res_info['phone'] ?? '+43 7252 74973');
+    $phone_tel  = function_exists('wowthai_get_branch_phone_clean') ? wowthai_get_branch_phone_clean() : ($res_info['phone_clean'] ?? '+43725274973');
+    $has_dlv    = function_exists('wowthai_branch_has_delivery') ? wowthai_branch_has_delivery() : false;
     $logo_url   = get_template_directory_uri() . '/assets/img/logo.png';
-    $phone      = $res_info['phone'] ?? '+43 7252 74973';
-    $phone_tel  = $res_info['phone_clean'] ?? '+43725274973';
-    $address    = 'City Point · 1. Obergeschoss, Leopold-Werndl-Straße 2, 4400 Steyr';
     $from_email = function_exists( 'wowthai_get_notification_email' )
         ? wowthai_get_notification_email()
         : ( $res_info['email'] ?? 'info@wow-thai-restaurant.at' );
+
+    $eyebrow_text = strtoupper($b_short . ' · ' . ($has_dlv ? 'LIEFERUNG & TAKEAWAY' : 'RESTAURANT & TAKEAWAY'));
 
     ob_start();
     ?>
@@ -50,7 +57,7 @@ function wowthai_send_branded_email( $to, $subject, $headline, $body_html, $acti
                     <!-- HEADER -->
                     <tr>
                         <td class="header-td">
-                            <p class="eyebrow">WOW THAI · RESTAURANT & TAKEAWAY</p>
+                            <p class="eyebrow"><?php echo esc_html( $eyebrow_text ); ?></p>
                             <h1 class="headline"><?php echo esc_html( $headline ); ?></h1>
                         </td>
                     </tr>
@@ -71,12 +78,12 @@ function wowthai_send_branded_email( $to, $subject, $headline, $body_html, $acti
                     <!-- FOOTER -->
                     <tr>
                         <td class="footer-td">
-                            <strong>WOW Thai Steyr</strong><br>
-                            <?php echo esc_html( $address ); ?><br>
+                            <strong><?php echo esc_html( $b_name ); ?></strong><br>
+                            <?php echo esc_html( $b_addr ); ?><br>
                             Telefon: <a href="tel:<?php echo esc_attr( $phone_tel ); ?>"><?php echo esc_html( $phone ); ?></a> · 
-                            Web: <a href="<?php echo esc_url( home_url('/') ); ?>">wow-thai-steyr.at</a>
+                            Web: <a href="<?php echo esc_url( home_url('/') ); ?>"><?php echo esc_html( $b_site ); ?></a>
                             <p style="margin: 12px 0 0 0; padding-top: 10px; border-top: 1px dashed #26231c; font-size: 11px; color: #a39c8e;">
-                                ⭐⭐⭐⭐⭐ Hat es Ihnen geschmeckt? Wir freuen uns über Ihre <a href="https://maps.google.com/?q=WOW+Thai+Steyr" target="_blank" style="color: #d4a359; text-decoration: underline;">5-Sterne-Bewertung auf Google</a>!
+                                ⭐⭐⭐⭐⭐ Hat es Ihnen geschmeckt? Wir freuen uns über Ihre <a href="<?php echo esc_url( $b_maps ); ?>" target="_blank" style="color: #d4a359; text-decoration: underline;">5-Sterne-Bewertung auf Google</a>!
                             </p>
                         </td>
                     </tr>
@@ -90,8 +97,8 @@ function wowthai_send_branded_email( $to, $subject, $headline, $body_html, $acti
 
     $headers = [
         'Content-Type: text/html; charset=UTF-8',
-        'From: WOW Thai Steyr <' . $from_email . '>',
-        'Reply-To: WOW Thai Steyr <' . $from_email . '>',
+        'From: ' . $b_name . ' <' . $from_email . '>',
+        'Reply-To: ' . $b_name . ' <' . $from_email . '>',
     ];
 
     $sent = wp_mail( $to, $subject, $message, $headers );

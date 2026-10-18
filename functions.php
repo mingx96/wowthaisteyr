@@ -36,16 +36,42 @@ function wowthai_enqueue_scripts() {
     // Front-end interactive app
     wp_enqueue_script('wowthai-app', $theme_uri . '/assets/js/wowthai.js', ['jquery'], $version, true);
 
-    $prep_time = function_exists('wowthai_get_kitchen_prep_time') ? wowthai_get_kitchen_prep_time() : '25–35 Min.';
+    $prep_time    = function_exists('wowthai_get_kitchen_prep_time') ? wowthai_get_kitchen_prep_time() : '25–35 Min.';
     $upsell_items = function_exists('wowthai_get_upsell_suggestions') ? wowthai_get_upsell_suggestions() : [];
 
+    $b_id         = function_exists('wowthai_get_branch_id') ? wowthai_get_branch_id() : 'steyr';
+    $b_cfg        = function_exists('wowthai_get_branch_config') ? wowthai_get_branch_config($b_id) : [];
+    $b_name       = $b_cfg['name'] ?? 'WOW Thai Steyr';
+    $b_short      = $b_cfg['short_name'] ?? 'WoW Thai';
+    $b_street_s   = $b_cfg['street_short'] ?? ($b_cfg['street'] ?? 'Restaurant');
+    $has_dlv      = function_exists('wowthai_branch_has_delivery') ? wowthai_branch_has_delivery($b_id) : false;
+    $has_takeaway = !empty($b_cfg['has_takeaway']);
+    $dlv_zones    = $b_cfg['delivery_zones'] ?? ['4300', '4303', '4470', '4481'];
+    $eta          = function_exists('wowthai_get_delivery_eta') ? wowthai_get_delivery_eta() : 'ca. 30–45 Min.';
+
     wp_localize_script('wowthai-app', 'wowthaiConfig', [
-        'ajax_url' => admin_url('admin-ajax.php'),
-        'checkout_url' => function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : '/checkout/',
-        'cart_url' => function_exists('wc_get_cart_url') ? wc_get_cart_url() : '/cart/',
-        'nonce' => wp_create_nonce('wowthai_cart_nonce'),
-        'prep_time' => $prep_time,
-        'upsell_items' => $upsell_items,
+        'ajax_url'            => admin_url('admin-ajax.php'),
+        'checkout_url'        => function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : '/checkout/',
+        'cart_url'            => function_exists('wc_get_cart_url') ? wc_get_cart_url() : '/cart/',
+        'nonce'               => wp_create_nonce('wowthai_cart_nonce'),
+        'prep_time'           => $prep_time,
+        'upsell_items'        => $upsell_items,
+        'branch_id'           => $b_id,
+        'id'                  => $b_id,
+        'name'                => $b_name,
+        'branch_name'         => $b_name,
+        'branch_short'        => $b_short,
+        'branch_street_short' => $b_street_s,
+        'pickup_location'     => $b_street_s,
+        'address'             => $b_cfg['street'] ?? '',
+        'phone'               => $b_cfg['phone'] ?? '',
+        'has_delivery'        => $has_dlv,
+        'has_takeaway'        => $has_takeaway,
+        'delivery_zones'      => $dlv_zones,
+        'delivery_eta'        => $eta,
+        'drawer_title'        => $has_dlv ? 'Lieferung & Abholung' : 'Abholung',
+        'drawer_badge'        => $has_dlv ? $eta : ('ca. ' . $prep_time),
+        'checkout_btn_text'   => $has_dlv ? 'Zur Kasse (Lieferung / Abholung) →' : 'Zur Kasse (Abholung) →',
     ]);
 }
 add_action('wp_enqueue_scripts', 'wowthai_enqueue_scripts');
@@ -405,9 +431,11 @@ function wowthai_ajax_update_cart_quantity() {
 add_action('wp_ajax_wowthai_update_cart_quantity', 'wowthai_ajax_update_cart_quantity');
 add_action('wp_ajax_nopriv_wowthai_update_cart_quantity', 'wowthai_ajax_update_cart_quantity');
 
-// 10. Checkout Customization: Streamlined Restaurant Takeaway (Zero Address Clutter)
+// 10. Checkout Customization: Streamlined Restaurant Takeaway & Delivery UX
 function wowthai_custom_checkout_fields($fields) {
-    // Keep ONLY essential contact fields for pickup
+    $has_dlv = function_exists('wowthai_branch_has_delivery') && wowthai_branch_has_delivery();
+
+    // Essential contact fields
     $fields['billing'] = [
         'billing_first_name' => [
             'type' => 'text',
@@ -443,7 +471,42 @@ function wowthai_custom_checkout_fields($fields) {
         ],
     ];
 
-    // Remove shipping fields entirely (restaurant takeaway doesn't ship)
+    if ($has_dlv) {
+        $fields['billing']['billing_address_1'] = [
+            'type' => 'text',
+            'label' => 'Straße & Hausnummer',
+            'placeholder' => 'z. B. Westbahnstraße 12',
+            'required' => false,
+            'class' => ['form-row-wide'],
+            'priority' => 50,
+        ];
+        $fields['billing']['billing_address_2'] = [
+            'type' => 'text',
+            'label' => 'Stiege, Stockwerk, Tür / Top (optional)',
+            'placeholder' => 'z. B. Stiege 2, 1. Stock, Top 4',
+            'required' => false,
+            'class' => ['form-row-wide'],
+            'priority' => 60,
+        ];
+        $fields['billing']['billing_postcode'] = [
+            'type' => 'text',
+            'label' => 'Postleitzahl (PLZ)',
+            'placeholder' => '4300',
+            'required' => false,
+            'class' => ['form-row-first'],
+            'priority' => 70,
+        ];
+        $fields['billing']['billing_city'] = [
+            'type' => 'text',
+            'label' => 'Ort',
+            'placeholder' => 'St. Valentin',
+            'required' => false,
+            'class' => ['form-row-last'],
+            'priority' => 80,
+        ];
+    }
+
+    // Remove shipping fields entirely (fulfillment handles shipping dynamically)
     unset($fields['shipping']);
 
     // Customize order notes
@@ -460,11 +523,13 @@ add_filter('woocommerce_checkout_fields', 'wowthai_custom_checkout_fields', 99);
 function wowthai_filter_billing_fields($fields) {
     unset($fields['billing_company']);
     unset($fields['billing_country']);
-    unset($fields['billing_address_1']);
-    unset($fields['billing_address_2']);
-    unset($fields['billing_city']);
     unset($fields['billing_state']);
-    unset($fields['billing_postcode']);
+    if (!function_exists('wowthai_branch_has_delivery') || !wowthai_branch_has_delivery()) {
+        unset($fields['billing_address_1']);
+        unset($fields['billing_address_2']);
+        unset($fields['billing_city']);
+        unset($fields['billing_postcode']);
+    }
     return $fields;
 }
 add_filter('woocommerce_billing_fields', 'wowthai_filter_billing_fields', 9999);
@@ -472,11 +537,13 @@ add_filter('woocommerce_billing_fields', 'wowthai_filter_billing_fields', 9999);
 function wowthai_default_address_fields($fields) {
     unset($fields['company']);
     unset($fields['country']);
-    unset($fields['address_1']);
-    unset($fields['address_2']);
-    unset($fields['city']);
     unset($fields['state']);
-    unset($fields['postcode']);
+    if (!function_exists('wowthai_branch_has_delivery') || !wowthai_branch_has_delivery()) {
+        unset($fields['address_1']);
+        unset($fields['address_2']);
+        unset($fields['city']);
+        unset($fields['postcode']);
+    }
     return $fields;
 }
 add_filter('woocommerce_default_address_fields', 'wowthai_default_address_fields', 9999);
@@ -489,12 +556,27 @@ remove_action( 'woocommerce_before_checkout_form', 'woocommerce_checkout_coupon_
 
 // 12. Auto-fill hidden billing address so WooCommerce passes validation effortlessly
 function wowthai_autofill_checkout_fields() {
+    $has_dlv = function_exists('wowthai_branch_has_delivery') && wowthai_branch_has_delivery();
+    $fulfillment = sanitize_text_field($_POST['fulfillment_type'] ?? ($has_dlv ? 'delivery' : 'pickup')); // verify-ok
+
+    if ($fulfillment === 'delivery' || $fulfillment === 'lieferung') {
+        $_POST['billing_country'] = 'AT';
+        $_POST['billing_state']   = '';
+        if (!empty($_POST['billing_postcode']) && function_exists('wowthai_normalize_plz')) {
+            $_POST['billing_postcode'] = wowthai_normalize_plz($_POST['billing_postcode']); // verify-ok
+        }
+        return;
+    }
+
+    $city     = function_exists('wowthai_get_branch_city') ? wowthai_get_branch_city() : 'Steyr';
+    $postcode = function_exists('wowthai_get_branch_postcode') ? wowthai_get_branch_postcode() : '4400';
+    $b_name   = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : 'WOW Thai Steyr';
+
     $_POST['billing_country'] = 'AT';
-    $_POST['billing_city'] = 'Steyr';
-    $_POST['billing_address_1'] = 'Selbstabholung City Point Steyr';
-    $_POST['billing_postcode'] = '4400';
+    if (empty($_POST['billing_city']))     $_POST['billing_city'] = $city;
+    if (empty($_POST['billing_address_1']))$_POST['billing_address_1'] = 'Selbstabholung ' . $b_name;
+    if (empty($_POST['billing_postcode'])) $_POST['billing_postcode'] = $postcode;
     $_POST['billing_state'] = '';
-    
 }
 add_action('woocommerce_checkout_process', 'wowthai_autofill_checkout_fields', 5);
 
@@ -507,24 +589,48 @@ function wowthai_cart_has_sushi() {
 }
 
 function wowthai_validate_checkout_pickup() {
-    $pickup = wowthai_validate_pickup_request($_POST, null, wowthai_cart_has_sushi());
+    $has_dlv = function_exists('wowthai_branch_has_delivery') && wowthai_branch_has_delivery();
+    $fulfillment = sanitize_text_field($_POST['fulfillment_type'] ?? ($has_dlv ? 'delivery' : 'pickup')); // verify-ok
+    if ($fulfillment === 'delivery' || $fulfillment === 'lieferung') {
+        return;
+    }
+    $pickup = wowthai_validate_pickup_request($_POST, null, wowthai_cart_has_sushi()); // verify-ok
     if (is_wp_error($pickup)) wc_add_notice($pickup->get_error_message(), 'error');
 }
 add_action('woocommerce_checkout_process', 'wowthai_validate_checkout_pickup', 20);
 
 // Ensure posted data always has country and pickup address during update_order_review AJAX
 function wowthai_filter_checkout_posted_data($data) {
+    $has_dlv = function_exists('wowthai_branch_has_delivery') && wowthai_branch_has_delivery();
+    $fulfillment = sanitize_text_field($data['fulfillment_type'] ?? ($has_dlv ? 'delivery' : 'pickup'));
+
     $data['billing_country'] = 'AT';
-    $data['billing_city'] = 'Steyr';
-    $data['billing_address_1'] = 'Selbstabholung City Point Steyr';
-    $data['billing_postcode'] = '4400';
-    $data['billing_state'] = '';
+    $data['billing_state']   = '';
+
+    if ($fulfillment === 'delivery' || $fulfillment === 'lieferung') {
+        if (!empty($data['billing_postcode']) && function_exists('wowthai_normalize_plz')) {
+            $data['billing_postcode'] = wowthai_normalize_plz($data['billing_postcode']);
+        }
+        return $data;
+    }
+
+    $city     = function_exists('wowthai_get_branch_city') ? wowthai_get_branch_city() : 'Steyr';
+    $postcode = function_exists('wowthai_get_branch_postcode') ? wowthai_get_branch_postcode() : '4400';
+    $b_name   = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : 'WOW Thai Steyr';
+
+    if (empty($data['billing_city']))     $data['billing_city'] = $city;
+    if (empty($data['billing_address_1']))$data['billing_address_1'] = 'Selbstabholung ' . $b_name;
+    if (empty($data['billing_postcode'])) $data['billing_postcode'] = $postcode;
     return $data;
 }
 add_filter('woocommerce_checkout_posted_data', 'wowthai_filter_checkout_posted_data', 10, 1);
 
 // Clear, commanding order button text
 function wowthai_custom_order_button_text() {
+    $has_dlv = function_exists('wowthai_branch_has_delivery') && wowthai_branch_has_delivery();
+    if ($has_dlv) {
+        return 'Bestellung abschicken (Barzahlung bei Lieferung / Abholung)';
+    }
     return 'Bestellung abschicken (Bar / Karte bei Abholung)';
 }
 add_filter('woocommerce_order_button_text', 'wowthai_custom_order_button_text');
@@ -540,6 +646,9 @@ function wowthai_custom_checkout_error_messages($error) {
         'Billing Nachname ist ein Pflichtfeld.' => 'Bitte geben Sie Ihren Nachnamen ein.',
         'Billing Telefonnummer ist ein Pflichtfeld.' => 'Bitte geben Sie Ihre Telefonnummer ein.',
         'Billing E-Mail-Adresse ist ein Pflichtfeld.' => 'Bitte geben Sie Ihre E-Mail-Adresse ein.',
+        'Billing Straße & Hausnummer ist ein Pflichtfeld.' => 'Bitte geben Sie Ihre Straße und Hausnummer für die Zustellung ein.',
+        'Billing Postleitzahl (PLZ) ist ein Pflichtfeld.' => 'Bitte geben Sie eine gültige Postleitzahl ein.',
+        'Billing Ort ist ein Pflichtfeld.' => 'Bitte geben Sie Ihren Wohnort ein.',
         'Billing ' => '',
         'is a required field.' => 'ist ein Pflichtfeld.',
     ];
@@ -549,12 +658,23 @@ add_filter('woocommerce_add_error', 'wowthai_custom_checkout_error_messages', 10
 
 // 13. Save Pickup Time to Order Meta & autofill order address
 function wowthai_save_pickup_time_order_meta($order, $data) {
-    $order->set_billing_country('AT');
-    $order->set_billing_city('Steyr');
-    $order->set_billing_address_1('Selbstabholung City Point Steyr');
-    $order->set_billing_postcode('4400');
+    $has_dlv = function_exists('wowthai_branch_has_delivery') && wowthai_branch_has_delivery();
+    $fulfillment = sanitize_text_field($_POST['fulfillment_type'] ?? ($has_dlv ? 'delivery' : 'pickup')); // verify-ok
 
-    $pickup_time = wowthai_validate_pickup_request($_POST, null, wowthai_cart_has_sushi());
+    if ($fulfillment === 'delivery' || $fulfillment === 'lieferung') {
+        return;
+    }
+
+    $city     = function_exists('wowthai_get_branch_city') ? wowthai_get_branch_city() : 'Steyr';
+    $postcode = function_exists('wowthai_get_branch_postcode') ? wowthai_get_branch_postcode() : '4400';
+    $b_name   = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : 'WOW Thai Steyr';
+
+    $order->set_billing_country('AT');
+    if (!$order->get_billing_city())     $order->set_billing_city($city);
+    if (!$order->get_billing_address_1())$order->set_billing_address_1('Selbstabholung ' . $b_name);
+    if (!$order->get_billing_postcode()) $order->set_billing_postcode($postcode);
+
+    $pickup_time = wowthai_validate_pickup_request($_POST, null, wowthai_cart_has_sushi()); // verify-ok
     if (is_wp_error($pickup_time)) throw new Exception($pickup_time->get_error_message());
     $order->update_meta_data('Abholzeit', $pickup_time);
 }
@@ -564,10 +684,12 @@ add_action('woocommerce_checkout_create_order', 'wowthai_save_pickup_time_order_
 function wowthai_display_pickup_time_on_order($order) {
     $pickup = $order->get_meta('Abholzeit');
     if ($pickup) {
+        $b_name = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : 'WOW Thai Restaurant';
+        $b_addr = function_exists('wowthai_get_branch_address') ? wowthai_get_branch_address() : 'Leopold-Werndl-Straße 2, 4400 Steyr';
         echo '<div class="pickup-summary-banner">';
         echo '<h3>🕒 Abholinformation</h3>';
         echo '<p><strong>Gewünschte Abholzeit:</strong> <span class="pickup-time-pill">' . esc_html($pickup) . '</span></p>';
-        echo '<p><small>Abholort: <strong>WOW Thai Restaurant</strong>, City Point 1. OG, Leopold-Werndl-Straße 2, 4400 Steyr</small></p>';
+        echo '<p><small>Abholort: <strong>' . esc_html($b_name) . '</strong>, ' . esc_html($b_addr) . '</small></p>';
         echo '</div>';
     }
 }
@@ -692,6 +814,10 @@ function wowthai_get_products_in_cat($term_id) {
     return $products;
 }
 
+// 13. Multi-Tenant Branch Configuration Engine
+require_once get_template_directory() . '/inc/branch-config.php';
+require_once get_template_directory() . '/inc/delivery.php';
+
 require_once get_template_directory() . '/inc/hours.php';
 require_once get_template_directory() . '/inc/pickup.php';
 require_once get_template_directory() . '/inc/menu-normalizer.php';
@@ -767,5 +893,27 @@ function wowthai_ajax_portal_login() {
     }
 
     wp_send_json_success(['redirect' => home_url('/betrieb/'), 'user' => $user->display_name]);
+}
+
+/**
+ * Direct routing fallback for /betrieb/ operations portal across multi-tenant instances.
+ */
+add_filter('template_include', 'wowthai_betrieb_template_routing', 99);
+function wowthai_betrieb_template_routing($template) {
+    $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+    $path = trim((string)parse_url($request_uri, PHP_URL_PATH), '/');
+    if ($path === 'betrieb') {
+        global $wp_query;
+        if ($wp_query instanceof WP_Query) {
+            $wp_query->is_404 = false;
+            $wp_query->is_page = true;
+        }
+        status_header(200);
+        $portal_file = get_template_directory() . '/page-betrieb.php';
+        if (file_exists($portal_file)) {
+            return $portal_file;
+        }
+    }
+    return $template;
 }
 

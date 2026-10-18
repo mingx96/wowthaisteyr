@@ -42,6 +42,13 @@ defined( 'ABSPATH' ) || exit;
         $res_info = function_exists( 'wowthai_get_restaurant_data' )
             ? wowthai_get_restaurant_data()
             : [ 'phone' => '+43 7252 74973', 'phone_tel' => '+43725274973' ];
+        $b_name     = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : ($res_info['name'] ?? 'WOW Thai Steyr');
+        $b_street   = function_exists('wowthai_get_branch_street') ? wowthai_get_branch_street() : 'Leopold-Werndl-Straße 2';
+        $b_street_s = function_exists('wowthai_get_branch_street_short') ? wowthai_get_branch_street_short() : 'City Point Steyr';
+        $b_postcode = function_exists('wowthai_get_branch_postcode') ? wowthai_get_branch_postcode() : '4400';
+        $b_city     = function_exists('wowthai_get_branch_city') ? wowthai_get_branch_city() : 'Steyr';
+        $b_maps     = function_exists('wowthai_get_branch_maps_url') ? wowthai_get_branch_maps_url() : 'https://maps.google.com/?q=' . urlencode($b_name);
+        $has_res    = function_exists('wowthai_branch_has_reservations') ? wowthai_branch_has_reservations() : true;
         ?>
 
         <!-- 1. Hero Confirmation Card (Warm & Celebratory) -->
@@ -54,7 +61,7 @@ defined( 'ABSPATH' ) || exit;
                 <p class="hero-eyebrow">BESTELLUNG ERFOLGREICH EINGEGANGEN</p>
                 <h1>Vielen Dank, <?php echo esc_html( $first_name ?: 'Lieber Gast' ); ?>!</h1>
                 <p class="hero-sub">
-                    Ihre Bestellung <strong>#<?php echo esc_html( $order->get_order_number() ); ?></strong> wurde an unsere Küche im <strong>City Point Steyr</strong> übermittelt und wird frisch für Sie zubereitet.
+                    Ihre Bestellung <strong>#<?php echo esc_html( $order->get_order_number() ); ?></strong> wurde an unsere Küche bei <strong><?php echo esc_html( $b_name ); ?></strong> (<?php echo esc_html( $b_street_s ); ?>) übermittelt und wird frisch für Sie zubereitet.
                 </p>
                 
                 <div class="hero-quick-badges">
@@ -104,8 +111,8 @@ defined( 'ABSPATH' ) || exit;
                         <div class="ticket-row">
                             <span class="ticket-icon">📍</span>
                             <div>
-                                <strong>WOW Thai Restaurant</strong>
-                                <span>City Point Steyr · 1. Obergeschoss<br>Leopold-Werndl-Straße 2, 4400 Steyr</span>
+                                <strong><?php echo esc_html( $b_name ); ?></strong>
+                                <span><?php echo esc_html( $b_street_s ); ?><br><?php echo esc_html( $b_street . ', ' . $b_postcode . ' ' . $b_city ); ?></span>
                             </div>
                         </div>
                         <div class="ticket-row">
@@ -134,7 +141,7 @@ defined( 'ABSPATH' ) || exit;
                     </div>
 
                     <div class="ticket-actions">
-                        <a href="https://maps.google.com/?q=City+Point+Steyr+Leopold-Werndl-Straße+2+4400+Steyr" target="_blank" rel="noopener noreferrer" class="btn-action btn-gold">
+                        <a href="<?php echo esc_url( $b_maps ); ?>" target="_blank" rel="noopener noreferrer" class="btn-action btn-gold">
                             <span>🗺️ Route planen (Google Maps) ↗</span>
                         </a>
                         <a href="tel:<?php echo esc_attr( $res_info['phone_tel'] ); ?>" class="btn-action btn-dark">
@@ -215,16 +222,18 @@ defined( 'ABSPATH' ) || exit;
                         <div style="font-size:20px;color:#f59e0b;margin-bottom:4px;">⭐⭐⭐⭐⭐</div>
                         <h3 style="margin:0 0 4px 0;font-size:15px;color:#f7f3ec;font-weight:700;">Ihre Meinung ist uns wichtig!</h3>
                         <p style="margin:0 0 12px 0;font-size:12px;color:#b7afa2;line-height:1.5;">Hat es Ihnen geschmeckt? Wir würden uns sehr über Ihre kurze 5-Sterne-Bewertung auf Google freuen – das unterstützt unser Restaurant enorm!</p>
-                        <a href="https://maps.google.com/?q=WOW+Thai+Steyr" target="_blank" rel="noopener" style="display:inline-block;background:#d4a359;color:#100f0d;font-weight:700;font-size:12px;padding:8px 16px;border-radius:4px;text-decoration:none;">Jetzt auf Google bewerten ↗</a>
+                        <a href="<?php echo esc_url( $b_maps ); ?>" target="_blank" rel="noopener" style="display:inline-block;background:#d4a359;color:#100f0d;font-weight:700;font-size:12px;padding:8px 16px;border-radius:4px;text-decoration:none;">Jetzt auf Google bewerten ↗</a>
                     </div>
 
                     <div class="receipt-footer-links">
                         <a href="<?php echo esc_url( home_url('/menu/') ); ?>" class="btn-menu-return">
                             ← Weitere Speisen zur Speisekarte ansehen
                         </a>
+                        <?php if ($has_res): ?>
                         <a href="<?php echo esc_url( home_url('/reservations/') ); ?>" class="btn-reservations-link">
                             Tisch für das nächste Mal reservieren ↗
                         </a>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

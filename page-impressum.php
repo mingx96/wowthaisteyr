@@ -40,7 +40,7 @@ $info = wowthai_get_restaurant_data();
         <?php if (!empty($info['fn_number'])): ?>
           <strong>Firmenbuchnummer:</strong> <?php echo esc_html($info['fn_number']); ?> (<?php echo esc_html($info['fn_court'] ?? 'Landesgericht Steyr'); ?>)<br>
         <?php endif; ?>
-        <strong>Unternehmenssitz:</strong> 4400 Steyr, Oberösterreich
+        <strong>Unternehmenssitz:</strong> <?php echo esc_html($info['postal_code'] . ' ' . $info['city'] . (!empty($info['region']) ? ', ' . $info['region'] : '')); ?>
       </p>
       <?php endif; ?>
 
@@ -52,12 +52,12 @@ $info = wowthai_get_restaurant_data();
       </p>
 
       <h3>Unternehmensgegenstand</h3>
-      <p>Gastronomiebetrieb (Restaurant, Zubereitung thailändischer Speisen, Sushi &amp; Takeaway)</p>
+      <p><?php echo esc_html($info['business_purpose'] ?? 'Gastronomiebetrieb (Restaurant, Zubereitung thailändischer Speisen, Sushi & Takeaway)'); ?></p>
 
       <h3>Kammerzugehörigkeit &amp; Berufsrecht</h3>
       <p>
-        <strong>Mitglied bei:</strong> Wirtschaftskammer Oberösterreich (WKO), Fachgruppe Gastronomie<br>
-        <strong>Aufsichts-/Gewerbebehörde:</strong> Magistrat der Stadt Steyr<br>
+        <strong>Mitglied bei:</strong> <?php echo esc_html($info['chamber'] ?? 'Wirtschaftskammer Oberösterreich (WKO), Fachgruppe Gastronomie'); ?><br>
+        <strong>Aufsichts-/Gewerbebehörde:</strong> <?php echo esc_html($info['authority'] ?? 'Magistrat der Stadt Steyr'); ?><br>
         <strong>Anwendbare Rechtsvorschriften:</strong> Österreichische Gewerbeordnung (GewO 1994), abrufbar unter <a href="https://www.ris.bka.gv.at" target="_blank" rel="noopener" style="color:#d4a359;">www.ris.bka.gv.at</a>
       </p>
 

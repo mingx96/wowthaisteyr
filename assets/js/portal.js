@@ -121,6 +121,7 @@ function initPortal(cfg) {
   const state = {
     activeTab: 'orders',
     orderView: 'kanban', // 'kanban' or 'archive'
+    orderFulfillment: 'all', // 'all', 'takeaway', 'delivery'
     mobileOrdersCol: 'new', // 'new', 'prep', 'ready'
     mobileResCol: 'new',    // 'new', 'prep', 'ready'
     resFilter: 'daily',  // 'daily', 'pending', 'all'
@@ -138,16 +139,12 @@ function initPortal(cfg) {
 
   let audioCtx = null;
 
-  // --- Web Audio Chime ---
-  function playChime() {
+  // --- Web Audio Chimes (Delivery vs Pickup) ---
+  function playPickupChime() {
     if (!state.soundOn) return;
     try {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
       const now = audioCtx.currentTime;
       // Tone 1: 587.33 Hz (D5)
       const osc1 = audioCtx.createOscillator();
@@ -173,7 +170,61 @@ function initPortal(cfg) {
       osc2.start(now + 0.16);
       osc2.stop(now + 0.65);
     } catch (e) {
-      console.warn('Audio chime notice:', e);
+      console.warn('Pickup chime notice:', e);
+    }
+  }
+
+  function playDeliveryFanfare() {
+    if (!state.soundOn) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      // Tone 1: 698.46 Hz (F5)
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(698.46, now);
+      gain1.gain.setValueAtTime(0.22, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.28);
+
+      // Tone 2: 880 Hz (A5)
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(880, now + 0.14);
+      gain2.gain.setValueAtTime(0.25, now + 0.14);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.start(now + 0.14);
+      osc2.stop(now + 0.45);
+
+      // Tone 3: 1046.50 Hz (C6)
+      const osc3 = audioCtx.createOscillator();
+      const gain3 = audioCtx.createGain();
+      osc3.type = 'sine';
+      osc3.frequency.setValueAtTime(1046.50, now + 0.28);
+      gain3.gain.setValueAtTime(0.3, now + 0.28);
+      gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+      osc3.connect(gain3);
+      gain3.connect(audioCtx.destination);
+      osc3.start(now + 0.28);
+      osc3.stop(now + 0.75);
+    } catch (e) {
+      console.warn('Delivery fanfare notice:', e);
+    }
+  }
+
+  function playChime(isDelivery = false) {
+    if (isDelivery) {
+      playDeliveryFanfare();
+    } else {
+      playPickupChime();
     }
   }
 
@@ -323,6 +374,22 @@ function initPortal(cfg) {
     });
   });
 
+  const fulfillmentButtons = document.querySelectorAll('.fulfillment-filters .filter-btn, #wto-fulfillment-switch button, .wto-ff-btn');
+  fulfillmentButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetFilter = btn.dataset.filter || btn.dataset.fulfillment || 'all';
+      state.orderFulfillment = targetFilter;
+      fulfillmentButtons.forEach(b => {
+        const bFilter = b.dataset.filter || b.dataset.fulfillment || 'all';
+        const isMatch = (bFilter === targetFilter) || 
+          (targetFilter === 'takeaway' && bFilter === 'pickup') || 
+          (targetFilter === 'pickup' && bFilter === 'takeaway');
+        b.classList.toggle('active', isMatch);
+      });
+      renderOrdersUI();
+    });
+  });
+
   // Mobile Orders Column Switcher
   document.querySelectorAll('#wto-orders-col-switcher .wto-mcol-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -333,7 +400,7 @@ function initPortal(cfg) {
       });
       const board = document.getElementById('wto-kanban-board');
       if (board) {
-        board.classList.remove('show-new', 'show-prep', 'show-ready');
+        board.classList.remove('show-new', 'show-prep', 'show-ready', 'show-complete');
         board.classList.add(`show-${col}`);
       }
     });
@@ -341,12 +408,23 @@ function initPortal(cfg) {
 
   async function loadOrders() {
     try {
-      const data = await api(`orders?view=${state.orderView === 'archive' ? 'archive' : 'active'}`);
+      const data = await api(`orders?view=${state.orderView === 'archive' ? 'archive' : 'active'}&fulfillment=all`);
       setNetworkStatus(true);
       state.orders = data.items || [];
 
-      // Update badge
-      const newOrders = state.orders.filter(o => o.stage === 'new');
+      // Calculate counts across all active orders
+      const allOrders = state.orders;
+      const allCount = allOrders.length;
+      const pickupCount = allOrders.filter(o => !o.is_delivery && o.fulfillment_type !== 'delivery' && o.fulfillment_type !== 'lieferung').length;
+      const deliveryCount = allOrders.filter(o => Boolean(o.is_delivery || o.fulfillment_type === 'delivery' || o.fulfillment_type === 'lieferung')).length;
+
+      // Real-time fulfillment count badges updated on poll
+      document.querySelectorAll('.count-all, #wto-count-all').forEach(el => el.textContent = allCount);
+      document.querySelectorAll('.count-pickup, #wto-count-pickup').forEach(el => el.textContent = pickupCount);
+      document.querySelectorAll('.count-delivery, #wto-count-delivery').forEach(el => el.textContent = deliveryCount);
+
+      // Update tab badge for new incoming orders
+      const newOrders = state.orders.filter(o => o.stage === 'new' || o.order_state === 'new');
       const badge = document.getElementById('wto-badge-orders');
       if (badge) {
         badge.textContent = newOrders.length;
@@ -354,11 +432,12 @@ function initPortal(cfg) {
         badge.classList.toggle('urgent', newOrders.length > 0);
       }
 
-      // Check if new incoming orders exist to chime
+      // Check if new incoming orders exist to chime (distinct chime for delivery vs pickup)
       if (!state.isInitialLoad) {
-        const hasUnseen = newOrders.some(o => !state.knownOrders.has(String(o.id)));
-        if (hasUnseen) {
-          playChime();
+        const unseen = newOrders.filter(o => !state.knownOrders.has(String(o.id)));
+        if (unseen.length > 0) {
+          const hasDelivery = unseen.some(o => o.is_delivery || o.fulfillment_type === 'delivery' || o.fulfillment_type === 'lieferung');
+          playChime(hasDelivery);
         }
       }
       newOrders.forEach(o => state.knownOrders.add(String(o.id)));
@@ -375,27 +454,47 @@ function initPortal(cfg) {
     if (state.orderView === 'archive') {
       const container = document.getElementById('wto-archive-list');
       if (!container) return;
-      if (state.orders.length === 0) {
+      let displayOrders = state.orders;
+      if (state.orderFulfillment === 'delivery' || state.orderFulfillment === 'lieferung') {
+        displayOrders = displayOrders.filter(o => o.is_delivery || o.fulfillment_type === 'delivery' || o.fulfillment_type === 'lieferung');
+      } else if (state.orderFulfillment === 'pickup' || state.orderFulfillment === 'takeaway' || state.orderFulfillment === 'abholung') {
+        displayOrders = displayOrders.filter(o => !o.is_delivery && o.fulfillment_type !== 'delivery' && o.fulfillment_type !== 'lieferung');
+      }
+      if (displayOrders.length === 0) {
         container.innerHTML = '<p class="wto-empty-col">Keine archivierten Bestellungen vorhanden.</p>';
         return;
       }
-      container.innerHTML = state.orders.map(renderOrderCard).join('');
+      container.innerHTML = displayOrders.map(renderOrderCard).join('');
       attachOrderCardEvents(container);
       return;
     }
 
-    // 3 Kanban Columns
+    // 4 Kanban Columns
     const colNew = document.getElementById('wto-col-new-cards');
     const colPrep = document.getElementById('wto-col-prep-cards');
     const colReady = document.getElementById('wto-col-ready-cards');
+    const colComp = document.getElementById('wto-col-complete-cards');
 
-    const newOrders = state.orders.filter(o => o.stage === 'new');
-    const prepOrders = state.orders.filter(o => o.stage === 'preparing');
-    const readyOrders = state.orders.filter(o => o.stage === 'ready');
+    let filtered = state.orders;
+    if (state.orderFulfillment === 'delivery' || state.orderFulfillment === 'lieferung') {
+      filtered = filtered.filter(o => o.is_delivery || o.fulfillment_type === 'delivery' || o.fulfillment_type === 'lieferung');
+    } else if (state.orderFulfillment === 'pickup' || state.orderFulfillment === 'takeaway' || state.orderFulfillment === 'abholung') {
+      filtered = filtered.filter(o => !o.is_delivery && o.fulfillment_type !== 'delivery' && o.fulfillment_type !== 'lieferung');
+    }
 
-    document.getElementById('wto-count-new').textContent = newOrders.length;
-    document.getElementById('wto-count-prep').textContent = prepOrders.length;
-    document.getElementById('wto-count-ready').textContent = readyOrders.length;
+    const newOrders = filtered.filter(o => o.stage === 'new' || o.order_state === 'new');
+    const prepOrders = filtered.filter(o => o.stage === 'preparing' || o.order_state === 'preparing');
+    const readyOrders = filtered.filter(o => o.stage === 'ready' || o.stage === 'dispatched' || o.order_state === 'ready' || o.order_state === 'dispatched');
+    const compOrders = filtered.filter(o => o.stage === 'completed' || o.order_state === 'completed' || o.status === 'completed');
+
+    const cNew = document.getElementById('wto-count-new');
+    if (cNew) cNew.textContent = newOrders.length;
+    const cPrep = document.getElementById('wto-count-prep');
+    if (cPrep) cPrep.textContent = prepOrders.length;
+    const cReady = document.getElementById('wto-count-ready');
+    if (cReady) cReady.textContent = readyOrders.length;
+    const cComp = document.getElementById('wto-count-complete');
+    if (cComp) cComp.textContent = compOrders.length;
 
     const mNew = document.getElementById('wto-m-count-new');
     if (mNew) mNew.textContent = newOrders.length;
@@ -403,45 +502,110 @@ function initPortal(cfg) {
     if (mPrep) mPrep.textContent = prepOrders.length;
     const mReady = document.getElementById('wto-m-count-ready');
     if (mReady) mReady.textContent = readyOrders.length;
+    const mComp = document.getElementById('wto-m-count-complete');
+    if (mComp) mComp.textContent = compOrders.length;
 
     document.querySelectorAll('#wto-orders-col-switcher .wto-mcol-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.col === (state.mobileOrdersCol || 'new'));
     });
 
-    colNew.innerHTML = newOrders.length > 0 
-      ? newOrders.map(renderOrderCard).join('') 
-      : '<p class="wto-empty-col">Keine neuen Bestellungen.</p>';
-      
-    colPrep.innerHTML = prepOrders.length > 0 
-      ? prepOrders.map(renderOrderCard).join('') 
-      : '<p class="wto-empty-col">Küche ist aktuell frei.</p>';
-      
-    colReady.innerHTML = readyOrders.length > 0 
-      ? readyOrders.map(renderOrderCard).join('') 
-      : '<p class="wto-empty-col">Keine abholbereiten Speisen.</p>';
+    if (colNew) {
+      colNew.innerHTML = newOrders.length > 0 
+        ? newOrders.map(renderOrderCard).join('') 
+        : '<p class="wto-empty-col">Keine neuen Bestellungen.</p>';
+    }
+    if (colPrep) {
+      colPrep.innerHTML = prepOrders.length > 0 
+        ? prepOrders.map(renderOrderCard).join('') 
+        : '<p class="wto-empty-col">Küche ist aktuell frei.</p>';
+    }
+    if (colReady) {
+      colReady.innerHTML = readyOrders.length > 0 
+        ? readyOrders.map(renderOrderCard).join('') 
+        : '<p class="wto-empty-col">Keine abholbereiten Speisen.</p>';
+    }
+    if (colComp) {
+      colComp.innerHTML = compOrders.length > 0 
+        ? compOrders.map(renderOrderCard).join('') 
+        : '<p class="wto-empty-col">Keine abgeschlossenen Bestellungen heute.</p>';
+    }
 
-    attachOrderCardEvents(document.getElementById('wto-kanban-board'));
+    const board = document.getElementById('wto-kanban-board');
+    if (board) {
+      attachOrderCardEvents(board);
+      initDragAndDrop(board);
+    }
   }
 
   function renderOrderCard(o) {
-    const isNew = o.stage === 'new';
+    const isNew = o.stage === 'new' || o.order_state === 'new';
+    const isDelivery = Boolean(o.is_delivery || o.fulfillment_type === 'delivery' || o.delivery_type === 'delivery');
+    const isPaid = Boolean(o.payment_details?.is_paid || o.payment_status === 'paid' || o.payment_status === 'paid_online' || o.payment === 'Bezahlt');
+    const currentStage = o.stage || o.order_state || 'new';
+
+    const cardClass = [
+      'wto-order-card',
+      isDelivery ? 'wto-order-card--delivery' : 'wto-order-card--pickup',
+      isNew ? 'urgent' : '',
+    ].filter(Boolean).join(' ');
+
+    const paymentBadge = isPaid
+      ? `<span class="wto-payment-badge paid">[✓ ONLINE BEZAHLT]</span>`
+      : `<span class="wto-payment-badge cod">[⚠️ BARZAHLUNG: ${esc(formatMoney(o.total))}]</span>`;
+
+    const zoneBadge = isDelivery && (o.delivery_zone_name || o.delivery_zone)
+      ? `<span style="font-size:10px;font-weight:700;background:rgba(230,126,34,0.2);color:#f39c12;padding:2px 6px;border-radius:4px;border:1px solid rgba(230,126,34,0.3);">${esc(o.delivery_zone_name || o.delivery_zone)}</span>`
+      : '';
+
+    const etaText = isDelivery
+      ? (o.delivery_eta ? `ETA: ca. ${o.delivery_eta}` : (o.pickup || 'ca. 30–45 Min.'))
+      : (o.pickup || 'Sofort (ASAP)');
+
+    let addressHtml = '';
+    if (isDelivery && o.delivery_address) {
+      const addr = o.delivery_address;
+      const addrQuery = encodeURIComponent(`${addr.street || ''}, ${addr.postcode || ''} ${addr.city || ''}`);
+      addressHtml = `
+        <div class="wto-card-delivery-address">
+          <div style="font-weight:700;color:#93c5fd;font-size:11px;letter-spacing:0.5px;margin-bottom:2px;display:flex;justify-content:space-between;align-items:center;">
+            <span>📍 LIEFERADRESSE:</span>
+            <a href="https://maps.google.com/?q=${addrQuery}" target="_blank" rel="noopener" style="font-size:10px;text-decoration:none;">🗺️ Route ↗</a>
+          </div>
+          <div><strong>${esc(addr.street)}</strong>${addr.details ? ` (${esc(addr.details)})` : ''}</div>
+          <div>${esc(addr.postcode)} ${esc(addr.city)}</div>
+        </div>
+      `;
+    }
 
     return `
-      <article class="wto-order-card ${isNew ? 'urgent' : ''}" data-id="${esc(o.id)}" data-version="${esc(o.version)}">
+      <article class="${cardClass}" 
+               data-id="${esc(o.id)}" 
+               data-version="${esc(o.version)}"
+               data-stage="${esc(currentStage)}"
+               data-is-delivery="${isDelivery ? '1' : '0'}"
+               draggable="true">
         <div class="wto-card-top">
-          <span class="wto-card-num">#${esc(o.number)}</span>
+          <span class="wto-card-num">#${esc(o.number || o.id)}</span>
           <span class="wto-card-age wto-live-timer" data-created="${esc(o.created)}" data-ts="${esc(o.created_ts || '')}">⏱️ ${formatElapsed(o.created_ts, o.created)}</span>
         </div>
         
-        <div class="wto-card-pickup-banner">
-          <span>🕒 ${esc(o.pickup || 'Sofort (ASAP)')}</span>
-          <span style="font-size:11px;opacity:0.85;">Abholung</span>
+        <div class="wto-card-pickup-banner" style="${isDelivery ? 'background:rgba(230,126,34,0.12);border-color:rgba(230,126,34,0.4);color:#f39c12;' : ''}">
+          <span style="display:inline-flex;align-items:center;gap:6px;">🕒 ${esc(etaText)} ${zoneBadge}</span>
+          <span class="wto-badge-fulfillment ${isDelivery ? 'wto-badge-delivery' : 'wto-badge-pickup'}">
+            ${isDelivery ? '🛵 LIEFERUNG' : '🥡 ABHOLUNG'}
+          </span>
+        </div>
+
+        <div style="margin:-4px 0 2px;">
+          ${paymentBadge}
         </div>
 
         <div class="wto-card-guest">
           <strong>${esc(o.name || 'Gast')}</strong>
           ${o.phone ? `<a href="tel:${esc(o.phone)}">📞 ${esc(o.phone)}</a>` : ''}
         </div>
+
+        ${addressHtml}
 
         <ul class="wto-card-items">
           ${(o.items || []).map(i => `
@@ -460,23 +624,52 @@ function initPortal(cfg) {
         </div>
 
         <div class="wto-card-actions">
-          ${o.stage === 'new' ? `
+          ${(currentStage === 'new') ? `
             <button type="button" class="wto-btn btn-primary btn-order-accept" data-id="${esc(o.id)}">✓ Annehmen</button>
             <button type="button" class="wto-btn btn-danger btn-order-reject" data-id="${esc(o.id)}">✕ Ablehnen</button>
           ` : ''}
 
-          ${o.stage === 'preparing' ? `
-            <button type="button" class="wto-btn btn-success btn-order-ready" data-id="${esc(o.id)}">🥡 Abholbereit</button>
-            <button type="button" class="wto-btn btn-secondary btn-order-print" data-id="${esc(o.id)}">🖨️ Bon</button>
+          ${(currentStage === 'preparing') ? `
+            <button type="button" class="wto-btn btn-success btn-order-ready" data-id="${esc(o.id)}">${isDelivery ? '🛵 Übergabebereit' : '🥡 Abholbereit'}</button>
+            <button type="button" class="wto-btn btn-print-bon btn-order-print-kitchen btn-order-print" data-id="${esc(o.id)}" data-url="${esc(o.print_url || o.kitchen_bon_url || '')}">🖨️ Bon</button>
+            ${isDelivery ? `<button type="button" class="wto-btn btn-print-driver btn-order-print-driver" data-id="${esc(o.id)}" data-url="${esc(o.driver_bon_url || '')}">🛵 Beleg</button>` : ''}
           ` : ''}
 
-          ${o.stage === 'ready' ? `
-            <button type="button" class="wto-btn btn-primary btn-order-complete" data-id="${esc(o.id)}">✓ Abgeholt</button>
-            <button type="button" class="wto-btn btn-secondary btn-order-print" data-id="${esc(o.id)}">🖨️ Bon</button>
+          ${(currentStage === 'ready' || currentStage === 'dispatched') ? `
+            ${isDelivery && currentStage !== 'dispatched' ? `
+              <button type="button" class="wto-btn btn-warning btn-order-dispatch" data-id="${esc(o.id)}" style="background:#e67e22;color:#fff;border-color:#d35400;">🛵 Ausliefern</button>
+            ` : ''}
+            <button type="button" class="wto-btn btn-primary btn-order-complete" data-id="${esc(o.id)}">${isDelivery ? '✓ Zugestellt' : '✓ Abgeholt'}</button>
+            <button type="button" class="wto-btn btn-print-bon btn-order-print-kitchen btn-order-print" data-id="${esc(o.id)}" data-url="${esc(o.print_url || o.kitchen_bon_url || '')}">🖨️ Bon</button>
+            ${isDelivery ? `<button type="button" class="wto-btn btn-print-driver btn-order-print-driver" data-id="${esc(o.id)}" data-url="${esc(o.driver_bon_url || '')}">🛵 Beleg</button>` : ''}
+          ` : ''}
+
+          ${(currentStage === 'completed') ? `
+            <span style="font-size:11px;color:var(--wto-green);font-weight:700;display:inline-flex;align-items:center;gap:4px;padding:6px 0;">✓ Abgeschlossen</span>
+            <button type="button" class="wto-btn btn-print-bon btn-order-print-kitchen btn-order-print" data-id="${esc(o.id)}" data-url="${esc(o.print_url || o.kitchen_bon_url || '')}" style="max-width:90px;height:34px;font-size:11px;">🖨️ Bon</button>
+            ${isDelivery ? `<button type="button" class="wto-btn btn-print-driver btn-order-print-driver" data-id="${esc(o.id)}" data-url="${esc(o.driver_bon_url || '')}" style="max-width:90px;height:34px;font-size:11px;">🛵 Beleg</button>` : ''}
           ` : ''}
         </div>
       </article>
     `;
+  }
+
+  async function handleStateTransition(id, targetStateOrAction, version) {
+    try {
+      await api(`orders/${id}/state`, {
+        method: 'POST',
+        body: { target_state: targetStateOrAction, action: targetStateOrAction, version }
+      });
+      showToast(`Bestellung #${id} erfolgreich aktualisiert!`);
+      await loadOrders();
+    } catch (err) {
+      if (err.message && err.message.includes('409')) {
+        showToast(`Konflikt: Bestellung #${id} wurde zwischenzeitlich von einem anderen Mitarbeiter geändert (HTTP 409). Ansicht aktualisiert.`, true);
+      } else {
+        showToast(`Fehler: ${err.message}`, true);
+      }
+      await loadOrders(); // rollback optimistic update
+    }
   }
 
   function attachOrderCardEvents(container) {
@@ -485,19 +678,9 @@ function initPortal(cfg) {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         const card = btn.closest('.wto-order-card');
-        const ver = card.dataset.version;
+        const ver = card ? card.dataset.version : '';
         btn.disabled = true;
-        try {
-          await api(`orders/${id}/action`, {
-            method: 'POST',
-            body: { action: 'accept', version: ver }
-          });
-          showToast(`Bestellung #${id} angenommen!`);
-          await loadOrders();
-        } catch (err) {
-          showToast(`Fehler: ${err.message}`, true);
-          btn.disabled = false;
-        }
+        await handleStateTransition(id, 'accept', ver);
       });
     });
 
@@ -506,20 +689,10 @@ function initPortal(cfg) {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         const card = btn.closest('.wto-order-card');
-        const ver = card.dataset.version;
+        const ver = card ? card.dataset.version : '';
         if (!confirm(`Möchten Sie die Bestellung #${id} wirklich ablehnen?`)) return;
         btn.disabled = true;
-        try {
-          await api(`orders/${id}/action`, {
-            method: 'POST',
-            body: { action: 'reject', version: ver }
-          });
-          showToast(`Bestellung #${id} abgelehnt.`);
-          await loadOrders();
-        } catch (err) {
-          showToast(`Fehler: ${err.message}`, true);
-          btn.disabled = false;
-        }
+        await handleStateTransition(id, 'reject', ver);
       });
     });
 
@@ -528,49 +701,117 @@ function initPortal(cfg) {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         const card = btn.closest('.wto-order-card');
-        const ver = card.dataset.version;
+        const ver = card ? card.dataset.version : '';
         btn.disabled = true;
-        try {
-          await api(`orders/${id}/action`, {
-            method: 'POST',
-            body: { action: 'ready', version: ver }
-          });
-          showToast(`Bestellung #${id} ist abholbereit!`);
-          await loadOrders();
-        } catch (err) {
-          showToast(`Fehler: ${err.message}`, true);
-          btn.disabled = false;
-        }
+        await handleStateTransition(id, 'ready', ver);
       });
     });
 
-    // Complete (Picked up)
+    // Dispatch (Ausliefern)
+    container.querySelectorAll('.btn-order-dispatch').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const card = btn.closest('.wto-order-card');
+        const ver = card ? card.dataset.version : '';
+        btn.disabled = true;
+        await handleStateTransition(id, 'dispatch', ver);
+      });
+    });
+
+    // Complete (Picked up / Delivered)
     container.querySelectorAll('.btn-order-complete').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         const card = btn.closest('.wto-order-card');
-        const ver = card.dataset.version;
+        const ver = card ? card.dataset.version : '';
         btn.disabled = true;
-        try {
-          await api(`orders/${id}/action`, {
-            method: 'POST',
-            body: { action: 'complete', version: ver }
-          });
-          showToast(`Bestellung #${id} als abgeholt markiert.`);
-          await loadOrders();
-        } catch (err) {
-          showToast(`Fehler: ${err.message}`, true);
-          btn.disabled = false;
+        await handleStateTransition(id, 'complete', ver);
+      });
+    });
+
+    // Print Driver Thermal Receipt
+    container.querySelectorAll('.btn-order-print-driver, .btn-print-driver').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const url = btn.dataset.url;
+        if (url) {
+          window.open(url, '_blank', 'width=420,height=600');
+        } else {
+          const id = btn.dataset.id;
+          const order = state.orders.find(o => String(o.id) === String(id));
+          if (order && order.driver_bon_url) {
+            window.open(order.driver_bon_url, '_blank', 'width=420,height=600');
+          }
         }
       });
     });
 
     // Print Thermal Bon (80 mm)
-    container.querySelectorAll('.btn-order-print').forEach(btn => {
-      btn.addEventListener('click', () => {
+    container.querySelectorAll('.btn-order-print, .btn-print-bon, .btn-order-print-kitchen').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const id = btn.dataset.id;
         const order = state.orders.find(o => String(o.id) === String(id));
         if (order) printBon(order);
+      });
+    });
+  }
+
+  // --- Drag and Drop State Machine Transitions ---
+  function initDragAndDrop(board) {
+    const cards = board.querySelectorAll('.wto-order-card');
+    cards.forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', JSON.stringify({
+          id: card.dataset.id,
+          version: card.dataset.version,
+          stage: card.dataset.stage
+        }));
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        board.querySelectorAll('.wto-kanban-col').forEach(c => c.classList.remove('drag-over'));
+      });
+    });
+
+    const columns = board.querySelectorAll('.wto-kanban-col');
+    columns.forEach(col => {
+      col.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        col.classList.add('drag-over');
+      });
+      col.addEventListener('dragleave', (e) => {
+        if (!col.contains(e.relatedTarget)) {
+          col.classList.remove('drag-over');
+        }
+      });
+      col.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        col.classList.remove('drag-over');
+        try {
+          const raw = e.dataTransfer.getData('text/plain');
+          if (!raw) return;
+          const data = JSON.parse(raw);
+          const targetCol = col.dataset.col;
+          const fromStage = data.stage;
+
+          if (targetCol === fromStage) return;
+
+          if (targetCol === 'prep' && fromStage === 'new') {
+            await handleStateTransition(data.id, 'accept', data.version);
+          } else if (targetCol === 'ready' && fromStage === 'preparing') {
+            await handleStateTransition(data.id, 'ready', data.version);
+          } else if (targetCol === 'complete' && (fromStage === 'ready' || fromStage === 'dispatched' || fromStage === 'preparing')) {
+            await handleStateTransition(data.id, 'complete', data.version);
+          } else {
+            showToast('Diese Statusänderung ist nicht zulässig.', true);
+          }
+        } catch (err) {
+          console.warn('Drop error:', err);
+        }
       });
     });
   }
@@ -580,14 +821,25 @@ function initPortal(cfg) {
     const printArea = document.getElementById('wto-print-area');
     if (!printArea) return;
 
+    const b = (window.wtoPortalConfig && window.wtoPortalConfig.branch) ? window.wtoPortalConfig.branch : {
+      name: 'WOW THAI STEYR',
+      street_short: 'City Point · 1. OG',
+      street: 'Leopold-Werndl-Str. 2',
+      city: 'Steyr',
+      phone: '+43 7252 74973'
+    };
+    const bHeader = esc((b.name || 'WOW THAI STEYR').toUpperCase());
+    const bSub = esc(`${b.street_short ? b.street_short + ' · ' : ''}${b.street || ''} · ${b.city || 'Steyr'}`);
+    const bPhone = esc(b.phone || '+43 7252 74973');
+
     printArea.innerHTML = `
-      <div class="bon-center bon-bold" style="font-size:16px;">WOW THAI STEYR</div>
-      <div class="bon-center" style="font-size:11px;">City Point · Leopold-Werndl-Str. 2 · Steyr<br>Tel: +43 7252 74973</div>
+      <div class="bon-center bon-bold" style="font-size:16px;">${bHeader}</div>
+      <div class="bon-center" style="font-size:11px;">${bSub}<br>Tel: ${bPhone}</div>
       <div class="bon-double"></div>
 
       <div style="background:#000;color:#fff;padding:6px;text-align:center;margin:6px 0;">
-        <div style="font-size:10px;font-weight:bold;letter-spacing:1px;">ABHOLZEIT:</div>
-        <div class="bon-huge">${esc(order.pickup || 'SOFORT (ASAP)')}</div>
+        <div style="font-size:10px;font-weight:bold;letter-spacing:1px;">${order.is_delivery ? 'LIEFERZEIT:' : 'ABHOLZEIT:'}</div>
+        <div class="bon-huge">${esc(order.pickup || (order.is_delivery ? 'LIEFERUNG' : 'SOFORT (ASAP)'))}</div>
       </div>
 
       <div class="bon-row bon-bold">
@@ -596,6 +848,12 @@ function initPortal(cfg) {
       </div>
       <div>Gast: <strong>${esc(order.name)}</strong></div>
       ${order.phone ? `<div>Tel: ${esc(order.phone)}</div>` : ''}
+      ${order.is_delivery && order.delivery_address ? `
+        <div style="margin-top:4px;font-size:11px;border:1px dashed #000;padding:4px;line-height:1.35;">
+          <strong>LIEFERADRESSE:</strong><br>
+          ${esc(order.delivery_address.formatted || `${order.delivery_address.street}, ${order.delivery_address.postcode} ${order.delivery_address.city}`)}
+        </div>
+      ` : ''}
       
       ${order.note ? `
         <div class="bon-divider"></div>

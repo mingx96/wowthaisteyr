@@ -45,17 +45,18 @@ function wowthai_res_redirect_error(string $code): void {
     exit;
 }
 
-function wowthai_res_error_message(string $code): string {
+function wowthai_res_error_message(string $code, ?string $branch_id = null): string {
+    $phone = function_exists('wowthai_get_branch_phone') ? wowthai_get_branch_phone($branch_id) : '+43 7252 74973';
     $messages = [
         'nonce'   => 'Sicherheitsprüfung abgelaufen. Bitte senden Sie das Formular erneut ab.',
-        'rate'    => 'Zu viele Anfragen in kurzer Zeit. Bitte warten Sie einige Minuten oder rufen Sie uns direkt unter +43 7252 74973 an.',
+        'rate'    => 'Zu viele Anfragen in kurzer Zeit. Bitte warten Sie einige Minuten oder rufen Sie uns direkt unter ' . $phone . ' an.',
         'consent' => 'Bitte bestätigen Sie die Datenschutzerklärung (DSGVO), um fortzufahren.',
         'fields'  => 'Bitte füllen Sie alle Pflichtfelder (Name, gültige Telefonnummer, Datum, Uhrzeit) korrekt aus.',
         'email'   => 'Bitte geben Sie eine gültige E-Mail-Adresse ein.',
         'date'    => 'Bitte wählen Sie ein gültiges Reservierungsdatum (ab heute bis maximal 90 Tage im Voraus).',
         'closed'  => 'Am gewählten Tag ist unser Restaurant geschlossen. Bitte wählen Sie einen anderen Tag.',
         'slot'    => 'Die gewählte Uhrzeit liegt außerhalb unserer Reservierungszeiten oder ist bereits verstrichen. Bitte wählen Sie eine gültige Uhrzeit.',
-        'party'   => 'Für Gruppen über 12 Personen bitten wir um direkte telefonische Reservierung unter +43 7252 74973.',
+        'party'   => 'Für Gruppen über 12 Personen bitten wir um direkte telefonische Reservierung unter ' . $phone . '.',
         'save'    => 'Fehler beim Speichern der Anfrage. Bitte versuchen Sie es erneut oder rufen Sie uns direkt an.',
     ];
     return $messages[$code] ?? '';
@@ -124,15 +125,23 @@ function wowthai_handle_reservation_post(): void {
     if ($date < $today_ymd || $date > $max_ymd) {
         wowthai_res_redirect_error('date');
     }
-    if (wowthai_get_special_closed_day($date_obj) !== null) {
+    $branch_id = isset($_POST['res_branch_id']) ? sanitize_key(wp_unslash($_POST['res_branch_id'])) : '';
+    if (empty($branch_id) && function_exists('wowthai_get_branch_id')) {
+        $branch_id = wowthai_get_branch_id();
+    }
+    if (empty($branch_id) || !function_exists('wowthai_branch_has_reservations') || !wowthai_branch_has_reservations($branch_id)) {
         wowthai_res_redirect_error('closed');
     }
-    $valid_slots = wowthai_reservation_slots($date_obj, $now);
+
+    if (wowthai_get_special_closed_day($date_obj, $branch_id) !== null) {
+        wowthai_res_redirect_error('closed');
+    }
+    $valid_slots = wowthai_reservation_slots($date_obj, $now, $branch_id);
     if (!in_array($time, $valid_slots, true)) {
         wowthai_res_redirect_error('slot');
     }
 
-    // 6. Idempotency check: prevent duplicate bookings for the same phone + date + time
+    // 6. Idempotency check: prevent duplicate bookings for the same branch + phone + date + time
     $existing = get_posts([
         'post_type'      => 'tischanfrage',
         'post_status'    => 'publish',
@@ -140,9 +149,10 @@ function wowthai_handle_reservation_post(): void {
         'fields'         => 'ids',
         'meta_query'     => [
             'relation' => 'AND',
-            ['key' => '_res_phone', 'value' => $phone],
-            ['key' => '_res_date',  'value' => $date],
-            ['key' => '_res_time',  'value' => $time],
+            ['key' => '_res_branch_id', 'value' => $branch_id],
+            ['key' => '_res_phone',     'value' => $phone],
+            ['key' => '_res_date',      'value' => $date],
+            ['key' => '_res_time',      'value' => $time],
         ],
     ]);
     if (!empty($existing)) {
@@ -175,6 +185,7 @@ function wowthai_handle_reservation_post(): void {
         wowthai_res_redirect_error('save');
     }
 
+    update_post_meta($res_id, '_res_branch_id', $branch_id);
     update_post_meta($res_id, '_res_name', $name);
     update_post_meta($res_id, '_res_phone', $phone);
     update_post_meta($res_id, '_res_email', $email);
@@ -185,16 +196,24 @@ function wowthai_handle_reservation_post(): void {
     update_post_meta($res_id, '_res_status', 'pending');
     update_post_meta($res_id, '_res_consent_at', $now->format('c'));
 
-    // 8. Send branded HTML notification email to restaurant (safe against dev-email@wpengine.local)
-    $to = function_exists('wowthai_get_notification_email')
-        ? wowthai_get_notification_email()
-        : get_option('admin_email');
-    $dashboard_url = admin_url('edit.php?post_type=tischanfrage');
-    $subject = "🔔 Neue Reservierungsanfrage: {$name} ({$party} Pers. am {$date} um {$time} Uhr)";
+    // 8. Send branded HTML notification email to restaurant
+    $b_cfg = function_exists('wowthai_get_branch_config') ? wowthai_get_branch_config($branch_id) : [];
+    $b_name  = $b_cfg['name'] ?? 'WOW Thai Steyr';
+    $b_short = $b_cfg['short_name'] ?? 'WoW Thai';
+    $b_email = !empty($b_cfg['email']) && is_email($b_cfg['email'])
+        ? $b_cfg['email']
+        : (function_exists('wowthai_get_notification_email') ? wowthai_get_notification_email() : get_option('admin_email'));
+    $b_phone = $b_cfg['phone'] ?? '+43 7252 74973';
+    $b_addr  = function_exists('wowthai_get_branch_address') ? wowthai_get_branch_address($branch_id) : 'Leopold-Werndl-Straße 2, 4400 Steyr';
+
+    $to = $b_email;
+    $dashboard_url = admin_url('edit.php?post_type=tischanfrage&filter_res_branch=' . urlencode($branch_id));
+    $subject = "🔔 Neue Reservierung ({$b_short}): {$name} ({$party} Pers. am {$date} um {$time} Uhr)";
 
     $admin_body = "
-    <p>Eine neue Tischreservierungsanfrage ist über die Website eingegangen:</p>
+    <p>Eine neue Tischreservierungsanfrage für <strong>" . esc_html($b_name) . "</strong> ist über die Website eingegangen:</p>
     <div class=\"card-box\">
+        <p style=\"margin:0 0 6px 0;\"><strong>Standort:</strong> " . esc_html($b_name) . " (" . esc_html($b_addr) . ")</p>
         <p style=\"margin:0 0 6px 0;\"><strong>Gast:</strong> " . esc_html($name) . "</p>
         <p style=\"margin:0 0 6px 0;\"><strong>Personen:</strong> " . esc_html((string) $party) . " Personen</p>
         <p style=\"margin:0 0 6px 0;\"><strong>Datum &amp; Zeit:</strong> " . esc_html($formatted_date) . " um " . esc_html($time) . " Uhr</p>
@@ -214,19 +233,20 @@ function wowthai_handle_reservation_post(): void {
     // 9. Send branded HTML confirmation email to Guest (including 1-click self-cancel link)
     if ($email !== '' && is_email($email)) {
         $cancel_url = wowthai_res_cancel_url((int) $res_id);
-        $guest_subject = 'Ihre Reservierungsanfrage bei WOW Thai Steyr';
+        $guest_subject = 'Ihre Reservierungsanfrage bei ' . $b_name;
         $guest_body = "
         <p>Guten Tag " . esc_html($name) . ",</p>
-        <p>vielen Dank für Ihre Reservierungsanfrage! Wir haben Ihre Angaben erhalten und prüfen die Tischverfügbarkeit:</p>
+        <p>vielen Dank für Ihre Reservierungsanfrage! Wir haben Ihre Angaben erhalten und prüfen die Tischverfügbarkeit für unseren Standort <strong>" . esc_html($b_name) . "</strong>:</p>
         <div class=\"card-box\">
+            <p style=\"margin:0 0 6px 0;\"><strong>Standort:</strong> " . esc_html($b_name) . "</p>
+            <p style=\"margin:0 0 6px 0;\"><strong>Adresse:</strong> " . esc_html($b_addr) . "</p>
             <p style=\"margin:0 0 6px 0;\"><strong>Datum:</strong> " . esc_html($formatted_date) . "</p>
             <p style=\"margin:0 0 6px 0;\"><strong>Uhrzeit:</strong> " . esc_html($time) . " Uhr</p>
-            <p style=\"margin:0 0 6px 0;\"><strong>Gästeanzahl:</strong> " . esc_html((string) $party) . " Personen</p>
-            <p style=\"margin:0;\"><strong>Ort:</strong> City Point Steyr (1. OG), Leopold-Werndl-Straße 2</p>
+            <p style=\"margin:0;\"><strong>Gästeanzahl:</strong> " . esc_html((string) $party) . " Personen</p>
         </div>
         <p>Unser Team prüft Ihre Anfrage. Sobald Ihr Tisch fest reserviert ist, erhalten Sie eine Bestätigung von uns.</p>
         <p style=\"font-size:13px;color:#a39c8e;\">Sollte sich Ihr Plan ändern, können Sie Ihre Anfrage jederzeit online stornieren: <a href=\"" . esc_url($cancel_url) . "\" style=\"color:#d4a359;\">Reservierung stornieren</a>.</p>
-        <p>Wir freuen uns darauf, Sie bald mit authentischer thailändischer Küche begrüßen zu dürfen!</p>
+        <p>Wir freuen uns darauf, Sie bald mit authentischer thailändischer Küche begrüßen zu dürfen!<br>Ihr " . esc_html($b_name) . " Team</p>
         ";
 
         if (function_exists('wowthai_send_branded_email')) {
@@ -305,6 +325,13 @@ function wowthai_handle_reservation_ics(): void {
         wp_die('Reservierung nicht gefunden.', 'Fehler', ['response' => 404]);
     }
 
+    $branch_id = get_post_meta($res_id, '_res_branch_id', true) ?: (function_exists('wowthai_get_branch_id') ? wowthai_get_branch_id() : 'steyr');
+    $b_cfg     = function_exists('wowthai_get_branch_config') ? wowthai_get_branch_config($branch_id) : [];
+    $b_name    = $b_cfg['name'] ?? 'WOW Thai Steyr';
+    $b_phone   = $b_cfg['phone'] ?? '+43 7252 74973';
+    $b_site    = $b_cfg['website'] ?? 'wow-thai-steyr.at';
+    $b_addr    = function_exists('wowthai_get_branch_address') ? wowthai_get_branch_address($branch_id) : 'Leopold-Werndl-Straße 2, 4400 Steyr';
+
     $date  = (string) get_post_meta($res_id, '_res_date', true);
     $time  = (string) get_post_meta($res_id, '_res_time', true);
     $party = (int) get_post_meta($res_id, '_res_party', true);
@@ -319,20 +346,23 @@ function wowthai_handle_reservation_ics(): void {
     $dt_start = $start_dt->format('Ymd\THis');
     $dt_end   = $end_dt->format('Ymd\THis');
 
+    $b_name_escaped = str_replace([',', ';'], ['\,', '\;'], $b_name);
+    $b_addr_escaped = str_replace([',', ';'], ['\,', '\;'], $b_addr);
+
     $lines = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//WOW Thai Steyr//Tischreservierung//DE',
+        'PRODID:-//' . $b_name_escaped . '//Tischreservierung//DE',
         'CALSCALE:GREGORIAN',
         'METHOD:PUBLISH',
         'BEGIN:VEVENT',
-        'UID:wowthai-res-' . $res_id . '@wow-thai-steyr.at',
+        'UID:wowthai-res-' . $res_id . '-' . $branch_id . '@' . $b_site,
         'DTSTAMP:' . $now_utc,
         'DTSTART;TZID=Europe/Vienna:' . $dt_start,
         'DTEND;TZID=Europe/Vienna:' . $dt_end,
-        'SUMMARY:Tischreservierung WOW Thai Steyr (' . $party . ' Pers.)',
-        'LOCATION:WOW Thai Steyr\\, City Point 1. OG\\, Leopold-Werndl-Straße 2\\, 4400 Steyr',
-        'DESCRIPTION:Ihre Tischreservierung bei WOW Thai Steyr fuer ' . $party . ' Personen. Tel: +43 7252 74973',
+        'SUMMARY:Tischreservierung ' . $b_name_escaped . ' (' . $party . ' Pers.)',
+        'LOCATION:' . $b_name_escaped . '\, ' . $b_addr_escaped,
+        'DESCRIPTION:Ihre Tischreservierung bei ' . $b_name_escaped . ' fuer ' . $party . ' Personen. Tel: ' . $b_phone,
         'STATUS:CONFIRMED',
         'END:VEVENT',
         'END:VCALENDAR',
@@ -340,7 +370,7 @@ function wowthai_handle_reservation_ics(): void {
 
     nocache_headers();
     header('Content-Type: text/calendar; charset=utf-8');
-    header('Content-Disposition: attachment; filename="wow-thai-reservierung-' . $res_id . '.ics"');
+    header('Content-Disposition: attachment; filename="wowthai-' . $branch_id . '-reservierung-' . $res_id . '.ics"');
     echo implode("\r\n", $lines) . "\r\n";
     exit;
 }

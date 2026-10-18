@@ -62,20 +62,23 @@ function recordGate(id, name, issues, warnOnly = false) {
     recordGate('G1', 'Single Source of Truth for Opening Hours (inc/hours.php)', issues, isBaseline);
 }
 
-// G2: No external Google Fonts
+// G2: No external Google Fonts or CDNs
 {
     const issues = [];
-    const fontRegex = /fonts\.(googleapis|gstatic)\.com/i;
+    const cdnRegex = /(?:fonts\.)?(googleapis|gstatic)\.com|wixstatic\.com|cdnjs\.cloudflare\.com|jsdelivr\.net|unpkg\.com|typekit\.net/i;
+    const externalUrlInCssRegex = /url\(\s*["']?https?:\/\//i;
     for (const rel of [...phpFiles, ...cssFiles, ...jsFiles]) {
         const content = fs.readFileSync(path.join(ROOT, rel), 'utf8');
         const lines = content.split('\n');
         lines.forEach((line, idx) => {
-            if (fontRegex.test(line)) {
-                issues.push(`${rel}:${idx + 1} references external Google Fonts`);
+            if (cdnRegex.test(line)) {
+                issues.push(`${rel}:${idx + 1} references external CDN/Google Fonts`);
+            } else if (rel.endsWith('.css') && externalUrlInCssRegex.test(line)) {
+                issues.push(`${rel}:${idx + 1} references external URL in stylesheet`);
             }
         });
     }
-    recordGate('G2', 'Zero External Google Fonts (DSGVO Compliance)', issues, isBaseline);
+    recordGate('G2', 'Zero External Google Fonts & CDNs (DSGVO Compliance)', issues, isBaseline);
 }
 
 // G3: Zero UTF-8 Mojibake

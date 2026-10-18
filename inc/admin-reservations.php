@@ -192,13 +192,38 @@ function wowthai_filter_tischanfrage_query( $query ) {
         ];
     }
 
+    // Branch filter
+    if ( ! empty( $_GET['filter_res_branch'] ) ) {
+        $filter_branch = sanitize_text_field( $_GET['filter_res_branch'] );
+        if ( $filter_branch === 'steyr' ) {
+            $meta_query[] = [
+                'relation' => 'OR',
+                [
+                    'key'     => '_res_branch_id',
+                    'value'   => 'steyr',
+                    'compare' => '=',
+                ],
+                [
+                    'key'     => '_res_branch_id',
+                    'compare' => 'NOT EXISTS',
+                ],
+            ];
+        } else {
+            $meta_query[] = [
+                'key'     => '_res_branch_id',
+                'value'   => $filter_branch,
+                'compare' => '=',
+            ];
+        }
+    }
+
     if ( ! empty( $meta_query ) ) {
         $query->set( 'meta_query', $meta_query );
     }
 }
 add_action( 'pre_get_posts', 'wowthai_filter_tischanfrage_query' );
 
-// 6. Datumsfilter-Input
+// 6. Datums- & Branch-Filter-Input
 function wowthai_res_restrict_manage_posts() {
     global $typenow;
     if ( $typenow !== 'tischanfrage' ) {
@@ -206,6 +231,16 @@ function wowthai_res_restrict_manage_posts() {
     }
     $selected_date = isset( $_GET['filter_res_date'] ) ? sanitize_text_field( $_GET['filter_res_date'] ) : '';
     echo '<input type="date" name="filter_res_date" value="' . esc_attr( $selected_date ) . '" style="line-height:28px;height:30px;vertical-align:middle;margin-right:6px;" />';
+
+    $branches = function_exists( 'wowthai_get_branches' ) ? wowthai_get_branches() : [ 'steyr' => [ 'name' => 'Steyr' ] ];
+    $selected_branch = isset( $_GET['filter_res_branch'] ) ? sanitize_text_field( $_GET['filter_res_branch'] ) : '';
+    echo '<select name="filter_res_branch" style="height:30px;vertical-align:middle;margin-right:6px;">';
+    echo '<option value="">' . esc_html__( 'Alle Standorte', 'wowthai' ) . '</option>';
+    foreach ( $branches as $b_id => $b_data ) {
+        $sel = selected( $selected_branch, $b_id, false );
+        echo '<option value="' . esc_attr( $b_id ) . '"' . $sel . '>' . esc_html( $b_data['name'] ?? $b_id ) . '</option>';
+    }
+    echo '</select>';
 }
 add_action( 'restrict_manage_posts', 'wowthai_res_restrict_manage_posts' );
 
@@ -217,6 +252,7 @@ function wowthai_res_columns( $columns ) {
     $new_cols = [];
     // Keine Checkboxen mehr!
     $new_cols['res_status']   = 'Status';
+    $new_cols['res_branch']   = 'Standort';
     $new_cols['res_datetime'] = '📅 Datum & Uhrzeit';
     $new_cols['res_party']    = '👥 Gäste';
     $new_cols['res_guest']    = 'Gast & Kontakt';
@@ -257,6 +293,28 @@ function wowthai_res_column_content( $column, $post_id ) {
                 $cfg['border'],
                 $cfg['icon'],
                 esc_html( $cfg['label'] )
+            );
+            break;
+
+        case 'res_branch':
+            $branch_id = get_post_meta( $post_id, '_res_branch_id', true ) ?: 'steyr';
+            $branch_config = function_exists( 'wowthai_get_branch_config' ) ? wowthai_get_branch_config( $branch_id ) : [];
+            $branch_label = $branch_config['name'] ?? ucfirst( $branch_id );
+
+            $branch_colors = [
+                'steyr'    => [ 'bg' => '#fef3c7', 'color' => '#92400e', 'border' => '#fde68a' ],
+                'valentin' => [ 'bg' => '#dcfce7', 'color' => '#166534', 'border' => '#bbf7d0' ],
+                'saalbach' => [ 'bg' => '#e0f2fe', 'color' => '#075985', 'border' => '#bae6fd' ],
+                'express'  => [ 'bg' => '#ffedd5', 'color' => '#9a3412', 'border' => '#fed7aa' ],
+            ];
+            $b_style = $branch_colors[ $branch_id ] ?? [ 'bg' => '#f3f4f6', 'color' => '#374151', 'border' => '#e5e7eb' ];
+            echo sprintf(
+                '<span class="res-branch-badge branch-%s" style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;background:%s;color:%s;border:1px solid %s;">%s</span>',
+                esc_attr( $branch_id ),
+                $b_style['bg'],
+                $b_style['color'],
+                $b_style['border'],
+                esc_html( $branch_label )
             );
             break;
 
@@ -349,9 +407,16 @@ function wowthai_handle_res_status_change() {
 
     if ( ! empty( $guest_email ) && is_email( $guest_email ) ) {
         $formatted_date = $res_date ? wowthai_format_date_vienna( (string) $res_date, 'd.m.Y' ) : $res_date;
-        $res_info       = function_exists( 'wowthai_get_restaurant_data' ) ? wowthai_get_restaurant_data() : [];
-        $restaurant_name  = $res_info['name'] ?? 'WOW Thai Steyr';
-        $restaurant_phone = $res_info['phone'] ?? '+43 7252 74973';
+        $res_branch_id  = get_post_meta( $res_id, '_res_branch_id', true ) ?: ( function_exists( 'wowthai_get_branch_id' ) ? wowthai_get_branch_id() : 'steyr' );
+        $branch_config  = function_exists( 'wowthai_get_branch_config' ) ? wowthai_get_branch_config( $res_branch_id ) : [];
+
+        $restaurant_name  = $branch_config['name'] ?? ( function_exists( 'wowthai_get_restaurant_data' ) ? ( wowthai_get_restaurant_data()['name'] ?? 'WOW Thai Steyr' ) : 'WOW Thai Steyr' );
+        $restaurant_phone = $branch_config['phone'] ?? '+43 7252 74973';
+        $street           = $branch_config['address']['street'] ?? 'Leopold-Werndl-Straße 2';
+        $extra_addr       = ! empty( $branch_config['address']['extra'] ) ? $branch_config['address']['extra'] . ', ' : '';
+        $postal_code      = $branch_config['address']['postal_code'] ?? '4400';
+        $city             = $branch_config['address']['city'] ?? 'Steyr';
+        $full_address     = trim( $extra_addr . $street . ', ' . $postal_code . ' ' . $city );
 
         if ( $new_status === 'confirmed' ) {
             $subject    = "✓ Bestätigt: Ihre Tischreservierung bei $restaurant_name";
@@ -379,7 +444,7 @@ function wowthai_handle_res_status_change() {
                     <p style=\"margin:0 0 6px 0;\"><strong>Datum:</strong> " . esc_html( $formatted_date ) . "</p>
                     <p style=\"margin:0 0 6px 0;\"><strong>Uhrzeit:</strong> " . esc_html( $res_time ) . " Uhr</p>
                     <p style=\"margin:0 0 6px 0;\"><strong>Gäste:</strong> " . esc_html( $res_party ) . " Personen</p>
-                    <p style=\"margin:0;\"><strong>Adresse:</strong> City Point Steyr (1. Obergeschoss), Leopold-Werndl-Straße 2, 4400 Steyr</p>
+                    <p style=\"margin:0;\"><strong>Adresse:</strong> " . esc_html( $full_address ) . "</p>
                 </div>
                 <p>Sollten Sie sich verspäten oder Fragen haben, erreichen Sie uns jederzeit telefonisch unter <a href=\"tel:" . esc_attr( $restaurant_phone ) . "\" style=\"color:#d4a359;font-weight:700;\">" . esc_html( $restaurant_phone ) . "</a>.</p>
                 " . $extra_links . "
@@ -400,7 +465,7 @@ function wowthai_handle_res_status_change() {
                 <div class=\"card-box\">
                     <p style=\"margin:0;\">Für alternative Termine oder kurzfristige Verfügbarkeiten erreichen Sie uns gerne direkt telefonisch unter <a href=\"tel:" . esc_attr( $restaurant_phone ) . "\" style=\"color:#d4a359;font-weight:700;\">" . esc_html( $restaurant_phone ) . "</a>.</p>
                 </div>
-                <p>Vielen Dank für Ihr Verständnis.<br>Ihr WOW Thai Steyr Team</p>
+                <p>Vielen Dank für Ihr Verständnis.<br>Ihr " . esc_html( $restaurant_name ) . " Team</p>
             ";
 
             if ( function_exists( 'wowthai_send_branded_email' ) ) {
@@ -454,14 +519,15 @@ add_action( 'add_meta_boxes', 'wowthai_res_add_meta_box' );
 function wowthai_res_render_meta_box( $post ) {
     wp_nonce_field( 'wowthai_res_meta_box', 'wowthai_res_nonce' );
 
-    $status = get_post_meta( $post->ID, '_res_status', true ) ?: 'pending';
-    $date   = get_post_meta( $post->ID, '_res_date', true ) ?: current_time( 'Y-m-d' );
-    $time   = get_post_meta( $post->ID, '_res_time', true ) ?: '18:00';
-    $party  = get_post_meta( $post->ID, '_res_party', true ) ?: 2;
-    $name   = get_post_meta( $post->ID, '_res_name', true );
-    $phone  = get_post_meta( $post->ID, '_res_phone', true );
-    $email  = get_post_meta( $post->ID, '_res_email', true );
-    $notes  = get_post_meta( $post->ID, '_res_notes', true );
+    $status    = get_post_meta( $post->ID, '_res_status', true ) ?: 'pending';
+    $branch_id = get_post_meta( $post->ID, '_res_branch_id', true ) ?: ( function_exists( 'wowthai_get_branch_id' ) ? wowthai_get_branch_id() : 'steyr' );
+    $date      = get_post_meta( $post->ID, '_res_date', true ) ?: current_time( 'Y-m-d' );
+    $time      = get_post_meta( $post->ID, '_res_time', true ) ?: '18:00';
+    $party     = get_post_meta( $post->ID, '_res_party', true ) ?: 2;
+    $name      = get_post_meta( $post->ID, '_res_name', true );
+    $phone     = get_post_meta( $post->ID, '_res_phone', true );
+    $email     = get_post_meta( $post->ID, '_res_email', true );
+    $notes     = get_post_meta( $post->ID, '_res_notes', true );
     ?>
     <style>
         .res-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 10px; }
@@ -477,6 +543,18 @@ function wowthai_res_render_meta_box( $post ) {
                 <option value="confirmed" <?php selected( $status, 'confirmed' ); ?>>✓ Bestätigt</option>
                 <option value="arrived" <?php selected( $status, 'arrived' ); ?>>🍽️ Am Tisch (Eingetroffen)</option>
                 <option value="cancelled" <?php selected( $status, 'cancelled' ); ?>>✕ Storniert / Abgelehnt</option>
+            </select>
+        </div>
+        <div class="res-field">
+            <label>Standort</label>
+            <select name="res_branch_id" style="font-weight:700;">
+                <?php
+                $branches = function_exists( 'wowthai_get_branches' ) ? wowthai_get_branches() : [ 'steyr' => [ 'name' => 'Steyr' ] ];
+                foreach ( $branches as $b_id => $b_data ) : ?>
+                    <option value="<?php echo esc_attr( $b_id ); ?>" <?php selected( $branch_id, $b_id ); ?>>
+                        <?php echo esc_html( $b_data['name'] ?? $b_id ); ?>
+                    </option>
+                <?php endforeach; ?>
             </select>
         </div>
         <div class="res-field">
@@ -522,7 +600,7 @@ function wowthai_res_save_meta_box( $post_id ) {
         return;
     }
 
-    $fields = [ 'res_status', 'res_date', 'res_time', 'res_party', 'res_name', 'res_phone', 'res_email', 'res_notes' ];
+    $fields = [ 'res_status', 'res_branch_id', 'res_date', 'res_time', 'res_party', 'res_name', 'res_phone', 'res_email', 'res_notes' ];
     foreach ( $fields as $f ) {
         if ( isset( $_POST[ $f ] ) ) {
             $val = ( $f === 'res_notes' ) ? sanitize_textarea_field( $_POST[ $f ] ) : sanitize_text_field( $_POST[ $f ] );
@@ -564,6 +642,7 @@ function wowthai_clean_reservations_ui() {
     }
     /* Tabellenspalten sauber formatieren */
     .column-res_status { width: 130px; }
+    .column-res_branch { width: 110px; }
     .column-res_datetime { width: 170px; }
     .column-res_party { width: 120px; }
     .column-res_guest { width: 180px; }

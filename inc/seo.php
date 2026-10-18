@@ -14,13 +14,23 @@ if (!defined('ABSPATH')) {
  * Liefert konsistente SEO-Metadaten für jede Seite der Website.
  */
 function wowthai_get_seo_meta(): array {
-    $theme_uri = get_template_directory_uri();
+    $theme_uri     = get_template_directory_uri();
     $default_image = $theme_uri . '/assets/img/hero.jpg';
 
+    $b_name     = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : 'WOW Thai Steyr';
+    $b_city     = function_exists('wowthai_get_branch_city') ? wowthai_get_branch_city() : 'Steyr';
+    $b_street_s = function_exists('wowthai_get_branch_street_short') ? wowthai_get_branch_street_short() : 'City Point Steyr';
+    $b_addr     = function_exists('wowthai_get_branch_address') ? wowthai_get_branch_address() : 'Leopold-Werndl-Straße 2, 4400 Steyr';
+    $b_site     = function_exists('wowthai_get_branch_website') ? wowthai_get_branch_website() : 'wow-thai-steyr.at';
+    $has_sushi  = function_exists('wowthai_branch_has_sushi') ? wowthai_branch_has_sushi() : true;
+    $has_dlv    = function_exists('wowthai_branch_has_delivery') ? wowthai_branch_has_delivery() : false;
+
     if (is_front_page()) {
+        $cuisine_label = $has_sushi ? 'Thailändisches Restaurant & Sushi Bar' : 'Authentisches Thailändisches Restaurant';
+        $order_hint    = $has_dlv ? 'Online bestellen mit bequemer Lieferung oder Abholung.' : 'Tisch online reservieren oder Takeaway vorbestellen.';
         return [
-            'title'       => 'WOW Thai Steyr | Thailändisches Restaurant & Sushi Bar im City Point',
-            'desc'        => 'Authentische thailändische Küche, Wok-Gerichte & frisches Sushi im City Point Steyr (1. OG). Tisch online reservieren oder Takeaway vorbestellen.',
+            'title'       => "{$b_name} | {$cuisine_label} in {$b_city}",
+            'desc'        => "Authentische thailändische Küche" . ($has_sushi ? ', Wok-Gerichte & frisches Sushi' : ' & Wok-Spezialitäten') . " bei {$b_name} ({$b_street_s}). {$order_hint}",
             'og_type'     => 'website',
             'og_image'    => $default_image,
             'robots'      => 'max-image-preview:large',
@@ -29,8 +39,8 @@ function wowthai_get_seo_meta(): array {
 
     if (is_page('menu') || is_page('speisekarte')) {
         return [
-            'title'       => 'Speisekarte & Online Bestellen | WOW Thai Steyr',
-            'desc'        => 'Original thailändische Currys, Wok-Spezialitäten & frisches Sushi bei WOW Thai im City Point Steyr online zur Selbstabholung vorbestellen.',
+            'title'       => "Speisekarte & Online Bestellen | {$b_name}",
+            'desc'        => "Original thailändische Currys & Wok-Spezialitäten" . ($has_sushi ? ' & frisches Sushi' : '') . " bei {$b_name} in {$b_city} online bestellen.",
             'og_type'     => 'website',
             'og_image'    => $default_image,
             'robots'      => 'max-image-preview:large',
@@ -39,8 +49,8 @@ function wowthai_get_seo_meta(): array {
 
     if (is_page('reservations') || is_page('tisch-reservieren')) {
         return [
-            'title'       => 'Tisch online reservieren | WOW Thai Steyr (City Point 1. OG)',
-            'desc'        => 'Reservieren Sie Ihren Tisch bei WOW Thai Steyr (City Point · 1. OG, Leopold-Werndl-Straße 2, 4400 Steyr) schnell und bequem online.',
+            'title'       => "Tisch online reservieren | {$b_name} ({$b_city})",
+            'desc'        => "Reservieren Sie Ihren Tisch bei {$b_name} ({$b_addr}) schnell und bequem online.",
             'og_type'     => 'website',
             'og_image'    => $default_image,
             'robots'      => 'max-image-preview:large',
@@ -49,8 +59,8 @@ function wowthai_get_seo_meta(): array {
 
     if (is_page('impressum')) {
         return [
-            'title'       => 'Impressum & Rechtliche Hinweise | WOW Thai Steyr',
-            'desc'        => 'Impressum und Offenlegung nach §5 ECG, §14 UGB und §25 Mediengesetz für WOW Thai Steyr Gastronomie im City Point.',
+            'title'       => "Impressum & Rechtliche Hinweise | {$b_name}",
+            'desc'        => "Impressum und Offenlegung nach §5 ECG, §14 UGB und §25 Mediengesetz für {$b_name}.",
             'og_type'     => 'article',
             'og_image'    => $default_image,
             'robots'      => 'max-image-preview:large',
@@ -59,8 +69,8 @@ function wowthai_get_seo_meta(): array {
 
     if (is_page('datenschutz')) {
         return [
-            'title'       => 'Datenschutzerklärung & Privatsphäre | WOW Thai Steyr',
-            'desc'        => 'Informationen zum Datenschutz, DSGVO-Rechten und zur sicheren Datenverarbeitung beim Besuch und bei Online-Bestellungen auf wow-thai-steyr.at.',
+            'title'       => "Datenschutzerklärung & Privatsphäre | {$b_name}",
+            'desc'        => "Informationen zum Datenschutz, DSGVO-Rechten und zur sicheren Datenverarbeitung beim Besuch und bei Online-Bestellungen auf {$b_site}.",
             'og_type'     => 'article',
             'og_image'    => $default_image,
             'robots'      => 'max-image-preview:large',
@@ -69,8 +79,8 @@ function wowthai_get_seo_meta(): array {
 
     if (is_page('cart')) {
         return [
-            'title'       => 'Warenkorb | WOW Thai Steyr',
-            'desc'        => 'Ihr Warenkorb bei WOW Thai Steyr. Prüfen Sie Ihre ausgewählten Speisen vor der Abholbestellung.',
+            'title'       => "Warenkorb | {$b_name}",
+            'desc'        => "Ihr Warenkorb bei {$b_name}. Prüfen Sie Ihre ausgewählten Speisen vor der Bestellung.",
             'og_type'     => 'website',
             'og_image'    => $default_image,
             'robots'      => 'noindex, follow',
@@ -79,8 +89,8 @@ function wowthai_get_seo_meta(): array {
 
     if (is_page('checkout')) {
         return [
-            'title'       => 'Kasse & Abholung | WOW Thai Steyr',
-            'desc'        => 'Bestellung abschließen und Abholzeit wählen bei WOW Thai Steyr im City Point.',
+            'title'       => "Kasse & " . ($has_dlv ? 'Lieferung' : 'Abholung') . " | {$b_name}",
+            'desc'        => "Bestellung abschließen und " . ($has_dlv ? 'Lieferzeit' : 'Abholzeit') . " wählen bei {$b_name}.",
             'og_type'     => 'website',
             'og_image'    => $default_image,
             'robots'      => 'noindex, nofollow',
@@ -89,8 +99,8 @@ function wowthai_get_seo_meta(): array {
 
     if (is_page('my-account')) {
         return [
-            'title'       => 'Mein Konto | WOW Thai Steyr',
-            'desc'        => 'Kundenkonto und Bestellübersicht bei WOW Thai Steyr.',
+            'title'       => "Mein Konto | {$b_name}",
+            'desc'        => "Kundenkonto und Bestellübersicht bei {$b_name}.",
             'og_type'     => 'website',
             'og_image'    => $default_image,
             'robots'      => 'noindex, nofollow',
@@ -99,8 +109,8 @@ function wowthai_get_seo_meta(): array {
 
     if (is_page('betrieb')) {
         return [
-            'title'       => 'WOW Thai Betrieb · Restaurant-Verwaltung',
-            'desc'        => 'Internes Betriebs-Portal für Küchenteam und Service von WOW Thai Steyr.',
+            'title'       => "{$b_name} Betrieb · Restaurant-Verwaltung",
+            'desc'        => "Internes Betriebs-Portal für Küchenteam und Service von {$b_name}.",
             'og_type'     => 'website',
             'og_image'    => $default_image,
             'robots'      => 'noindex, nofollow',
@@ -110,8 +120,8 @@ function wowthai_get_seo_meta(): array {
     // Standard-Fallback
     $fallback_title = get_the_title();
     return [
-        'title'       => ($fallback_title ? $fallback_title . ' | ' : '') . 'WOW Thai Steyr',
-        'desc'        => 'Authentische thailändische Küche, Wok-Gerichte & frisches Sushi im City Point Steyr (1. OG). Tisch online reservieren oder Takeaway vorbestellen.',
+        'title'       => ($fallback_title ? $fallback_title . ' | ' : '') . $b_name,
+        'desc'        => "Authentische thailändische Küche bei {$b_name}.",
         'og_type'     => 'website',
         'og_image'    => $default_image,
         'robots'      => 'max-image-preview:large',
@@ -241,7 +251,8 @@ function wowthai_output_breadcrumbs_schema() {
         ],
     ];
 
-    echo "\n<!-- WOW Thai Steyr - Breadcrumbs Schema.org JSON-LD -->\n";
+    $b_name = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : 'WOW Thai Steyr';
+    echo "\n<!-- " . esc_html($b_name) . " - Breadcrumbs Schema.org JSON-LD -->\n";
     echo '<script type="application/ld+json">' . wp_json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "</script>\n";
 }
 add_action('wp_head', 'wowthai_output_breadcrumbs_schema', 6);

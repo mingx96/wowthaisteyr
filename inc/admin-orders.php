@@ -209,8 +209,14 @@ function wowthai_render_order_admin_column( $column, $order ) {
         $print_url = admin_url( 'admin-post.php?action=wowthai_print_order_bon&order_id=' . $order_id );
         echo '<div class="wowthai-right-actions">';
 
-        // Immer verfügbar: 80mm Bon-Druck für die Küche
-        echo '<button type="button" class="btn-quick-order btn-bon-print" onclick="window.open(\'' . esc_url( $print_url ) . '\', \'bon_print\', \'width=380,height=650,scrollbars=yes\')" title="80mm Küchenbon drucken">🖨️ Bon</button>';
+        // Dual action buttons: Küchen-Bon and Fahrer-Beleg
+        $is_delivery = function_exists( 'wowthai_order_is_delivery' ) ? wowthai_order_is_delivery( $order ) : false;
+        $driver_bon_url = admin_url( 'admin-post.php?action=wowthai_print_driver_bon&order_id=' . $order_id );
+
+        echo '<button type="button" class="btn-quick-order btn-bon-print" onclick="window.open(\'' . esc_url( $print_url ) . '\', \'bon_print\', \'width=380,height=650,scrollbars=yes\')" title="80mm Küchenbon drucken">🖨️ Küchen-Bon</button>';
+        if ( $is_delivery ) {
+            echo '<button type="button" class="btn-quick-order btn-driver-print" onclick="window.open(\'' . esc_url( $driver_bon_url ) . '\', \'driver_bon\', \'width=420,height=750,scrollbars=yes\')" title="80mm Fahrer-Lieferschein drucken" style="background:#0a5dc2;color:#fff;border-color:#0a5dc2;">🛵 Fahrer-Beleg</button>';
+        }
 
         if ( in_array( $status, [ 'processing', 'pending', 'on-hold' ], true ) && empty( $accepted_time ) ) {
             $accept_url = admin_url( 'admin-post.php?action=wowthai_accept_order&order_id=' . $order_id . '&_wpnonce=' . $nonce );
@@ -257,24 +263,32 @@ function wowthai_handle_accept_order() {
         $name   = $order->get_billing_first_name() ?: 'Gast';
         $pickup = $order->get_meta( 'Abholzeit' ) ?: 'Schnellstmöglich';
         if ( ! empty( $email ) && is_email( $email ) ) {
+            $branch_id = $order->get_meta('_wowthai_branch_id') ?: (function_exists('wowthai_get_branch_id') ? wowthai_get_branch_id() : 'steyr');
+            $b_cfg = function_exists('wowthai_get_branch_config') ? wowthai_get_branch_config($branch_id) : [];
+            $b_name = $b_cfg['name'] ?? (function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name($branch_id) : 'WOW Thai Steyr');
+            $b_addr = ($b_cfg['street'] ?? 'Leopold-Werndl-Straße 2') . ', ' . ($b_cfg['postal_code'] ?? '4400') . ' ' . ($b_cfg['city'] ?? 'Steyr');
+            $b_phone = $b_cfg['phone'] ?? '+43 7252 74973';
+            $b_tel   = $b_cfg['phone_clean'] ?? $b_cfg['phone_tel'] ?? '+43725274973';
+            $b_maps  = $b_cfg['google_maps_url'] ?? ('https://maps.google.com/?q=' . urlencode($b_name));
+
             $items_html = function_exists( 'wowthai_format_order_items_email_html' )
                 ? wowthai_format_order_items_email_html( $order )
                 : '';
-            $subject  = "✓ Bestellung #$order_id angenommen – In Zubereitung bei WOW Thai Steyr";
+            $subject  = "✓ Bestellung #$order_id angenommen – In Zubereitung bei " . esc_html( $b_name );
             $headline = "Ihre Bestellung #$order_id wird zubereitet!";
             $body_html = "
                 <p>Guten Tag " . esc_html( $name ) . ",</p>
                 <p>vielen Dank für Ihre Bestellung! Unser Küchenteam hat Ihre Bestellung <strong>#$order_id</strong> um <strong>" . esc_html( $current_time ) . " Uhr</strong> angenommen und bereitet Ihre Speisen frisch für Sie zu.</p>
                 <div class=\"card-box\">
                     <p style=\"margin:0 0 6px 0;\"><strong>🕒 Gewünschte Abholzeit:</strong> " . esc_html( $pickup ) . "</p>
-                    <p style=\"margin:0;\"><strong>📍 Abholort:</strong> WOW Thai · City Point Steyr (1. OG), Leopold-Werndl-Straße 2, 4400 Steyr</p>
+                    <p style=\"margin:0;\"><strong>📍 Abholort:</strong> " . esc_html( $b_name . ', ' . $b_addr ) . "</p>
                     " . $items_html . "
                 </div>
-                <p>Sobald Ihre Speisen fertig verpackt und abholbereit sind, informieren wir Sie. Für Rückfragen erreichen Sie uns unter <a href=\"tel:+43725274973\" style=\"color:#d4a359;font-weight:700;\">+43 7252 74973</a>.</p>
-                <p>Wir freuen uns auf Sie!<br>Ihr WOW Thai Steyr Team</p>
+                <p>Sobald Ihre Speisen fertig verpackt und abholbereit sind, informieren wir Sie. Für Rückfragen erreichen Sie uns unter <a href=\"tel:{$b_tel}\" style=\"color:#d4a359;font-weight:700;\">" . esc_html( $b_phone ) . "</a>.</p>
+                <p>Wir freuen uns auf Sie!<br>Ihr " . esc_html( $b_name ) . " Team</p>
             ";
             if ( function_exists( 'wowthai_send_branded_email' ) ) {
-                wowthai_send_branded_email( $email, $subject, $headline, $body_html, 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr', 'Route im City Point öffnen ↗' );
+                wowthai_send_branded_email( $email, $subject, $headline, $body_html, $b_maps, 'Route auf Google Maps öffnen ↗' );
             }
         }
     }
@@ -316,7 +330,13 @@ function wowthai_handle_reject_order() {
         $email = $order->get_billing_email();
         $name  = $order->get_billing_first_name();
         if ( ! empty( $email ) && is_email( $email ) ) {
-            $subject = "Information zu Ihrer Bestellung #$order_id bei WOW Thai Steyr";
+            $branch_id = $order->get_meta('_wowthai_branch_id') ?: (function_exists('wowthai_get_branch_id') ? wowthai_get_branch_id() : 'steyr');
+            $b_cfg = function_exists('wowthai_get_branch_config') ? wowthai_get_branch_config($branch_id) : [];
+            $b_name = $b_cfg['name'] ?? (function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name($branch_id) : 'WOW Thai Steyr');
+            $b_phone = $b_cfg['phone'] ?? '+43 7252 74973';
+            $b_tel   = $b_cfg['phone_clean'] ?? $b_cfg['phone_tel'] ?? '+43725274973';
+
+            $subject = "Information zu Ihrer Bestellung #$order_id bei " . $b_name;
             $headline = "Information zu Ihrer Bestellung #$order_id";
             $body_html = "
                 <p>Guten Tag " . esc_html( $name ) . ",</p>
@@ -324,8 +344,8 @@ function wowthai_handle_reject_order() {
                 <div class=\"card-box\">
                     <p style=\"margin:0;\">Die Bestellung wurde storniert. Falls Sie bereits online bezahlt haben, wird Ihnen der Betrag umgehend vollständig erstattet.</p>
                 </div>
-                <p>Für direkte Rückfragen erreichen Sie uns gerne telefonisch unter <a href=\"tel:+43725274973\" style=\"color:#d4a359;font-weight:700;\">+43 7252 74973</a>.</p>
-                <p>Wir bitten um Ihr Verständnis.<br>Ihr WOW Thai Steyr Team</p>
+                <p>Für direkte Rückfragen erreichen Sie uns gerne telefonisch unter <a href=\"tel:{$b_tel}\" style=\"color:#d4a359;font-weight:700;\">" . esc_html( $b_phone ) . "</a>.</p>
+                <p>Wir bitten um Ihr Verständnis.<br>Ihr " . esc_html( $b_name ) . " Team</p>
             ";
 
             if ( function_exists( 'wowthai_send_branded_email' ) ) {
@@ -380,13 +400,19 @@ function wowthai_handle_print_order_bon() {
     $payment     = $order->get_payment_method_title() ?: 'Barzahlung bei Abholung';
     $customer    = $order->get_formatted_billing_full_name() ?: 'Gast';
     $phone       = $order->get_billing_phone();
+
+    $b_name     = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : 'WOW Thai Steyr';
+    $b_street_s = function_exists('wowthai_get_branch_street_short') ? wowthai_get_branch_street_short() : 'City Point';
+    $b_street   = function_exists('wowthai_get_branch_street') ? wowthai_get_branch_street() : 'Leopold-Werndl-Str. 2';
+    $b_city     = function_exists('wowthai_get_branch_city') ? wowthai_get_branch_city() : 'Steyr';
+    $b_phone    = function_exists('wowthai_get_branch_phone') ? wowthai_get_branch_phone() : '+43 7252 74973';
     ?>
     <!DOCTYPE html>
     <html lang="de">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Küchenbon #<?php echo esc_html( $order_id ); ?> · WOW Thai Steyr</title>
+        <title>Küchenbon #<?php echo esc_html( $order_id ); ?> · <?php echo esc_html( $b_name ); ?></title>
         <style>
             @page { margin: 0; size: 80mm auto; }
             * { box-sizing: border-box; }
@@ -445,13 +471,18 @@ function wowthai_handle_print_order_bon() {
             <button class="btn-action" onclick="window.close()" style="margin-left:8px;">✕ Schließen</button>
         </div>
 
-        <div class="center bold large">WOW THAI STEYR</div>
-        <div class="center" style="font-size: 11px;">City Point · Leopold-Werndl-Str. 2 · Steyr<br>Tel: +43 7252 74973</div>
+        <div class="center bold large"><?php echo esc_html( strtoupper($b_name) ); ?></div>
+        <div class="center" style="font-size: 11px;"><?php echo esc_html( $b_street_s . ' · ' . $b_street . ' · ' . $b_city ); ?><br>Tel: <?php echo esc_html( $b_phone ); ?></div>
         <div class="double-divider"></div>
 
-        <div class="pickup-box">
+        <?php $is_delivery = function_exists( 'wowthai_order_is_delivery' ) ? wowthai_order_is_delivery( $order ) : false; ?>
+        <div class="pickup-box <?php echo $is_delivery ? 'is-delivery' : 'is-pickup'; ?>">
             <div style="font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">
-                <?php echo $is_asap ? '⚡ ABHOLZEIT (SOFORT)' : '⏰ VORBESTELLUNG / ABHOLTERMIN'; ?>
+                <?php if ( $is_delivery ) : ?>
+                    🛵 LIEFERUNG · <?php echo esc_html( $order->get_shipping_postcode() ?: $order->get_billing_postcode() ?: '4300' ); ?>
+                <?php else : ?>
+                    <?php echo $is_asap ? '⚡ ABHOLZEIT (SOFORT)' : '⏰ VORBESTELLUNG / ABHOLTERMIN'; ?>
+                <?php endif; ?>
             </div>
             <div class="huge bold"><?php echo esc_html( $pickup_time ); ?></div>
             <div style="font-size: 11px; font-weight: 600;">Bestellt am: <?php echo esc_html( $pickup_date ); ?></div>
@@ -462,6 +493,11 @@ function wowthai_handle_print_order_bon() {
             <span>Bon: <?php echo esc_html( wp_date( 'H:i' ) ); ?> Uhr</span>
         </div>
         <div style="font-size: 12px;"><strong>Gast:</strong> <?php echo esc_html( $customer ); ?></div>
+        <?php if ( $is_delivery ) : 
+            $dlv_addr = $order->get_meta( 'Lieferadresse' ) ?: trim( ( $order->get_shipping_address_1() ?: $order->get_billing_address_1() ) . ', ' . ( $order->get_shipping_postcode() ?: $order->get_billing_postcode() ) . ' ' . ( $order->get_shipping_city() ?: $order->get_billing_city() ) );
+        ?>
+            <div style="font-size: 12px; margin-top: 2px;"><strong>Lieferung an:</strong> <?php echo esc_html( $dlv_addr ); ?></div>
+        <?php endif; ?>
         <?php if ( $phone ) : ?>
             <div style="font-size: 12px;"><strong>Tel:</strong> <?php echo esc_html( $phone ); ?></div>
         <?php endif; ?>
@@ -501,7 +537,7 @@ function wowthai_handle_print_order_bon() {
         <div style="font-size: 11px; margin-top: 3px;"><strong>Zahlung:</strong> <?php echo esc_html( $payment ); ?></div>
         <div class="divider"></div>
         <div class="center" style="font-size: 10px; margin-top: 6px; color:#444;">
-            Frisch zubereitet bei WOW Thai Steyr<br>Guten Appetit!
+            Frisch zubereitet bei <?php echo esc_html( $b_name ); ?><br>Guten Appetit!
         </div>
     </body>
     </html>
@@ -530,26 +566,34 @@ function wowthai_handle_ready_order() {
         $email  = $order->get_billing_email();
         $name   = $order->get_billing_first_name() ?: 'Gast';
         $pickup = $order->get_meta( 'Abholzeit' ) ?: 'Sofort';
+
+        $branch_id = $order->get_meta('_wowthai_branch_id') ?: (function_exists('wowthai_get_branch_id') ? wowthai_get_branch_id() : 'steyr');
+        $b_name  = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name($branch_id) : 'WOW Thai Steyr';
+        $b_addr  = function_exists('wowthai_get_branch_address') ? wowthai_get_branch_address($branch_id) : 'Leopold-Werndl-Straße 2, 4400 Steyr';
+        $b_phone = function_exists('wowthai_get_branch_phone') ? wowthai_get_branch_phone($branch_id) : '+43 7252 74973';
+        $b_tel   = function_exists('wowthai_get_branch_phone_clean') ? wowthai_get_branch_phone_clean($branch_id) : '+43725274973';
+        $b_maps  = function_exists('wowthai_get_branch_maps_url') ? wowthai_get_branch_maps_url($branch_id) : 'https://maps.google.com/?q=' . urlencode($b_name);
+
         if ( ! empty( $email ) && is_email( $email ) ) {
             $items_html = function_exists( 'wowthai_format_order_items_email_html' )
                 ? wowthai_format_order_items_email_html( $order )
                 : '';
-            $subject  = "🥡 Ihre Bestellung #$order_id ist abholbereit! – WOW Thai Steyr";
+            $subject  = "🥡 Ihre Bestellung #$order_id ist abholbereit! – {$b_name}";
             $headline = "Ihre Speisen stehen abholbereit!";
             $body_html = "
                 <p>Guten Tag " . esc_html( $name ) . ",</p>
-                <p>gute Nachrichten: Ihre Bestellung <strong>#$order_id</strong> wurde soeben frisch zubereitet, heiß verpackt und steht <strong>ab sofort im Restaurant zur Abholung</strong> für Sie bereit!</p>
+                <p>gute Nachrichten: Ihre Bestellung <strong>#$order_id</strong> wurde soeben frisch zubereitet, heiß verpackt und steht <strong>ab sofort zur Abholung</strong> für Sie bereit!</p>
                 <div class=\"card-box\">
                     <p style=\"margin:0 0 6px 0;\"><strong>Status:</strong> 🥡 Abholbereit (fertig seit " . esc_html( $current_time ) . " Uhr)</p>
                     <p style=\"margin:0 0 6px 0;\"><strong>Vereinbarte Zeit:</strong> " . esc_html( $pickup ) . "</p>
-                    <p style=\"margin:0;\"><strong>📍 Abholadresse:</strong> WOW Thai · City Point 1. OG, Leopold-Werndl-Straße 2, 4400 Steyr</p>
+                    <p style=\"margin:0;\"><strong>📍 Abholadresse:</strong> " . esc_html( $b_name . ', ' . $b_addr ) . "</p>
                     " . $items_html . "
                 </div>
-                <p>Kommen Sie einfach zu unserer Theke im 1. Obergeschoss des City Point Steyr. Bei Rückfragen erreichen Sie uns unter <a href=\"tel:+43725274973\" style=\"color:#d4a359;font-weight:700;\">+43 7252 74973</a>.</p>
-                <p>Guten Appetit wünscht Ihnen<br>Ihr WOW Thai Steyr Team</p>
+                <p>Kommen Sie einfach zu unserer Theke. Bei Rückfragen erreichen Sie uns unter <a href=\"tel:{$b_tel}\" style=\"color:#d4a359;font-weight:700;\">" . esc_html( $b_phone ) . "</a>.</p>
+                <p>Guten Appetit wünscht Ihnen<br>Ihr " . esc_html( $b_name ) . " Team</p>
             ";
             if ( function_exists( 'wowthai_send_branded_email' ) ) {
-                wowthai_send_branded_email( $email, $subject, $headline, $body_html, 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr', 'Route auf Google Maps öffnen ↗' );
+                wowthai_send_branded_email( $email, $subject, $headline, $body_html, $b_maps, 'Route auf Google Maps öffnen ↗' );
             }
         }
     }
@@ -1215,3 +1259,638 @@ function wowthai_admin_order_styles_and_scripts() {
     <?php
 }
 add_action( 'admin_head', 'wowthai_admin_order_styles_and_scripts' );
+
+/**
+ * Character length calculation helper for UTF-8 thermal receipts.
+ */
+function wowthai_receipt_strlen( string $input ): int {
+    if ( function_exists( 'mb_strlen' ) ) {
+        return mb_strlen( $input, 'UTF-8' );
+    }
+    if ( function_exists( 'iconv_strlen' ) ) {
+        $len = @iconv_strlen( $input, 'UTF-8' );
+        if ( $len !== false ) {
+            return $len;
+        }
+    }
+    $matched = @preg_match_all( '/./us', $input );
+    return $matched !== false ? (int) $matched : strlen( $input );
+}
+
+/**
+ * Visual column width calculation helper for monospace 80mm thermal receipt lines.
+ */
+function wowthai_receipt_strwidth( string $input ): int {
+    if ( function_exists( 'mb_strwidth' ) ) {
+        return mb_strwidth( $input, 'UTF-8' );
+    }
+    $chars = @preg_split( '//u', $input, -1, PREG_SPLIT_NO_EMPTY );
+    if ( $chars === false ) {
+        return strlen( $input );
+    }
+    $width = 0;
+    foreach ( $chars as $ch ) {
+        if ( $ch === "\xEF\xB8\x8F" ) { // variation selector-16
+            continue;
+        }
+        $width += 1;
+    }
+    return $width;
+}
+
+/**
+ * Multi-byte safe string padding helper for UTF-8 thermal printers.
+ */
+function wowthai_receipt_mb_pad( string $input, int $pad_length, string $pad_string = ' ', int $pad_type = STR_PAD_RIGHT ): string {
+    $len = wowthai_receipt_strwidth( $input );
+    $diff = strlen( $input ) - $len;
+    return str_pad( $input, max( 0, $pad_length + $diff ), $pad_string, $pad_type );
+}
+
+/**
+ * Multi-byte safe substring extraction helper for UTF-8 thermal printers.
+ */
+function wowthai_receipt_mb_substr( string $input, int $start, ?int $length = null ): string {
+    if ( function_exists( 'mb_substr' ) ) {
+        return mb_substr( $input, $start, $length, 'UTF-8' );
+    }
+    if ( function_exists( 'iconv_substr' ) ) {
+        $res = $length !== null
+            ? @iconv_substr( $input, $start, $length, 'UTF-8' )
+            : @iconv_substr( $input, $start, @iconv_strlen( $input, 'UTF-8' ), 'UTF-8' );
+        if ( $res !== false ) {
+            return $res;
+        }
+    }
+    $chars = @preg_split( '//u', $input, -1, PREG_SPLIT_NO_EMPTY );
+    if ( $chars !== false ) {
+        $slice = $length !== null ? array_slice( $chars, $start, $length ) : array_slice( $chars, $start );
+        return implode( '', $slice );
+    }
+    return $length !== null ? substr( $input, $start, $length ) : substr( $input, $start );
+}
+
+/**
+ * Center a string within a specified monospace column width.
+ */
+function wowthai_receipt_center( string $input, int $width = 42 ): string {
+    $len = wowthai_receipt_strwidth( $input );
+    if ( $len >= $width ) {
+        return wowthai_receipt_mb_substr( $input, 0, $width );
+    }
+    $total_pad = $width - $len;
+    $left_pad  = (int) floor( $total_pad / 2 );
+    $right_pad = $total_pad - $left_pad;
+    return str_repeat( ' ', $left_pad ) . $input . str_repeat( ' ', $right_pad );
+}
+
+/**
+ * Word-wraps text for monospace 80mm thermal receipt lines.
+ *
+ * Guarantees that every returned line has visual column width <= $max_width.
+ *
+ * @param string      $text         Input text to wrap.
+ * @param int         $max_width    Maximum line width in visual columns (default 40).
+ * @param string      $prefix       Prefix to prepend to continuation lines (default '  ').
+ * @param string|null $first_prefix Optional prefix for the very first line (defaults to $prefix).
+ * @return array
+ */
+function wowthai_receipt_wordwrap( string $text, int $max_width = 40, string $prefix = '  ', ?string $first_prefix = null ): array {
+    if ( $first_prefix === null ) {
+        $first_prefix = $prefix;
+    }
+    $text = str_replace( [ "\r\n", "\r" ], "\n", $text );
+    $paragraphs = explode( "\n", $text );
+    $lines = [];
+    $is_first = true;
+
+    foreach ( $paragraphs as $p ) {
+        $p = trim( $p );
+        if ( $p === '' ) {
+            continue;
+        }
+        $words = preg_split( '/\s+/u', $p );
+        if ( ! $words ) {
+            continue;
+        }
+
+        $cur_prefix = $is_first ? $first_prefix : $prefix;
+        $cur_line = '';
+
+        foreach ( $words as $word ) {
+            $avail = max( 1, $max_width - wowthai_receipt_strwidth( $cur_prefix ) );
+            $w_len = wowthai_receipt_strwidth( $word );
+
+            // If word itself exceeds total available space on a fresh line, split it
+            if ( $w_len > $avail ) {
+                if ( $cur_line !== '' ) {
+                    $lines[] = $cur_prefix . $cur_line;
+                    $is_first = false;
+                    $cur_prefix = $prefix;
+                    $cur_line = '';
+                    $avail = max( 1, $max_width - wowthai_receipt_strwidth( $cur_prefix ) );
+                }
+                while ( wowthai_receipt_strwidth( $word ) > $avail ) {
+                    // Try breaking at hyphen if present within $avail
+                    $cut = $avail;
+                    $substr = wowthai_receipt_mb_substr( $word, 0, $avail );
+                    $last_hyphen = strrpos( $substr, '-' );
+                    if ( $last_hyphen !== false && $last_hyphen > 2 ) {
+                        $cut = $last_hyphen + 1;
+                    }
+                    $chunk = wowthai_receipt_mb_substr( $word, 0, $cut );
+                    $word  = wowthai_receipt_mb_substr( $word, $cut );
+                    $lines[] = $cur_prefix . $chunk;
+                    $is_first = false;
+                    $cur_prefix = $prefix;
+                    $avail = max( 1, $max_width - wowthai_receipt_strwidth( $cur_prefix ) );
+                }
+                $cur_line = $word;
+                continue;
+            }
+
+            if ( $cur_line === '' ) {
+                $cur_line = $word;
+            } else {
+                $cand = $cur_line . ' ' . $word;
+                if ( wowthai_receipt_strwidth( $cand ) <= $avail ) {
+                    $cur_line = $cand;
+                } else {
+                    $lines[] = $cur_prefix . $cur_line;
+                    $is_first = false;
+                    $cur_prefix = $prefix;
+                    $avail = max( 1, $max_width - wowthai_receipt_strwidth( $cur_prefix ) );
+                    $cur_line = $word;
+                }
+            }
+        }
+
+        if ( $cur_line !== '' ) {
+            $lines[] = $cur_prefix . $cur_line;
+            $is_first = false;
+        }
+    }
+
+    if ( empty( $lines ) && $first_prefix !== null && trim( $first_prefix ) !== '' ) {
+        $lines[] = rtrim( $first_prefix );
+    }
+
+    return $lines;
+}
+
+
+/**
+ * Helper to determine whether an order is a delivery order.
+ *
+ * @param WC_Order|int $order
+ * @return bool
+ */
+function wowthai_order_is_delivery( $order ): bool {
+    if ( is_numeric( $order ) ) {
+        $order = wc_get_order( (int) $order );
+    }
+    if ( ! $order instanceof WC_Order ) {
+        return false;
+    }
+    $fulfillment = $order->get_meta( '_wowthai_delivery_type' );
+    if ( empty( $fulfillment ) ) {
+        $fulfillment = $order->get_meta( '_fulfillment_type' );
+    }
+    if ( in_array( $fulfillment, [ 'delivery', 'lieferung' ], true ) ) {
+        return true;
+    }
+    $postcode = $order->get_shipping_postcode() ?: $order->get_billing_postcode();
+    $street   = $order->get_shipping_address_1() ?: $order->get_billing_address_1();
+    if ( in_array( $postcode, [ '4300', '4303', '4470', '4481' ], true ) && stripos( (string)$street, 'Selbstabholung' ) === false && ! empty( $street ) ) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Renders standard 80mm monospace driver dispatch receipt text (strict 42 columns).
+ *
+ * @param WC_Order|array|int $order_or_id
+ * @return string
+ */
+function wowthai_render_driver_receipt( $order_or_id ): string {
+    $order    = null;
+    $is_array = is_array( $order_or_id );
+    if ( $is_array ) {
+        $arr = $order_or_id;
+    } elseif ( is_numeric( $order_or_id ) ) {
+        $order = wc_get_order( (int) $order_or_id );
+    } elseif ( $order_or_id instanceof WC_Order ) {
+        $order = $order_or_id;
+    }
+
+    if ( ! $is_array && ! $order instanceof WC_Order ) {
+        return "Bestellung nicht gefunden.\n";
+    }
+
+    $width    = 42;
+    $sepEqual = str_repeat( '=', $width );
+    $sepDash  = str_repeat( '-', $width );
+    $sepStar  = str_repeat( '*', $width );
+
+    if ( $is_array ) {
+        $branch_id   = $arr['branch_id'] ?? 'express';
+        $branch_cfg  = function_exists('wowthai_get_branch_config') ? wowthai_get_branch_config($branch_id) : [];
+        $branch_name = strtoupper($branch_cfg['name'] ?? 'WoW Express St. Valentin');
+        $branch_tel  = $branch_cfg['phone'] ?? '+43 7435 50001';
+        $order_num   = (string)($arr['order_number'] ?? ($arr['id'] ?? 'N/A'));
+        $created_str = $arr['created_at_vienna'] ?? ( wp_date( 'd.m.Y · H:i', null, new DateTimeZone( 'Europe/Vienna' ) ) . ' Uhr' ); // verify-ok
+        $target_time = $arr['target_time'] ?? 'ca. 30–45 Min. (ASAP)';
+        $name        = $arr['customer_name'] ?? 'Kunde';
+        $addr        = $arr['customer_address'] ?? [];
+        $street      = $addr['street'] ?? '';
+        $details     = $addr['details'] ?? '';
+        $plz         = $addr['plz'] ?? '4300';
+        $city        = $addr['city'] ?? 'St. Valentin';
+        $plz_city    = trim("{$plz} {$city}");
+        $phone       = $arr['customer_phone'] ?? ($addr['phone'] ?? '');
+        $zone_label  = $arr['zone_label'] ?? ($plz === '4300' ? 'ZONE 1 (Core · St. Valentin)' : 'ZONE 2 (Erweiterte Lieferzone)');
+        $driver_note = $arr['driver_note'] ?? ($arr['delivery_note'] ?? ($arr['customer_note'] ?? 'Keine besonderen Hinweise.'));
+        $is_paid_online = !empty($arr['is_paid'])
+            || (isset($arr['payment_status']) && $arr['payment_status'] === 'paid')
+            || in_array($arr['payment_method'] ?? '', ['stripe', 'online', 'mollie', 'paypal', 'apple_pay'], true);
+        if (in_array($arr['payment_method'] ?? '', ['cod', 'bar', 'cash'], true) && empty($arr['is_paid'])) {
+            $is_paid_online = false;
+        }
+        $payment_title = $arr['payment_method_title'] ?? ($arr['payment_title'] ?? ($is_paid_online ? 'Online bezahlt' : 'Barzahlung'));
+        $parse_val = function($v) {
+            if (is_numeric($v)) return (float)$v;
+            if (is_string($v)) {
+                $clean = str_replace(['€', ' '], '', $v);
+                $clean = str_replace(',', '.', $clean);
+                return (float)$clean;
+            }
+            return 0.0;
+        };
+        $subtotal_val  = $parse_val($arr['subtotal'] ?? 0.0);
+        $fee_val       = $parse_val($arr['delivery_fee'] ?? 0.0);
+        $total_val     = isset($arr['total']) ? $parse_val($arr['total']) : ($subtotal_val + $fee_val);
+        $raw_items     = $arr['items'] ?? [];
+    } else {
+        $branch_id   = $order->get_meta( '_wowthai_branch_id' ) ?: ( function_exists( 'wowthai_get_branch_id' ) ? wowthai_get_branch_id() : 'express' );
+        $branch_cfg  = function_exists( 'wowthai_get_branch_config' ) ? wowthai_get_branch_config( $branch_id ) : [];
+        $branch_name = strtoupper( $branch_cfg['name'] ?? 'WoW Express St. Valentin' );
+        $branch_tel  = $branch_cfg['phone'] ?? '+43 7435 50001';
+        $order_num   = (string)( $order->get_order_number() ?: $order->get_id() );
+
+        $date_created = $order->get_date_created();
+        if ( $date_created ) {
+            $vienna_dt   = ( new DateTimeImmutable( '@' . $date_created->getTimestamp() ) )->setTimezone( new DateTimeZone( 'Europe/Vienna' ) );
+            $created_str = $vienna_dt->format( 'd.m.Y · H:i' ) . ' Uhr';
+        } else {
+            $created_str = wp_date( 'd.m.Y · H:i', null, new DateTimeZone( 'Europe/Vienna' ) ) . ' Uhr';
+        }
+
+        $target_time = $order->get_meta( 'Lieferzeit' ) ?: $order->get_meta( '_wowthai_delivery_eta' );
+        if ( empty( $target_time ) ) {
+            $target_time = $order->get_meta( 'Abholzeit' );
+        }
+        if ( empty( $target_time ) ) {
+            $target_time = 'ca. 30–45 Min. (ASAP)';
+        }
+
+        $name = trim( ( $order->get_shipping_first_name() || $order->get_shipping_last_name() )
+            ? $order->get_formatted_shipping_full_name()
+            : $order->get_formatted_billing_full_name() );
+        if ( empty( $name ) ) {
+            $name = 'Kunde';
+        }
+
+        $street  = $order->get_shipping_address_1() ?: $order->get_billing_address_1();
+        $details = $order->get_shipping_address_2() ?: $order->get_billing_address_2();
+        if ( empty( $details ) ) {
+            $details = (string)$order->get_meta( '_wowthai_delivery_details' );
+        }
+
+        $plz      = $order->get_shipping_postcode() ?: $order->get_billing_postcode();
+        $city     = $order->get_shipping_city() ?: $order->get_billing_city();
+        $plz_city = trim( "{$plz} {$city}" );
+
+        $zone_label = $order->get_meta( '_wowthai_delivery_zone_name' );
+        if ( empty( $zone_label ) ) {
+            if ( $plz === '4300' ) {
+                $zone_label = 'ZONE 1 (Core · St. Valentin)';
+            } elseif ( in_array( $plz, [ '4303', '4470', '4481' ], true ) ) {
+                $city_label = ( $plz === '4303' ) ? 'Ennsdorf' : ( ( $plz === '4470' ) ? 'Enns' : 'Asten' );
+                $zone_label = "ZONE 2 (Extended · {$city_label})";
+            } else {
+                $zone_label = 'ZONE 1 (Core · St. Valentin)';
+            }
+        }
+
+        $phone       = $order->get_billing_phone();
+        $driver_note = $order->get_customer_note() ?: (string)$order->get_meta( '_wowthai_driver_note' );
+        if ( empty( $driver_note ) ) {
+            $driver_note = 'Keine besonderen Hinweise.';
+        }
+
+        $payment_method = strtolower( (string) $order->get_payment_method() );
+        $payment_title  = $order->get_payment_method_title() ?: 'Online bezahlt';
+        $is_paid_online = $order->is_paid() || in_array( $payment_method, [ 'stripe', 'paypal', 'eps', 'mollie', 'online' ], true );
+        if ( in_array( $payment_method, [ 'cod', 'bar', 'cash' ], true ) && ! $order->is_paid() ) {
+            $is_paid_online = false;
+        }
+
+        $subtotal_val = (float) $order->get_subtotal();
+        $fee_val      = (float) $order->get_shipping_total();
+        if ( $fee_val == 0.0 && $order->get_meta( '_wowthai_delivery_fee' ) !== '' ) {
+            $fee_val = (float) $order->get_meta( '_wowthai_delivery_fee' );
+        }
+        $total_val = (float) $order->get_total();
+        $raw_items = $order->get_items();
+    }
+
+    $subtotal_fmt = number_format( $subtotal_val, 2, ',', '.' ) . ' €';
+    $fee_fmt      = number_format( $fee_val, 2, ',', '.' ) . ' €';
+    $total_fmt    = number_format( $total_val, 2, ',', '.' ) . ' €';
+
+    // Build Payment Banner
+    if ( $is_paid_online ) {
+        $method_str = '*    Zahlart: ' . $payment_title;
+        $banner_lines = [
+            $sepEqual,
+            '[✓ ONLINE BEZAHLT · NICHT KASSIEREN]',
+            $sepEqual,
+            $sepStar,
+            '*                                        *',
+            '*    [ ✓ BEREITS ONLINE BEZAHLT ]        *',
+            '*                                        *',
+            '*    KEIN GELD BEIM KUNDEN KASSIEREN!    *',
+            wowthai_receipt_mb_pad( wowthai_receipt_mb_substr( $method_str, 0, 41 ), 41, ' ', STR_PAD_RIGHT ) . '*',
+            '*                                        *',
+            $sepStar,
+        ];
+    } else {
+        $due_str = '*    EXAKTER BETRAG:  ' . $total_fmt;
+        $banner_lines = [
+            $sepEqual,
+            '[⚠️ BARZAHLUNG BEI LIEFERUNG - KASSIEREN]',
+            '  BITTE BEIM KUNDEN KASSIEREN:            ',
+            '  EXAKTER BETRAG:  ' . $total_fmt,
+            $sepEqual,
+            $sepStar,
+            '*                                        *',
+            '*    [ ⚠️ BARZAHLUNG BEI LIEFERUNG ]     *',
+            '*                                        *',
+            '*    BITTE BEIM KUNDEN KASSIEREN:        *',
+            wowthai_receipt_mb_pad( wowthai_receipt_mb_substr( $due_str, 0, 41 ), 41, ' ', STR_PAD_RIGHT ) . '*',
+            '*                                        *',
+            $sepStar,
+        ];
+    }
+
+    // Packing Checklist Items
+    $item_lines = [];
+    $item_count = 0;
+    foreach ( $raw_items as $item ) {
+        $item_count++;
+        if ( is_array( $item ) ) {
+            $qty = $item['quantity'] ?? 1;
+            $item_name = $item['name'] ?? '';
+            $customizations = $item['modifiers'] ?? ($item['choices'] ?? ($item['customizations'] ?? []));
+        } else {
+            $qty = $item->get_quantity();
+            $item_name = $item->get_name();
+            $customizations = function_exists('wowthai_get_order_item_customizations')
+                ? wowthai_get_order_item_customizations( $item )
+                : [];
+        }
+
+        foreach ( wowthai_receipt_wordwrap( $item_name, 42, '       ', " [ ] {$qty}x " ) as $il ) {
+            $item_lines[] = $il;
+        }
+        if ( ! empty( $customizations ) ) {
+            $custom_str = implode( ', ', $customizations );
+            foreach ( wowthai_receipt_wordwrap( $custom_str, 42, '       ', '     + ' ) as $cl ) {
+                $item_lines[] = $cl;
+            }
+        }
+    }
+
+    // Assemble 42-column receipt
+    $lines = [];
+    $lines[] = $sepEqual;
+    $lines[] = '        WOW EXPRESS · ST. VALENTIN        ';
+    $lines[] = '         FAHRER-DISPATCH-LIEFERSCHEIN     ';
+    $lines[] = $sepEqual;
+    $lines[] = "Bestellung:  #{$order_num}";
+    $lines[] = "Datum/Zeit:  {$created_str}";
+    foreach ( wowthai_receipt_wordwrap( $target_time, 42, '             ', 'Zielzeit:    ' ) as $tl ) {
+        $lines[] = $tl;
+    }
+    $lines[] = $sepDash;
+    $lines[] = 'EMPFÄNGER & LIEFERADRESSE:';
+    foreach ( wowthai_receipt_wordwrap( $name, 42, '             ', '  Name:      ' ) as $nl ) {
+        $lines[] = $nl;
+    }
+    foreach ( wowthai_receipt_wordwrap( $street, 42, '             ', '  Strasse:   ' ) as $sl ) {
+        $lines[] = $sl;
+    }
+    if ( ! empty( $details ) ) {
+        foreach ( wowthai_receipt_wordwrap( $details, 42, '             ', '  Details:   ' ) as $dl ) {
+            $lines[] = $dl;
+        }
+    }
+    foreach ( wowthai_receipt_wordwrap( $plz_city, 42, '             ', '  PLZ / Ort: ' ) as $pl ) {
+        $lines[] = $pl;
+    }
+    foreach ( wowthai_receipt_wordwrap( $zone_label, 42, '             ', '  Zone:      ' ) as $zl ) {
+        $lines[] = $zl;
+    }
+    foreach ( wowthai_receipt_wordwrap( $phone, 42, '             ', '  TELEFON:   ' ) as $phl ) {
+        $lines[] = $phl;
+    }
+    $lines[] = $sepDash;
+    $lines[] = 'FAHRER-HINWEIS:';
+    foreach ( wowthai_receipt_wordwrap( $driver_note, 40, '  ' ) as $dnl ) {
+        $lines[] = $dnl;
+    }
+    $lines[] = $sepDash;
+    foreach ( $banner_lines as $bl ) {
+        $lines[] = $bl;
+    }
+    $lines[] = $sepDash;
+    $lines[] = "KONTROLL-PACKLISTE ({$item_count} Artikel):";
+    foreach ( $item_lines as $il ) {
+        $lines[] = $il;
+    }
+    $lines[] = $sepDash;
+    $sub_pad   = max( 1, 42 - 14 - wowthai_receipt_strwidth( $subtotal_fmt ) );
+    $fee_pad   = max( 1, 42 - 13 - wowthai_receipt_strwidth( $fee_fmt ) );
+    $total_pad = max( 1, 42 - 12 - wowthai_receipt_strwidth( $total_fmt ) );
+    $lines[] = 'Zwischensumme:' . str_repeat( ' ', $sub_pad ) . $subtotal_fmt;
+    $lines[] = 'Liefergebühr:' . str_repeat( ' ', $fee_pad ) . $fee_fmt;
+    $lines[] = $sepDash;
+    $lines[] = 'GESAMTSUMME:' . str_repeat( ' ', $total_pad ) . $total_fmt;
+    $lines[] = $sepEqual;
+    $lines[] = 'Abfahrt: ____:____  Fahrer: ______________';
+    $lines[] = '       WOW Express · St. Valentin         ';
+    $lines[] = wowthai_receipt_center( "Tel: {$branch_tel}", 42 );
+    $lines[] = $sepEqual;
+
+    return implode( "\n", $lines ) . "\n";
+}
+
+/**
+ * Admin POST Handler: Print or Export 80mm Driver Dispatch Receipt
+ * URL: /wp-admin/admin-post.php?action=wowthai_print_driver_bon&order_id=12345(&format=raw)
+ */
+function wowthai_handle_print_driver_bon() {
+    $order_id = isset( $_GET['order_id'] ) ? intval( $_GET['order_id'] ) : 0;
+    if ( ! current_user_can( 'edit_shop_orders' ) && ! current_user_can( 'manage_woocommerce' ) ) {
+        wp_die( 'Keine Berechtigung zum Drucken des Fahrer-Belegs.' );
+    }
+
+    $order = wc_get_order( $order_id );
+    if ( ! $order ) {
+        wp_die( 'Bestellung #' . esc_html( $order_id ) . ' nicht gefunden.' );
+    }
+
+    $receipt_text = wowthai_render_driver_receipt( $order );
+    $format       = isset( $_GET['format'] ) ? sanitize_text_field( $_GET['format'] ) : 'html';
+
+    // 1. Raw Text Export (for ESC/POS hardware or script piping)
+    if ( $format === 'raw' || $format === 'text' ) {
+        header( 'Content-Type: text/plain; charset=utf-8' );
+        header( 'Content-Disposition: inline; filename="fahrer-beleg-' . $order_id . '.txt"' );
+        echo $receipt_text;
+        exit;
+    }
+
+    // 2. HTML Print Preview (80mm Monospace with auto-print)
+    $branch_id   = $order->get_meta( '_wowthai_branch_id' ) ?: ( function_exists( 'wowthai_get_branch_id' ) ? wowthai_get_branch_id() : 'express' );
+    $branch_name = function_exists( 'wowthai_get_branch_name' ) ? wowthai_get_branch_name( $branch_id ) : 'WoW Express St. Valentin';
+    $raw_url     = admin_url( 'admin-post.php?action=wowthai_print_driver_bon&order_id=' . $order_id . '&format=raw' );
+    ?>
+    <!DOCTYPE html>
+    <html lang="de">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Fahrer-Beleg #<?php echo esc_html( $order_id ); ?> · <?php echo esc_html( $branch_name ); ?></title>
+        <style>
+            @page { margin: 0; size: 80mm auto; }
+            * { box-sizing: border-box; }
+            body {
+                font-family: 'Courier New', Courier, Consolas, monospace;
+                width: 72mm;
+                margin: 0 auto;
+                padding: 4mm 2mm;
+                color: #000;
+                font-size: 12px;
+                line-height: 1.25;
+                background: #fff;
+            }
+            pre.driver-thermal-receipt {
+                margin: 0;
+                padding: 0;
+                white-space: pre-wrap;
+                word-break: break-word;
+                font-family: inherit;
+                font-size: 12px;
+                line-height: 1.25;
+            }
+            .no-print {
+                margin-bottom: 12px;
+                text-align: center;
+                background: #f0f0f1;
+                padding: 8px;
+                border-radius: 4px;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            }
+            .btn-action {
+                padding: 6px 12px;
+                font-size: 12px;
+                font-weight: 700;
+                cursor: pointer;
+                border-radius: 4px;
+                border: 1px solid #777;
+                text-decoration: none;
+                display: inline-block;
+            }
+            .btn-primary { background: #0a5dc2; color: #fff; border-color: #0a5dc2; }
+            .btn-raw { background: #2c3338; color: #fff; border-color: #2c3338; margin-left: 6px; }
+            .btn-close { background: #fff; color: #333; margin-left: 6px; }
+            @media print {
+                .no-print { display: none !important; }
+                body { width: 100%; padding: 0; }
+            }
+        </style>
+    </head>
+    <body onload="window.print()">
+        <div class="no-print">
+            <button class="btn-action btn-primary" onclick="window.print()">🖨️ Beleg Drucken</button>
+            <a href="<?php echo esc_url( $raw_url ); ?>" class="btn-action btn-raw" target="_blank">📄 Rohtext (ESC/POS)</a>
+            <button class="btn-action btn-close" onclick="window.close()">✕ Schließen</button>
+        </div>
+
+        <pre class="driver-thermal-receipt"><?php echo esc_html( $receipt_text ); ?></pre>
+    </body>
+    </html>
+    <?php
+    exit;
+}
+add_action( 'admin_post_wowthai_print_driver_bon', 'wowthai_handle_print_driver_bon' );
+
+/**
+ * Register Driver Bon & Kitchen Bon meta box in WooCommerce order edit screen
+ */
+function wowthai_register_order_bon_meta_box() {
+    $screens = [ 'shop_order', 'woocommerce_page_wc-orders' ];
+    foreach ( $screens as $screen ) {
+        add_meta_box(
+            'wowthai_order_bon_box',
+            '🖨️ WOW Bon-Druck & Fahrer-Belege',
+            'wowthai_render_order_bon_meta_box',
+            $screen,
+            'side',
+            'high'
+        );
+    }
+}
+add_action( 'add_meta_boxes', 'wowthai_register_order_bon_meta_box' );
+
+function wowthai_render_order_bon_meta_box( $post_or_order ) {
+    $order = ( $post_or_order instanceof WC_Order ) ? $post_or_order : wc_get_order( $post_or_order->ID );
+    if ( ! $order ) {
+        return;
+    }
+
+    $order_id        = $order->get_id();
+    $is_delivery     = wowthai_order_is_delivery( $order );
+    $kitchen_bon_url = admin_url( 'admin-post.php?action=wowthai_print_order_bon&order_id=' . $order_id );
+    $driver_bon_url  = admin_url( 'admin-post.php?action=wowthai_print_driver_bon&order_id=' . $order_id );
+    $raw_url         = admin_url( 'admin-post.php?action=wowthai_print_driver_bon&order_id=' . $order_id . '&format=raw' );
+    ?>
+    <div class="wowthai-bon-metabox" style="display:flex;flex-direction:column;gap:10px;padding:6px 0;">
+        <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-weight:700;font-size:12px;padding:3px 8px;border-radius:4px;<?php echo $is_delivery ? 'background:#eaf3fd;color:#0a5dc2;border:1px solid #b6d7fa;' : 'background:#fef3d6;color:#8c5b00;border:1px solid #ffd880;'; ?>">
+                <?php echo $is_delivery ? '🛵 LIEFERUNG' : '🥡 ABHOLUNG'; ?>
+            </span>
+            <span style="font-size:11px;font-weight:700;color:<?php echo $order->is_paid() ? '#107a38' : '#c22213'; ?>;">
+                <?php echo $order->is_paid() ? '✓ Online bezahlt' : '⚠️ Barzahlung / Offen'; ?>
+            </span>
+        </div>
+
+        <a href="javascript:void(0)" onclick="window.open('<?php echo esc_url( $kitchen_bon_url ); ?>', 'k_bon', 'width=380,height=650,scrollbars=yes')" class="button button-secondary" style="font-weight:700;text-align:center;">
+            🖨️ Küchen-Bon drucken
+        </a>
+
+        <?php if ( $is_delivery ) : ?>
+            <a href="javascript:void(0)" onclick="window.open('<?php echo esc_url( $driver_bon_url ); ?>', 'd_bon', 'width=420,height=750,scrollbars=yes')" class="button button-primary" style="background:#0a5dc2;border-color:#0a5dc2;font-weight:700;text-align:center;">
+                🛵 Fahrer-Beleg drucken
+            </a>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;">
+                <a href="<?php echo esc_url( $raw_url ); ?>" target="_blank" style="color:#646970;text-decoration:none;">
+                    📄 Rohtext (ESC/POS) exportieren ↗
+                </a>
+            </div>
+        <?php endif; ?>
+    </div>
+    <?php
+}

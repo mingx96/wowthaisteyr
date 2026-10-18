@@ -6,10 +6,18 @@ if (!defined('ABSPATH')) {
     exit;
 }
 $wow_info      = function_exists('wowthai_get_restaurant_data') ? wowthai_get_restaurant_data() : [];
+$wow_hd        = function_exists('wowthai_hours_display') ? wowthai_hours_display() : [];
 $wow_tel       = $wow_info['phone_tel'] ?? '+43725274973';
 $wow_ph        = $wow_info['phone'] ?? '+43 7252 74973';
 $theme_uri     = get_template_directory_uri();
 $special_today = function_exists('wowthai_get_special_closed_day') ? wowthai_get_special_closed_day() : null;
+
+$b_id       = function_exists('wowthai_get_branch_id') ? wowthai_get_branch_id() : 'steyr';
+$b_name     = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : ($wow_info['name'] ?? 'WOW Thai Steyr');
+$b_short    = function_exists('wowthai_get_branch_short_name') ? wowthai_get_branch_short_name() : 'WoW Thai';
+$b_sub      = function_exists('wowthai_get_branch_brand_sub') ? wowthai_get_branch_brand_sub() : 'STEYR · CITY POINT';
+$b_street_s = function_exists('wowthai_get_branch_street_short') ? wowthai_get_branch_street_short() : 'City Point · 1. OG';
+$has_res    = function_exists('wowthai_branch_has_reservations') ? wowthai_branch_has_reservations() : true;
 
 $seo_meta = function_exists('wowthai_get_seo_meta') ? wowthai_get_seo_meta() : [
     'title'    => 'WOW Thai Steyr | Thailändisches Restaurant & Sushi Bar im City Point',
@@ -30,7 +38,7 @@ $og_image   = $seo_meta['og_image'] ?? ($theme_uri . '/assets/img/hero.jpg');
   <meta name="description" content="<?php echo esc_attr($meta_desc); ?>">
   <meta property="og:locale" content="de_AT">
   <meta property="og:type" content="<?php echo esc_attr($og_type); ?>">
-  <meta property="og:site_name" content="WOW Thai Steyr">
+  <meta property="og:site_name" content="<?php echo esc_attr($b_name); ?>">
   <meta property="og:title" content="<?php echo esc_attr($meta_title); ?>">
   <meta property="og:description" content="<?php echo esc_attr($meta_desc); ?>">
   <meta property="og:url" content="<?php echo esc_url(home_url(add_query_arg([], $GLOBALS['wp']->request ?? ''))); ?>">
@@ -42,8 +50,8 @@ $og_image   = $seo_meta['og_image'] ?? ($theme_uri . '/assets/img/hero.jpg');
   <meta name="theme-color" content="#100f0d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="WOW Thai">
-  <link rel="manifest" href="<?php echo esc_url($theme_uri . '/assets/pwa/manifest.json'); ?>">
+  <meta name="apple-mobile-web-app-title" content="<?php echo esc_attr($b_short); ?>">
+  <link rel="manifest" href="<?php echo esc_url($theme_uri . '/assets/pwa/manifest-' . $b_id . '.json'); ?>">
   <link rel="apple-touch-icon" href="<?php echo esc_url($theme_uri . '/assets/img/logo-sm.png'); ?>">
   <?php if (is_front_page()): ?>
   <link rel="preload" as="image" href="<?php echo esc_url($theme_uri . '/assets/img/hero.jpg'); ?>" fetchpriority="high">
@@ -61,13 +69,15 @@ $og_image   = $seo_meta['og_image'] ?? ($theme_uri . '/assets/img/hero.jpg');
 <?php endif; ?>
 
 <header class="site-header wrap<?php if (is_front_page()) echo ' home-header'; ?>">
-  <a class="brand" href="<?php echo esc_url(home_url('/')); ?>" aria-label="WOW Thai Steyr Startseite">
-    <img class="brand-logo" src="<?php echo esc_url($theme_uri . '/assets/img/logo-sm.png'); ?>" alt="WOW Thai Steyr" width="60" height="40" decoding="async">
-    <span>STEYR <i>·</i> CITY POINT</span>
+  <a class="brand" href="<?php echo esc_url(home_url('/')); ?>" aria-label="<?php echo esc_attr($b_name . ' Startseite'); ?>">
+    <img class="brand-logo" src="<?php echo esc_url($theme_uri . '/assets/img/logo-sm.png'); ?>" alt="<?php echo esc_attr($b_name); ?>" width="60" height="40" decoding="async">
+    <span><?php echo esc_html($b_sub); ?></span>
   </a>
   <nav class="nav-links" aria-label="Hauptnavigation">
     <a class="<?php if (is_page('menu') || is_page('speisekarte')) echo 'active'; ?>" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte</a>
+    <?php if ($has_res): ?>
     <a class="<?php if (is_page('reservations') || is_page('tisch-reservieren')) echo 'active'; ?>" href="<?php echo esc_url(home_url('/reservations/')); ?>">Tisch reservieren</a>
+    <?php endif; ?>
     <a class="phone-link" href="tel:<?php echo esc_attr($wow_tel); ?>"><?php echo esc_html($wow_ph); ?></a>
   </nav>
   <div class="header-right-actions">
@@ -86,8 +96,8 @@ $og_image   = $seo_meta['og_image'] ?? ($theme_uri . '/assets/img/hero.jpg');
   <div class="mobile-nav-panel">
     <div class="mobile-nav-head">
       <div class="brand-mini-info">
-        <strong>WOW Thai Steyr</strong>
-        <span>City Point · 1. OG</span>
+        <strong><?php echo esc_html($b_name); ?></strong>
+        <span><?php echo esc_html($b_street_s); ?></span>
       </div>
       <button type="button" class="mobile-nav-close" id="mobile-nav-close" aria-label="Menü schließen">×</button>
     </div>
@@ -96,10 +106,12 @@ $og_image   = $seo_meta['og_image'] ?? ($theme_uri . '/assets/img/hero.jpg');
         <span class="nav-icon">🍜</span>
         <span>Speisekarte &amp; Bestellen</span>
       </a>
+      <?php if ($has_res): ?>
       <a class="<?php if (is_page('reservations') || is_page('tisch-reservieren')) echo 'active'; ?>" href="<?php echo esc_url(home_url('/reservations/')); ?>">
         <span class="nav-icon">📅</span>
         <span>Tisch online reservieren</span>
       </a>
+      <?php endif; ?>
       <a href="tel:<?php echo esc_attr($wow_tel); ?>">
         <span class="nav-icon">📞</span>
         <span>Jetzt anrufen (<?php echo esc_html($wow_ph); ?>)</span>
@@ -110,7 +122,7 @@ $og_image   = $seo_meta['og_image'] ?? ($theme_uri . '/assets/img/hero.jpg');
       </a>
     </nav>
     <div class="mobile-nav-footer">
-      <p>Öffnungszeiten: Di–So 11:00–21:00<br>Montags Ruhetag</p> <?php // hours-ok ?>
+      <p>Öffnungszeiten: <?php echo esc_html($wow_hd['mosa_days'] ?? 'Mo–Sa'); ?> <?php echo esc_html($wow_hd['mosa_hours'] ?? ''); ?><br><?php echo esc_html($wow_hd['sun_days'] ?? 'So'); ?> <?php echo esc_html($wow_hd['sun_hours'] ?? ''); ?></p>
     </div>
   </div>
 </div>

@@ -1,0 +1,22 @@
+{
+  "name": "WoW Express St. Valentin - Lieferservice & Takeaway",
+  "short_name": "WoW Express",
+  "description": "Schnelle Thai-Lieferung & Sushi in St. Valentin, Ennsdorf, Enns & Asten.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#100f0d",
+  "theme_color": "#100f0d",
+  "icons": [
+    {
+      "src": "../img/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "../img/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

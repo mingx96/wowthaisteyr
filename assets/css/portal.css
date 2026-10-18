@@ -223,6 +223,75 @@ button, input, select, textarea {
   background: var(--wto-bg);
 }
 
+/* Multi-Location Studio Port Switcher Bar */
+.wto-port-switcher-bar {
+  background: #110f0d;
+  border-bottom: 1px solid var(--wto-line);
+  padding: 6px 20px;
+  font-size: 12px;
+  flex-shrink: 0;
+  z-index: 51;
+}
+
+.wto-port-switcher-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.wto-port-switcher-label {
+  font-weight: 700;
+  color: var(--wto-ink-subtle);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.wto-port-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wto-port-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--wto-surface);
+  border: 1px solid var(--wto-line);
+  border-radius: 6px;
+  color: var(--wto-ink-muted);
+  text-decoration: none;
+  font-size: 11px;
+  transition: all 0.16s ease;
+}
+
+.wto-port-link:hover {
+  background: var(--wto-surface-hover);
+  color: var(--wto-ink);
+  border-color: var(--wto-line-light);
+}
+
+.wto-port-link.active {
+  background: var(--wto-gold-bg);
+  color: var(--wto-gold-bright);
+  border-color: var(--wto-gold-border);
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(217, 172, 54, 0.2);
+}
+
+.wto-port-num {
+  font-family: var(--wto-mono);
+  font-size: 10px;
+  opacity: 0.8;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
 /* Header */
 .wto-portal-header {
   height: 64px;
@@ -530,17 +599,92 @@ button, input, select, textarea {
   box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
+/* Fulfillment Filtering Toolbar */
+.fulfillment-filters,
+.wto-fulfillment-switch {
+  display: flex;
+  background: var(--wto-surface);
+  border: 1px solid var(--wto-line);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.fulfillment-filters .filter-btn,
+.wto-fulfillment-switch button,
+.wto-ff-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wto-ink-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.fulfillment-filters .filter-btn:hover,
+.wto-fulfillment-switch button:hover {
+  color: var(--wto-ink);
+  background: var(--wto-surface-hover);
+}
+
+.fulfillment-filters .filter-btn.active,
+.wto-fulfillment-switch button.active {
+  background: var(--wto-surface-raised);
+  color: var(--wto-gold);
+  border-color: var(--wto-gold-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.wto-ff-count,
+.filter-btn .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 800;
+  background: var(--wto-bg);
+  color: var(--wto-ink-muted);
+  border: 1px solid var(--wto-line);
+}
+
+.filter-btn.active .badge,
+.wto-fulfillment-switch button.active .wto-ff-count {
+  background: var(--wto-gold);
+  color: #141210;
+  border-color: var(--wto-gold);
+}
+
+.filter-btn .count-delivery {
+  color: #60a5fa;
+}
+
+.filter-btn.active .count-delivery {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+
 .wto-orders-summary {
   font-size: 12px;
   color: var(--wto-ink-muted);
 }
 
-/* 3-Column Kanban Board */
+/* 4-Column Live Kanban Board */
 .wto-kanban-board {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
   padding: 16px 20px 20px;
   overflow: hidden;
 }
@@ -553,6 +697,7 @@ button, input, select, textarea {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .wto-kanban-col.col-new {
@@ -565,6 +710,17 @@ button, input, select, textarea {
 
 .wto-kanban-col.col-ready {
   border-top: 4px solid var(--wto-green);
+}
+
+.wto-kanban-col.col-complete {
+  border-top: 4px solid #64748b;
+  opacity: 0.94;
+}
+
+.wto-kanban-col.drag-over {
+  border-color: var(--wto-gold);
+  box-shadow: 0 0 16px rgba(217, 172, 54, 0.35);
+  background: #24201a;
 }
 
 .wto-col-head {
@@ -624,7 +780,18 @@ button, input, select, textarea {
   flex-direction: column;
   gap: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-  transition: transform 0.18s, border-color 0.18s;
+  transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+  cursor: grab;
+}
+
+.wto-order-card:active {
+  cursor: grabbing;
+}
+
+.wto-order-card.dragging {
+  opacity: 0.45;
+  transform: scale(0.97);
+  border-style: dashed;
 }
 
 .wto-order-card:hover {
@@ -634,6 +801,38 @@ button, input, select, textarea {
 .wto-order-card.urgent {
   border-color: var(--wto-amber-border);
   box-shadow: 0 0 16px rgba(245, 158, 11, 0.2);
+}
+
+/* Delivery High-Contrast Card Distinction */
+.wto-order-card--delivery {
+  border-left: 4px solid #e67e22;
+  border-color: rgba(230, 126, 34, 0.45);
+  background: linear-gradient(180deg, rgba(230, 126, 34, 0.06) 0%, var(--wto-surface-raised) 35%);
+}
+
+.wto-order-card--delivery:hover {
+  border-color: #e67e22;
+  box-shadow: 0 4px 16px rgba(230, 126, 34, 0.25);
+}
+
+.wto-order-card--delivery.urgent {
+  animation: wto-delivery-glow 2s infinite ease-in-out;
+}
+
+@keyframes wto-delivery-glow {
+  0%, 100% {
+    border-color: rgba(230, 126, 34, 0.5);
+    box-shadow: 0 0 12px rgba(230, 126, 34, 0.25);
+  }
+  50% {
+    border-color: #ff4757;
+    box-shadow: 0 0 20px rgba(255, 71, 87, 0.4);
+  }
+}
+
+/* Pickup High-Contrast Card Distinction */
+.wto-order-card--pickup {
+  border-left: 4px solid #10b981;
 }
 
 .wto-card-top {
@@ -670,6 +869,83 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+}
+
+.wto-badge-fulfillment {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.wto-badge-delivery {
+  background: #e67e22;
+  color: #fff;
+  border: 1px solid #d35400;
+  box-shadow: 0 1px 4px rgba(230, 126, 34, 0.35);
+}
+
+.wto-badge-pickup {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid var(--wto-green-border);
+}
+
+.wto-payment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+.wto-payment-badge.paid {
+  background: var(--wto-green-bg);
+  border: 1px solid var(--wto-green-border);
+  color: #34d399;
+}
+
+.wto-payment-badge.cod {
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid var(--wto-amber);
+  color: #fbbf24;
+  font-weight: 800;
+}
+
+.btn-print-bon,
+.btn-order-print-kitchen {
+  background: var(--wto-surface-raised);
+  border: 1px solid var(--wto-line);
+  color: var(--wto-ink);
+}
+
+.btn-print-bon:hover,
+.btn-order-print-kitchen:hover {
+  border-color: var(--wto-gold);
+  color: var(--wto-gold);
+}
+
+.btn-print-driver,
+.btn-order-print-driver {
+  background: rgba(59, 130, 246, 0.16);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+}
+
+.btn-print-driver:hover,
+.btn-order-print-driver:hover {
+  background: #2563eb;
+  color: #fff;
+  border-color: #3b82f6;
 }
 
 .wto-card-guest {
@@ -1588,6 +1864,7 @@ dialog.wto-modal::backdrop {
   .wto-kanban-board.show-new .col-new,
   .wto-kanban-board.show-prep .col-prep,
   .wto-kanban-board.show-ready .col-ready,
+  .wto-kanban-board.show-complete .col-complete,
   .wto-res-kanban-board.show-new .col-new,
   .wto-res-kanban-board.show-prep .col-prep,
   .wto-res-kanban-board.show-ready .col-ready {
@@ -1598,10 +1875,16 @@ dialog.wto-modal::backdrop {
 
   .wto-kanban-board.show-new .col-prep,
   .wto-kanban-board.show-new .col-ready,
+  .wto-kanban-board.show-new .col-complete,
   .wto-kanban-board.show-prep .col-new,
   .wto-kanban-board.show-prep .col-ready,
+  .wto-kanban-board.show-prep .col-complete,
   .wto-kanban-board.show-ready .col-new,
   .wto-kanban-board.show-ready .col-prep,
+  .wto-kanban-board.show-ready .col-complete,
+  .wto-kanban-board.show-complete .col-new,
+  .wto-kanban-board.show-complete .col-prep,
+  .wto-kanban-board.show-complete .col-ready,
   .wto-res-kanban-board.show-new .col-prep,
   .wto-res-kanban-board.show-new .col-ready,
   .wto-res-kanban-board.show-prep .col-new,

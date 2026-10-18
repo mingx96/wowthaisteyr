@@ -12,7 +12,7 @@ $info = wowthai_get_restaurant_data();
     <div class="page-intro-row">
       <div>
         <h1>Datenschutzerklärung</h1>
-        <p>Informationen zur Verarbeitung Ihrer personenbezogenen Daten gemäß Art. 13 &amp; 14 DSGVO bei WOW Thai Steyr.</p>
+        <p>Informationen zur Verarbeitung Ihrer personenbezogenen Daten gemäß Art. 13 &amp; 14 DSGVO bei <?php echo esc_html($info['name']); ?>.</p>
       </div>
     </div>
   </section>

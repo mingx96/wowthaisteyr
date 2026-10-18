@@ -53,8 +53,27 @@ $is_staff     = $is_logged_in && (
     || in_array('administrator', (array)($current_user->roles ?? []), true)
 );
 
-$prep_time    = function_exists('wowthai_get_kitchen_prep_time') ? wowthai_get_kitchen_prep_time() : '25–35 Min.';
-$is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_restaurant_open_now() : true;
+$prep_time        = function_exists('wowthai_get_kitchen_prep_time') ? wowthai_get_kitchen_prep_time() : '25–35 Min.';
+$is_open          = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_restaurant_open_now() : true;
+$active_branch_id = function_exists('wowthai_get_branch_id') ? wowthai_get_branch_id() : 'steyr';
+$all_branches     = function_exists('wowthai_get_all_branches') ? wowthai_get_all_branches() : [];
+$active_config    = $all_branches[$active_branch_id] ?? (function_exists('wowthai_get_branch_config') ? wowthai_get_branch_config($active_branch_id) : []);
+
+$b_name           = $active_config['name'] ?? (function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : 'WoW Thai Steyr');
+$b_city           = $active_config['city'] ?? (function_exists('wowthai_get_branch_city') ? wowthai_get_branch_city() : 'Steyr');
+$b_sub            = $active_config['brand_sub'] ?? (function_exists('wowthai_get_branch_brand_sub') ? wowthai_get_branch_brand_sub() : 'Steyr');
+$b_street         = $active_config['street'] ?? '';
+$b_street_s       = $active_config['street_short'] ?? ($active_config['street'] ?? '');
+$b_postcode       = $active_config['postcode'] ?? '4400';
+$b_phone          = $active_config['phone'] ?? '+43 7252 74973';
+$b_has_delivery   = !empty($active_config['has_delivery']);
+
+$branch_ports = [
+    'steyr'    => ['port' => '8881', 'label' => 'Steyr',       'icon' => '🏛️', 'badge' => 'WoW Thai Steyr (8881)'],
+    'valentin' => ['port' => '8882', 'label' => 'St. Valentin', 'icon' => '🥡', 'badge' => 'WoW Thai St. Valentin (8882)'],
+    'saalbach' => ['port' => '8883', 'label' => 'Saalbach',     'icon' => '🏔️', 'badge' => 'WoW Thai Saalbach (8883)'],
+    'express'  => ['port' => '8884', 'label' => 'WoW Express',  'icon' => '🛵', 'badge' => 'WoW Express Lieferzentrale (8884)'],
+];
 ?>
 <!doctype html>
 <html lang="de">
@@ -83,7 +102,7 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
   <main class="wto-login-wrap" role="main">
     <div class="wto-login-card">
       <div class="wto-brand-badge" aria-hidden="true">W</div>
-      <h1 class="wto-login-title">WOW Thai Steyr</h1>
+      <h1 class="wto-login-title"><?php echo esc_html(function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : 'WOW Thai Steyr'); ?></h1>
       <p class="wto-login-subtitle">Betriebs-Portal · Bestell- &amp; Reservierungsmanagement</p>
 
       <div id="wto-login-error" class="wto-login-error" style="<?php echo $login_error ? 'display:block;' : ''; ?>">
@@ -160,16 +179,49 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
   <!-- =======================================================================
        AUTHORIZED STAFF OPERATIONS PORTAL APPLICATION
        ======================================================================= -->
-  <div id="wto-portal-app" class="wto-portal-app" aria-live="polite">
+  <div id="wto-portal-app" class="wto-portal-app" aria-live="polite"
+       data-branch-id="<?php echo esc_attr($active_branch_id); ?>"
+       data-has-delivery="<?php echo $b_has_delivery ? '1' : '0'; ?>"
+       data-port="<?php echo esc_attr($branch_ports[$active_branch_id]['port'] ?? '8881'); ?>">
     
+    <!-- Multi-Location Studio Port Switcher Bar -->
+    <div class="wto-port-switcher-bar">
+      <div class="wto-port-switcher-inner">
+        <span class="wto-port-switcher-label">📍 Standort-Instanz:</span>
+        <div class="wto-port-links">
+          <?php foreach ($branch_ports as $b_key => $b_data): 
+            $is_curr = ($active_branch_id === $b_key);
+          ?>
+            <a href="//localhost:<?php echo esc_attr($b_data['port']); ?>/betrieb/" 
+               class="wto-port-link <?php echo $is_curr ? 'active' : ''; ?>" 
+               data-branch="<?php echo esc_attr($b_key); ?>" 
+               data-port="<?php echo esc_attr($b_data['port']); ?>"
+               title="<?php echo esc_attr($b_data['badge']); ?>">
+              <span><?php echo $b_data['icon']; ?></span>
+              <strong><?php echo esc_html($b_data['label']); ?></strong>
+              <span class="wto-port-num">:<?php echo esc_html($b_data['port']); ?></span>
+            </a>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </div>
+
     <!-- Top Header -->
     <header class="wto-portal-header">
       <div class="wto-header-brand">
-        <div class="wto-brand-mini">W</div>
-        <div class="wto-brand-text">
-          <strong>WoW Thai Steyr</strong>
-          <span>Betriebs-Portal</span>
+        <div class="wto-brand-mini" style="<?php echo $active_branch_id === 'express' ? 'background:#1d4ed8;color:#fff;' : ''; ?>">
+          <?php echo $branch_ports[$active_branch_id]['icon'] ?? 'W'; ?>
         </div>
+        <div class="wto-brand-text">
+          <strong><?php echo esc_html($b_name); ?></strong>
+          <span class="wto-branch-pill"><?php echo esc_html($b_city); ?> · <?php echo esc_html($b_sub); ?></span>
+        </div>
+        <?php if ($active_branch_id === 'express' || (!empty($_SERVER['SERVER_PORT']) && (string)$_SERVER['SERVER_PORT'] === '8884')): ?>
+          <div class="wto-express-hub-badge" style="background:#1d4ed8;color:#fff;font-weight:800;font-size:11px;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;margin-left:8px;border:1px solid #3b82f6;box-shadow:0 0 12px rgba(59,130,246,0.5);">
+            <span>🛵 WoW Express Lieferzentrale (Liefer-Zentrale für Steyr &amp; St. Valentin)</span>
+            <span style="font-size:10px;opacity:0.85;background:rgba(255,255,255,0.2);padding:1px 6px;border-radius:10px;">Port 8884</span>
+          </div>
+        <?php endif; ?>
       </div>
 
       <div class="wto-header-center">
@@ -195,6 +247,12 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
             <?php endforeach; ?>
           </select>
         </div>
+
+        <?php if ($b_has_delivery): ?>
+          <div class="wto-delivery-hub-pill" style="display:inline-flex;align-items:center;gap:6px;background:rgba(59,130,246,0.18);border:1px solid rgba(59,130,246,0.45);color:#93c5fd;padding:5px 10px;border-radius:20px;font-size:11px;font-weight:700;">
+            <span>🛵 Lieferzonen: 4300, 4303, 4470, 4481</span>
+          </div>
+        <?php endif; ?>
       </div>
 
       <div class="wto-header-actions">
@@ -290,6 +348,20 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
             <button type="button" class="active" data-view="kanban">Live-Küchenboard</button>
             <button type="button" data-view="archive">Abgeschlossene Bestellungen (Archiv)</button>
           </div>
+          <div class="fulfillment-filters wto-fulfillment-switch" id="wto-fulfillment-switch">
+            <button type="button" class="filter-btn wto-ff-btn active" data-filter="all" data-fulfillment="all">
+              <span>Alle Aufträge</span>
+              <span class="badge count-all wto-ff-count" id="wto-count-all">0</span>
+            </button>
+            <button type="button" class="filter-btn wto-ff-btn" data-filter="pickup" data-fulfillment="takeaway">
+              <span>🥡 Abholung</span>
+              <span class="badge count-pickup wto-ff-count" id="wto-count-pickup">0</span>
+            </button>
+            <button type="button" class="filter-btn wto-ff-btn" data-filter="delivery" data-fulfillment="delivery">
+              <span>🛵 Lieferung</span>
+              <span class="badge count-delivery wto-ff-count" id="wto-count-delivery">0</span>
+            </button>
+          </div>
           <div class="wto-orders-summary">
             <span>Automatischer Live-Abgleich alle 12 Sek.</span>
           </div>
@@ -304,14 +376,17 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
             🍳 In Zubereitung <span class="wto-mcol-badge" id="wto-m-count-prep">0</span>
           </button>
           <button type="button" class="wto-mcol-btn" data-col="ready">
-            🥡 Abholbereit <span class="wto-mcol-badge" id="wto-m-count-ready">0</span>
+            🥡 Bereit <span class="wto-mcol-badge" id="wto-m-count-ready">0</span>
+          </button>
+          <button type="button" class="wto-mcol-btn" data-col="complete">
+            ✓ Abgeschlossen <span class="wto-mcol-badge" id="wto-m-count-complete">0</span>
           </button>
         </div>
 
-        <!-- Kanban Board (3 Columns on Desktop, 1 Active Column on Mobile) -->
+        <!-- Kanban Board (4 Columns on Desktop, 1 Active Column on Mobile) -->
         <div id="wto-kanban-board" class="wto-kanban-board show-new">
           <!-- Col 1: Neu -->
-          <div class="wto-kanban-col col-new">
+          <div class="wto-kanban-col col-new" data-col="new">
             <div class="wto-col-head">
               <h2><span>🔔 Neu eingegangen</span></h2>
               <span id="wto-count-new" class="wto-col-count">0</span>
@@ -322,7 +397,7 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
           </div>
 
           <!-- Col 2: In Zubereitung -->
-          <div class="wto-kanban-col col-prep">
+          <div class="wto-kanban-col col-prep" data-col="prep">
             <div class="wto-col-head">
               <h2><span>🍳 In Zubereitung</span></h2>
               <span id="wto-count-prep" class="wto-col-count">0</span>
@@ -332,14 +407,25 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
             </div>
           </div>
 
-          <!-- Col 3: Abholbereit -->
-          <div class="wto-kanban-col col-ready">
+          <!-- Col 3: Bereit zur Übergabe -->
+          <div class="wto-kanban-col col-ready" data-col="ready">
             <div class="wto-col-head">
-              <h2><span>🥡 Abholbereit</span></h2>
+              <h2><span>🥡 Bereit zur Übergabe</span></h2>
               <span id="wto-count-ready" class="wto-col-count">0</span>
             </div>
             <div id="wto-col-ready-cards" class="wto-cards-scroll">
               <p class="wto-empty-col">Keine fertigen Speisen.</p>
+            </div>
+          </div>
+
+          <!-- Col 4: Abgeschlossen / Ausgeliefert -->
+          <div class="wto-kanban-col col-complete" data-col="complete">
+            <div class="wto-col-head">
+              <h2><span>✓ Abgeschlossen / Ausgeliefert</span></h2>
+              <span id="wto-count-complete" class="wto-col-count">0</span>
+            </div>
+            <div id="wto-col-complete-cards" class="wto-cards-scroll">
+              <p class="wto-empty-col">Keine abgeschlossenen Bestellungen.</p>
             </div>
           </div>
         </div>
@@ -523,7 +609,19 @@ window.wtoPortalConfig = {
   nonce: '<?php echo esc_js(wp_create_nonce("wp_rest")); ?>',
   ajax_url: '<?php echo esc_url_raw(admin_url("admin-ajax.php")); ?>',
   user: '<?php echo esc_js($current_user->display_name ?? ""); ?>',
-  prep_time: '<?php echo esc_js($prep_time); ?>'
+  prep_time: '<?php echo esc_js($prep_time); ?>',
+  branch: {
+    id: '<?php echo esc_js($active_branch_id); ?>',
+    name: '<?php echo esc_js($b_name); ?>',
+    street: '<?php echo esc_js(function_exists("wowthai_get_branch_street") ? wowthai_get_branch_street() : ""); ?>',
+    street_short: '<?php echo esc_js(function_exists("wowthai_get_branch_street_short") ? wowthai_get_branch_street_short() : ""); ?>',
+    city: '<?php echo esc_js($b_city); ?>',
+    postcode: '<?php echo esc_js(function_exists("wowthai_get_branch_postcode") ? wowthai_get_branch_postcode() : "4400"); ?>',
+    phone: '<?php echo esc_js(function_exists("wowthai_get_branch_phone") ? wowthai_get_branch_phone() : "+43 7252 74973"); ?>',
+    has_delivery: <?php echo $b_has_delivery ? "true" : "false"; ?>,
+    has_takeaway: <?php echo (!empty($active_config['has_takeaway']) || !isset($active_config['has_takeaway'])) ? "true" : "false"; ?>,
+    delivery_zones: <?php echo !empty($active_config['delivery_zones']) ? json_encode($active_config['delivery_zones']) : '[]'; ?>
+  }
 };
 </script>
 <script src="<?php echo esc_url($theme_uri . '/assets/js/portal.js?v=' . $version); ?>"></script>

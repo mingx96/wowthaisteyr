@@ -1,6 +1,12 @@
 <?php
 $wow_hd   = function_exists('wowthai_hours_display') ? wowthai_hours_display() : [];
 $wow_info = function_exists('wowthai_get_restaurant_data') ? wowthai_get_restaurant_data() : [];
+$b_name     = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : ($wow_info['name'] ?? 'WOW Thai Steyr');
+$b_street   = function_exists('wowthai_get_branch_street') ? wowthai_get_branch_street() : 'Leopold-Werndl-Straße 2 (1. OG)';
+$b_postcode = function_exists('wowthai_get_branch_postcode') ? wowthai_get_branch_postcode() : '4400';
+$b_city     = function_exists('wowthai_get_branch_city') ? wowthai_get_branch_city() : 'Steyr';
+$has_res    = function_exists('wowthai_branch_has_reservations') ? wowthai_branch_has_reservations() : true;
+$has_sushi  = function_exists('wowthai_branch_has_sushi') ? wowthai_branch_has_sushi() : true;
 $wow_tel  = $wow_info['phone_tel'] ?? '+43725274973';
 $wow_ph   = $wow_info['phone'] ?? '+43 7252 74973';
 $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
@@ -8,9 +14,9 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
 <footer class="site-footer">
   <div class="wrap footer-content-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:32px;padding:48px 0 32px 0;border-top:1px solid var(--line);font-size:13px;line-height:1.7;">
     <div>
-      <h3 style="font-family:var(--serif);font-size:18px;color:var(--ink);margin:0 0 12px 0;letter-spacing:0.5px;">WOW THAI · STEYR</h3>
-      <p style="color:var(--muted);margin:0 0 8px 0;">Authentische thailändische Spezialitäten, Wok-Küche und frisches Sushi mitten im City Point Steyr.</p>
-      <p style="color:var(--muted);margin:0;">Leopold-Werndl-Straße 2 (1. OG)<br>4400 Steyr · Österreich</p>
+      <h3 style="font-family:var(--serif);font-size:18px;color:var(--ink);margin:0 0 12px 0;letter-spacing:0.5px;"><?php echo esc_html(strtoupper($b_name)); ?></h3>
+      <p style="color:var(--muted);margin:0 0 8px 0;">Authentische thailändische Spezialitäten und Wok-Küche<?php echo $has_sushi ? ' sowie frisches Sushi' : ''; ?> in <?php echo esc_html($b_city); ?>.</p>
+      <p style="color:var(--muted);margin:0;"><?php echo esc_html($b_street); ?><br><?php echo esc_html($b_postcode . ' ' . $b_city); ?> · Österreich</p>
     </div>
 
     <div>
@@ -23,9 +29,11 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
         <strong style="color:var(--ink);">Sonntag:</strong><br>
         <?php echo esc_html($wow_hd['sun_hours_uhr'] ?? ''); ?>
       </p>
+      <?php if ($has_sushi): ?>
       <p style="color:#d4a359;font-size:12px;margin:0;font-weight:600;">
         🍣 <?php echo esc_html($wow_hd['sushi_note'] ?? 'Montags Sushi-Ruhetag (warme Küche regulär)'); ?>
       </p>
+      <?php endif; ?>
     </div>
 
     <div>
@@ -36,13 +44,15 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
       </p>
       <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
         <a href="<?php echo esc_url(home_url('/menu/')); ?>" class="button button-quiet" style="padding:8px 14px;font-size:12px;">Speisekarte ↗</a>
+        <?php if ($has_res): ?>
         <a href="<?php echo esc_url(home_url('/reservations/')); ?>" class="button button-quiet" style="padding:8px 14px;font-size:12px;">Tisch reservieren ↗</a>
+        <?php endif; ?>
       </div>
     </div>
   </div>
 
   <div class="wrap footer-row" style="border-top:1px solid rgba(255,255,255,0.06);padding:20px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);">
-    <span>© <span data-year><?php echo esc_html(wp_date('Y')); ?></span> WOW Thai Steyr · Alle Rechte vorbehalten.</span>
+    <span>© <span data-year><?php echo esc_html(wp_date('Y')); ?></span> <?php echo esc_html($b_name); ?> · Alle Rechte vorbehalten.</span>
     <span>
       <a href="<?php echo esc_url(home_url('/impressum/')); ?>" style="color:var(--muted);text-decoration:none;">Impressum</a> · 
       <a href="<?php echo esc_url(home_url('/datenschutz/')); ?>" style="color:var(--muted);text-decoration:none;">Datenschutz (DSGVO)</a>

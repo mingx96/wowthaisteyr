@@ -5,6 +5,16 @@
 get_header();
 $wow_hd   = function_exists('wowthai_hours_display') ? wowthai_hours_display() : [];
 $wow_info = function_exists('wowthai_get_restaurant_data') ? wowthai_get_restaurant_data() : [];
+$b_name     = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : ($wow_info['name'] ?? 'WOW Thai Steyr');
+$b_city     = function_exists('wowthai_get_branch_city') ? wowthai_get_branch_city() : ($wow_info['city'] ?? 'Steyr');
+$b_street   = function_exists('wowthai_get_branch_street') ? wowthai_get_branch_street() : 'Leopold-Werndl-Straße 2';
+$b_street_s = function_exists('wowthai_get_branch_street_short') ? wowthai_get_branch_street_short() : 'City Point · 1. OG';
+$b_postcode = function_exists('wowthai_get_branch_postcode') ? wowthai_get_branch_postcode() : '4400';
+$has_res    = function_exists('wowthai_branch_has_reservations') ? wowthai_branch_has_reservations() : true;
+$has_sushi  = function_exists('wowthai_branch_has_sushi') ? wowthai_branch_has_sushi() : true;
+$has_dlv    = function_exists('wowthai_branch_has_delivery') ? wowthai_branch_has_delivery() : false;
+$cuisine_tag = $has_sushi ? 'THAI · SUSHI · WOK' : 'AUTHENTISCHE THAI-KÜCHE · WOK';
+
 $wow_tel  = $wow_info['phone_tel'] ?? '+43725274973';
 $wow_ph   = $wow_info['phone'] ?? '+43 7252 74973';
 $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
@@ -13,25 +23,33 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
 <main id="main" tabindex="-1">
   <section class="hero hero-full" aria-labelledby="home-title">
     <div class="hero-media" aria-hidden="true">
-      <img class="hero-photo" src="<?php echo esc_url(get_template_directory_uri() . '/assets/img/hero.jpg'); ?>" alt="WOW Thai Restaurant &amp; Sushi Bar im City Point Steyr – Authentische thailändische Küche und Wok-Spezialitäten" width="1600" height="1067" fetchpriority="high" decoding="async">
+      <img class="hero-photo" src="<?php echo esc_url(get_template_directory_uri() . '/assets/img/hero.jpg'); ?>" alt="<?php echo esc_attr($b_name . ' – Authentische thailändische Küche und Wok-Spezialitäten'); ?>" width="1600" height="1067" fetchpriority="high" decoding="async">
     </div>
     <div class="hero-copy">
-      <p class="eyebrow"><span class="eyebrow-dot"></span> THAI · SUSHI · WOK &nbsp; / &nbsp; STEYR</p>
+      <p class="eyebrow"><span class="eyebrow-dot"></span> <?php echo esc_html($cuisine_tag . '   /   ' . mb_strtoupper($b_city, 'UTF-8')); ?></p>
       <h1 id="home-title">
-        <span class="hero-seo-badge">Authentische Thai-Küche &amp; frisches Sushi in Steyr</span>
+        <span class="hero-seo-badge"><?php echo esc_html($has_sushi ? 'Authentische Thai-Küche & frisches Sushi in ' . $b_city : 'Authentische Thai-Küche & Wok in ' . $b_city); ?></span>
         Schön, dass<br><em>Sie da sind.</em>
       </h1>
-      <p class="hero-lead">Lust auf ein aromatisches Curry, frisch gebratenen Wok oder Sushi? Wir freuen uns, Sie im City Point in Steyr zu begrüßen – oder bereiten Ihre Lieblingsgerichte zur Abholung vor.</p>
+      <p class="hero-lead">
+        <?php if ($has_dlv): ?>
+          Lust auf ein aromatisches Curry, frisch gebratenen Wok oder Sushi? Bestellen Sie online mit bequemer Lieferung direkt nach Hause oder zur schnellen Selbstabholung in <?php echo esc_html($b_city); ?>.
+        <?php else: ?>
+          Lust auf ein aromatisches Curry, frisch gebratenen Wok<?php echo $has_sushi ? ' oder Sushi' : ''; ?>? Wir freuen uns, Sie bei uns in <?php echo esc_html($b_city); ?> zu begrüßen – oder bereiten Ihre Lieblingsgerichte zur Abholung vor.
+        <?php endif; ?>
+      </p>
       <div class="button-row">
-        <a class="button button-dark" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte &amp; bestellen <span aria-hidden="true">↗</span></a>
+        <a class="button button-dark" href="<?php echo esc_url(home_url('/menu/')); ?>"><?php echo $has_dlv ? 'Online bestellen ↗' : 'Speisekarte &amp; bestellen ↗'; ?></a>
+        <?php if ($has_res): ?>
         <a class="button button-quiet" href="<?php echo esc_url(home_url('/reservations/')); ?>">Tisch reservieren <span aria-hidden="true">→</span></a>
+        <?php endif; ?>
       </div>
     </div>
     <div class="hero-location">
       <span class="hero-location-mark" aria-hidden="true">📍</span>
-      <span>CITY POINT <i>·</i> 1. OBERGESCHOSS</span>
+      <span><?php echo esc_html(mb_strtoupper($b_street_s, 'UTF-8')); ?></span>
       <span class="hero-location-rule" aria-hidden="true"></span>
-      <span>LEOPOLD-WERNDL-STRASSE 2</span>
+      <span><?php echo esc_html(mb_strtoupper($b_street, 'UTF-8')); ?></span>
     </div>
     <a class="hero-scroll" href="#direkteinstieg"><span></span> WEITER ENTDECKEN</a>
   </section>
@@ -48,6 +66,7 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
       <span class="quick-arrow" aria-hidden="true">↗</span>
     </a>
 
+    <?php if ($has_res): ?>
     <a class="quick-card" href="<?php echo esc_url(home_url('/reservations/')); ?>">
       <span class="quick-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01"/></svg>
@@ -58,6 +77,7 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
       </span>
       <span class="quick-arrow" aria-hidden="true">↗</span>
     </a>
+    <?php endif; ?>
 
     <a class="quick-card" href="tel:<?php echo esc_attr($wow_tel); ?>">
       <span class="quick-icon" aria-hidden="true">
@@ -76,8 +96,8 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
     <div class="home-note-row">
       <h2>Wir freuen uns<br>auf Ihren Besuch.</h2>
       <div class="location-details">
-        <strong>City Point · 1. Obergeschoss</strong>
-        <span>Leopold-Werndl-Straße 2, 4400 Steyr</span>
+        <strong><?php echo esc_html($b_street_s); ?></strong>
+        <span><?php echo esc_html($b_street . ', ' . $b_postcode . ' ' . $b_city); ?></span>
         <a href="tel:<?php echo esc_attr($wow_tel); ?>"><?php echo esc_html($wow_ph); ?></a>
         <a href="mailto:<?php echo esc_attr($wow_mail); ?>"><?php echo esc_html($wow_mail); ?></a>
       </div>
@@ -86,7 +106,9 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
       <span>Öffnungszeiten</span>
       <span>Mo–Sa&nbsp; <?php echo esc_html($wow_hd['mosa_hours'] ?? ''); ?></span>
       <span>So&nbsp; <?php echo esc_html($wow_hd['sun_hours'] ?? ''); ?></span>
+      <?php if ($has_sushi): ?>
       <span style="color:#d4a359;font-size:12px;font-weight:600;">🍣 Montags Sushi-Ruhetag</span>
+      <?php endif; ?>
     </div>
   </section>
 </main>

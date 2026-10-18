@@ -93,8 +93,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           ` : `
             <div class="drawer-timing-banner">
-              <span>🕒 <strong>Abholung</strong>: City Point Steyr</span>
-              <span class="badge-asap">${esc(window.wowthaiConfig?.prep_time || 'ca. 25–35 Min.')}</span>
+              <span>🕒 <strong>${esc(window.wowthaiConfig?.drawer_title || 'Abholung')}</strong>: ${esc(window.wowthaiConfig?.branch_street_short || window.wowthaiConfig?.pickup_location || window.wowthaiConfig?.branch_name || 'Abholung')}</span>
+              <span class="badge-asap">${esc(window.wowthaiConfig?.drawer_badge || window.wowthaiConfig?.prep_time || 'ca. 25–35 Min.')}</span>
             </div>
             <div class="cart-lines">
               ${items.map(item => `
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <span>Zwischensumme:</span>
               <strong>${esc(currentCart.subtotal)}</strong>
             </div>
-            <a href="${checkoutUrl}" class="button button-dark checkout-button">Zur Kasse (Abholung) &rarr;</a>
+            <a href="${checkoutUrl}" class="button button-dark checkout-button">${esc(window.wowthaiConfig?.checkout_btn_text || 'Zur Kasse (Abholung) &rarr;')}</a>
           </div>
         ` : ''}
       </dialog>
@@ -643,6 +643,118 @@ document.addEventListener('DOMContentLoaded', () => {
   initCheckoutTiming();
   document.body.addEventListener('updated_checkout', initCheckoutTiming);
 
+  // Checkout Delivery & Real-time PLZ Validation Handler
+  function initCheckoutDelivery() {
+    const btnDelivery = document.getElementById('btn-ful-delivery');
+    const btnPickup = document.getElementById('btn-ful-pickup');
+    const fulfillmentInput = document.getElementById('fulfillment_type');
+    const deliveryAddressBlock = document.getElementById('block-delivery-address');
+    const deliveryEtaBar = document.getElementById('delivery-eta-bar');
+    const postcodeInput = document.getElementById('billing_postcode') || document.getElementById('shipping_postcode');
+    const cityInput = document.getElementById('billing_city');
+    const zoneBadge = document.getElementById('plz-zone-badge');
+    const calloutBox = document.getElementById('delivery-zone-callout');
+    const calloutMsg = document.getElementById('delivery-zone-message');
+    const fallbackCta = document.getElementById('delivery-fallback-cta');
+    const btnFallback = document.getElementById('btn-fallback-pickup');
+
+    if (!btnDelivery && !postcodeInput) return;
+
+    function setFulfillment(mode) {
+      if (fulfillmentInput) fulfillmentInput.value = mode;
+
+      if (mode === 'delivery') {
+        btnDelivery?.classList.add('active');
+        btnPickup?.classList.remove('active');
+        if (deliveryAddressBlock) deliveryAddressBlock.style.display = 'block';
+        if (deliveryEtaBar) deliveryEtaBar.style.display = 'flex';
+      } else {
+        btnPickup?.classList.add('active');
+        btnDelivery?.classList.remove('active');
+        if (deliveryAddressBlock) deliveryAddressBlock.style.display = 'none';
+        if (deliveryEtaBar) deliveryEtaBar.style.display = 'none';
+        if (calloutBox) calloutBox.style.display = 'none';
+      }
+
+      if (window.jQuery) {
+        window.jQuery('body').trigger('update_checkout');
+      }
+    }
+
+    btnDelivery?.addEventListener('click', () => setFulfillment('delivery'));
+    btnPickup?.addEventListener('click', () => setFulfillment('pickup'));
+    btnFallback?.addEventListener('click', () => setFulfillment('pickup'));
+
+    let plzTimeout = null;
+    function checkPlz() {
+      if (!postcodeInput) return;
+      const val = postcodeInput.value.trim();
+      if (val.length < 4) {
+        if (zoneBadge) zoneBadge.style.display = 'none';
+        if (calloutBox) calloutBox.style.display = 'none';
+        return;
+      }
+
+      fetch(`${ajaxUrl}?action=wowthai_check_delivery_plz&postcode=${encodeURIComponent(val)}`)
+        .then(r => r.json())
+        .then(res => {
+          if (!res.success || !res.data) return;
+          const d = res.data;
+
+          if (d.valid) {
+            if (cityInput && d.city_suggestion && (!cityInput.value || cityInput.value === 'St. Valentin' || cityInput.value === 'Steyr')) {
+              cityInput.value = d.city_suggestion;
+            }
+            if (zoneBadge) {
+              zoneBadge.textContent = `✓ ${d.zone_name}`;
+              zoneBadge.style.color = '#22c55e';
+              zoneBadge.style.display = 'block';
+            }
+            if (calloutBox && calloutMsg) {
+              calloutBox.style.display = 'block';
+              if (d.free_threshold_met) {
+                calloutMsg.className = 'delivery-zone-message plz-feedback-box valid';
+                calloutMsg.innerHTML = `<strong>✓ Kostenlose Lieferung!</strong> Sie haben die Freigrenze erreicht.`;
+              } else if (d.allowed) {
+                calloutMsg.className = 'delivery-zone-message plz-feedback-box valid';
+                calloutMsg.innerHTML = `<strong>✓ ${esc(d.zone_name)}:</strong> Liefergebühr € ${Number(d.fee).toFixed(2).replace('.', ',')} · Noch € ${Number(d.remaining_to_free).toFixed(2).replace('.', ',')} bis gratis!`;
+              } else {
+                calloutMsg.className = 'delivery-zone-message plz-feedback-box warning';
+                calloutMsg.innerHTML = `<strong>⚠️ Mindestbestellwert nicht erreicht:</strong> ${esc(d.error_message)}`;
+              }
+            }
+            if (fallbackCta) fallbackCta.style.display = 'none';
+          } else {
+            if (zoneBadge) zoneBadge.style.display = 'none';
+            if (calloutBox && calloutMsg) {
+              calloutBox.style.display = 'block';
+              calloutMsg.className = 'delivery-zone-message plz-feedback-box error';
+              calloutMsg.innerHTML = `<strong>❌ Keine Lieferung möglich:</strong> ${esc(d.error_message)}`;
+            }
+            if (fallbackCta) fallbackCta.style.display = 'block';
+          }
+
+          if (window.jQuery) {
+            window.jQuery('body').trigger('update_checkout');
+          }
+        })
+        .catch(err => console.warn('PLZ check failed:', err));
+    }
+
+    postcodeInput?.addEventListener('input', () => {
+      clearTimeout(plzTimeout);
+      plzTimeout = setTimeout(checkPlz, 300);
+    });
+    postcodeInput?.addEventListener('change', checkPlz);
+
+    if (postcodeInput && postcodeInput.value.trim().length >= 4) {
+      checkPlz();
+    }
+  }
+
+  initCheckoutDelivery();
+  document.body.addEventListener('updated_checkout', initCheckoutDelivery);
+
   async function refreshPickupAvailability() {
     if (document.hidden || (!document.getElementById('pickup_mode') && !document.getElementById('cart-overlay'))) return;
     try {
@@ -700,6 +812,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Client-side Validation for Checkout Fields
   function validateCheckoutFields(showFeedback = true) {
+    const isDelivery = document.getElementById('fulfillment_type')?.value === 'delivery';
+
     const fields = [
       {
         id: 'billing_first_name',
@@ -725,6 +839,26 @@ document.addEventListener('DOMContentLoaded', () => {
         errorMsg: 'Bitte geben Sie eine gültige E-Mail-Adresse ein.'
       }
     ];
+
+    if (isDelivery) {
+      fields.push(
+        {
+          id: 'billing_address_1',
+          validate: (v) => v.trim().length > 0 && !v.includes('Selbstabholung'),
+          errorMsg: 'Bitte geben Sie Ihre Straße und Hausnummer für die Zustellung ein.'
+        },
+        {
+          id: 'billing_postcode',
+          validate: (v) => /^\d{4}$/.test(v.replace(/\D/g, '')),
+          errorMsg: 'Bitte geben Sie eine gültige 4-stellige Postleitzahl ein.'
+        },
+        {
+          id: 'billing_city',
+          validate: (v) => v.trim().length > 0,
+          errorMsg: 'Bitte geben Sie Ihren Wohnort ein.'
+        }
+      );
+    }
 
     let firstInvalid = null;
     let hasErrors = false;
@@ -772,7 +906,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Clear errors dynamically as the user types
-  ['billing_first_name', 'billing_last_name', 'billing_phone', 'billing_email'].forEach(id => {
+  ['billing_first_name', 'billing_last_name', 'billing_phone', 'billing_email', 'billing_address_1', 'billing_postcode', 'billing_city'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('input', () => {

@@ -11,17 +11,32 @@ $allergens = function_exists('wowthai_get_allergen_list') ? wowthai_get_allergen
 $is_sushi_day = function_exists('wowthai_is_sushi_available_on_day') ? wowthai_is_sushi_available_on_day() : true;
 $is_mittags_now = function_exists('wowthai_mittagsmenu_available') ? wowthai_mittagsmenu_available() : false;
 $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowthai_mittagsmenu_m4_available_on_dow() : true;
+
+$b_name     = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : 'WOW Thai Steyr';
+$b_city     = function_exists('wowthai_get_branch_city') ? wowthai_get_branch_city() : 'Steyr';
+$b_street_s = function_exists('wowthai_get_branch_street_short') ? wowthai_get_branch_street_short() : 'City Point Steyr';
+$has_res    = function_exists('wowthai_branch_has_reservations') ? wowthai_branch_has_reservations() : true;
+$has_sushi  = function_exists('wowthai_branch_has_sushi') ? wowthai_branch_has_sushi() : true;
+$has_dlv    = function_exists('wowthai_branch_has_delivery') ? wowthai_branch_has_delivery() : false;
 ?>
 
 <main id="main" tabindex="-1">
   <section class="page-intro wrap">
-    <p class="eyebrow"><span class="eyebrow-dot"></span> WOW THAI · STEYR</p>
+    <p class="eyebrow"><span class="eyebrow-dot"></span> <?php echo esc_html(strtoupper($b_name)); ?></p>
     <div class="page-intro-row">
       <div>
         <h1>Unsere <em>Speisekarte</em></h1>
-        <p class="page-intro-desc">Was darf es heute sein? Entdecken Sie unsere Spezialitäten und bestellen Sie zur frischen Zubereitung und bequemen Abholung im City Point Steyr.</p>
+        <p class="page-intro-desc">
+          <?php if ($has_dlv): ?>
+            Was darf es heute sein? Entdecken Sie unsere Spezialitäten und bestellen Sie online zur frischen Zubereitung mit schneller Lieferung oder Selbstabholung.
+          <?php else: ?>
+            Was darf es heute sein? Entdecken Sie unsere Spezialitäten und bestellen Sie zur frischen Zubereitung und bequemen Abholung bei <?php echo esc_html($b_name); ?> (<?php echo esc_html($b_street_s); ?>).
+          <?php endif; ?>
+        </p>
       </div>
+      <?php if ($has_res): ?>
       <a class="button button-quiet menu-res-btn" href="<?php echo esc_url(home_url('/reservations/')); ?>">Tisch reservieren <span aria-hidden="true">↗</span></a>
+      <?php endif; ?>
     </div>
 
     <!-- Öffnungszeiten / Vorbestellungs-Banner -->
@@ -38,7 +53,9 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
     <div class="menu-tools">
       <div id="menu-tabs" class="menu-tabs" role="tablist" aria-label="Menüauswahl">
         <button class="menu-tab active" role="tab" aria-selected="true" data-menu="restaurant" type="button">🍜 Speisekarte Restaurant</button>
+        <?php if ($has_sushi): ?>
         <button class="menu-tab" role="tab" aria-selected="false" data-menu="sushi" type="button">🍣 Speisekarte Sushi<?php if (!$is_sushi_day): ?> <span class="tab-badge-closed">Montags Ruhetag</span><?php endif; ?></button>
+        <?php endif; ?>
       </div>
 
       <!-- Live Search & Filter Bar -->
@@ -62,9 +79,11 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
         <?php foreach ($menu_data['restaurant'] as $sec): ?>
           <a class="section-link" href="#sec-<?php echo esc_attr($sec['slug']); ?>" data-menu-type="restaurant"><?php echo esc_html($sec['name']); ?></a>
         <?php endforeach; ?>
-        <?php foreach ($menu_data['sushi'] as $sec): ?>
-          <a class="section-link" href="#sec-<?php echo esc_attr($sec['slug']); ?>" data-menu-type="sushi"><?php echo esc_html($sec['name']); ?></a>
-        <?php endforeach; ?>
+        <?php if ($has_sushi && !empty($menu_data['sushi'])): ?>
+          <?php foreach ($menu_data['sushi'] as $sec): ?>
+            <a class="section-link" href="#sec-<?php echo esc_attr($sec['slug']); ?>" data-menu-type="sushi"><?php echo esc_html($sec['name']); ?></a>
+          <?php endforeach; ?>
+        <?php endif; ?>
       </div>
     </div>
   </section>
@@ -72,7 +91,7 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
   <section class="wrap menu-content" id="menu-root">
     <p id="dish-result-status" class="visually-hidden" role="status" aria-live="polite"></p>
     <div class="menu-notice">
-      Frisch zubereitet im City Point Steyr. Wählen Sie Ihre Speisen, legen Sie sie in den Warenkorb und holen Sie sie warm und frisch zur gewünschten Zeit ab.
+      Frisch zubereitet bei <?php echo esc_html($b_name); ?> (<?php echo esc_html($b_street_s); ?>). Wählen Sie Ihre Speisen, legen Sie sie in den Warenkorb und holen Sie sie warm und frisch zur gewünschten Zeit ab.
     </div>
 
     <!-- Live Empty State for Search -->
@@ -161,75 +180,77 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
     <?php endforeach; ?>
 
     <!-- Sushi Sections -->
-    <?php if (!$is_sushi_day): ?>
-      <div id="sushi-monday-banner" class="sushi-closed-banner" style="display:none;background:rgba(217,119,6,0.15);border:1px solid #d97706;border-radius:8px;padding:16px 20px;margin:16px 0 24px 0;color:#fef3c7;align-items:center;gap:14px;">
-        <span style="font-size:32px;line-height:1;">🍣</span>
-        <div>
-          <strong style="color:#d4a359;font-size:15px;display:block;margin-bottom:4px;">Montags Sushi-Ruhetag</strong>
-          <p style="margin:0;font-size:13px;line-height:1.5;color:#e6e1d8;">Unsere Sushi-Küche hat montags ihren Ruhetag. Sämtliche warmen Speisen (Currys, Wok, Spezialitäten) bereiten wir sehr gerne für Sie zu! Vorbestellungen für Sushi ab Dienstag sind jederzeit möglich.</p>
+    <?php if ($has_sushi): ?>
+      <?php if (!$is_sushi_day): ?>
+        <div id="sushi-monday-banner" class="sushi-closed-banner" style="display:none;background:rgba(217,119,6,0.15);border:1px solid #d97706;border-radius:8px;padding:16px 20px;margin:16px 0 24px 0;color:#fef3c7;align-items:center;gap:14px;">
+          <span style="font-size:32px;line-height:1;">🍣</span>
+          <div>
+            <strong style="color:#d4a359;font-size:15px;display:block;margin-bottom:4px;">Montags Sushi-Ruhetag</strong>
+            <p style="margin:0;font-size:13px;line-height:1.5;color:#e6e1d8;">Unsere Sushi-Küche hat montags ihren Ruhetag. Sämtliche warmen Speisen (Currys, Wok, Spezialitäten) bereiten wir sehr gerne für Sie zu! Vorbestellungen für Sushi ab Dienstag sind jederzeit möglich.</p>
+          </div>
         </div>
-      </div>
-    <?php endif; ?>
+      <?php endif; ?>
 
-    <?php foreach ($menu_data['sushi'] as $sec): ?>
-      <section class="menu-section" id="sec-<?php echo esc_attr($sec['slug']); ?>" data-menu-type="sushi" style="display: none;">
-        <div class="section-heading">
-          <h2><?php echo esc_html($sec['name']); ?></h2>
-          <p class="section-count"><?php echo count($sec['products']); ?> Sushi-Kreationen</p>
-        </div>
-        <div class="dish-grid">
-          <?php foreach ($sec['products'] as $p): 
-            $labels_text = !empty($p['labels']) ? implode(' ', $p['labels']) : '';
-            $filter_meta = mb_strtolower($p['title'] . ' ' . ($p['description'] ?? '') . ' ' . $labels_text);
-            $spice_pill = !empty($p['spice']['pill']) ? $p['spice']['pill'] : '';
-          ?>
-            <article class="dish-card"
-              data-dish-title="<?php echo esc_attr(mb_strtolower($p['title'])); ?>"
-              data-dish-search="<?php echo esc_attr($filter_meta); ?>"
-              data-dish-labels="<?php echo esc_attr(mb_strtolower($labels_text)); ?>">
-              <?php if (!empty($p['image_url'])): ?>
-                <img class="dish-photo" src="<?php echo esc_url($p['image_url']); ?>" alt="<?php echo esc_attr($p['title']); ?>" loading="lazy">
-              <?php endif; ?>
-              <div class="dish-topline">
-                <h3>
-                  <?php echo esc_html($p['title']); ?>
-                  <?php echo $spice_pill; ?>
-                </h3>
-                <span class="dish-price"><?php echo esc_html($p['formatted_price']); ?></span>
-              </div>
-              <?php if (!empty($p['description'])): ?>
-                <p class="dish-desc"><?php echo esc_html($p['description']); ?></p>
-              <?php endif; ?>
-              <?php if (!empty($p['labels'])): ?>
-                <div class="dish-labels">
-                  <?php foreach ($p['labels'] as $lbl): ?>
-                    <span class="dish-label"><?php echo esc_html($lbl); ?></span>
-                  <?php endforeach; ?>
-                </div>
-              <?php endif; ?>
-              <div class="dish-actions">
-                <?php if (!$is_sushi_day): ?>
-                  <button type="button" class="dish-control disabled" disabled style="opacity:0.65;cursor:not-allowed;background:#2b2620;color:#d4a359;border:1px solid rgba(212,163,89,0.3);" title="Montags Sushi-Ruhetag">
-                    🍣 Montags Ruhetag
-                  </button>
-                <?php else: ?>
-                  <button type="button" class="dish-control"
-                    data-product-id="<?php echo esc_attr($p['id']); ?>"
-                    data-modifier-groups="<?php echo esc_attr(wp_json_encode($p['modifier_groups'])); ?>"
-                  data-has-modifiers="<?php echo !empty($p['modifier_groups']) ? 'yes' : 'no'; ?>"
-                  data-has-variants="<?php echo $p['has_variants'] ? 'yes' : 'no'; ?>"
-                    data-title="<?php echo esc_attr($p['title']); ?>"
-                    data-description="<?php echo esc_attr($p['description']); ?>"
-                    data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
-                    <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
-                  </button>
+      <?php foreach ($menu_data['sushi'] as $sec): ?>
+        <section class="menu-section" id="sec-<?php echo esc_attr($sec['slug']); ?>" data-menu-type="sushi" style="display: none;">
+          <div class="section-heading">
+            <h2><?php echo esc_html($sec['name']); ?></h2>
+            <p class="section-count"><?php echo count($sec['products']); ?> Sushi-Kreationen</p>
+          </div>
+          <div class="dish-grid">
+            <?php foreach ($sec['products'] as $p): 
+              $labels_text = !empty($p['labels']) ? implode(' ', $p['labels']) : '';
+              $filter_meta = mb_strtolower($p['title'] . ' ' . ($p['description'] ?? '') . ' ' . $labels_text);
+              $spice_pill = !empty($p['spice']['pill']) ? $p['spice']['pill'] : '';
+            ?>
+              <article class="dish-card"
+                data-dish-title="<?php echo esc_attr(mb_strtolower($p['title'])); ?>"
+                data-dish-search="<?php echo esc_attr($filter_meta); ?>"
+                data-dish-labels="<?php echo esc_attr(mb_strtolower($labels_text)); ?>">
+                <?php if (!empty($p['image_url'])): ?>
+                  <img class="dish-photo" src="<?php echo esc_url($p['image_url']); ?>" alt="<?php echo esc_attr($p['title']); ?>" loading="lazy">
                 <?php endif; ?>
-              </div>
-            </article>
-          <?php endforeach; ?>
-        </div>
-      </section>
-    <?php endforeach; ?>
+                <div class="dish-topline">
+                  <h3>
+                    <?php echo esc_html($p['title']); ?>
+                    <?php echo $spice_pill; ?>
+                  </h3>
+                  <span class="dish-price"><?php echo esc_html($p['formatted_price']); ?></span>
+                </div>
+                <?php if (!empty($p['description'])): ?>
+                  <p class="dish-desc"><?php echo esc_html($p['description']); ?></p>
+                <?php endif; ?>
+                <?php if (!empty($p['labels'])): ?>
+                  <div class="dish-labels">
+                    <?php foreach ($p['labels'] as $lbl): ?>
+                      <span class="dish-label"><?php echo esc_html($lbl); ?></span>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
+                <div class="dish-actions">
+                  <?php if (!$is_sushi_day): ?>
+                    <button type="button" class="dish-control disabled" disabled style="opacity:0.65;cursor:not-allowed;background:#2b2620;color:#d4a359;border:1px solid rgba(212,163,89,0.3);" title="Montags Sushi-Ruhetag">
+                      🍣 Montags Ruhetag
+                    </button>
+                  <?php else: ?>
+                    <button type="button" class="dish-control"
+                      data-product-id="<?php echo esc_attr($p['id']); ?>"
+                      data-modifier-groups="<?php echo esc_attr(wp_json_encode($p['modifier_groups'])); ?>"
+                    data-has-modifiers="<?php echo !empty($p['modifier_groups']) ? 'yes' : 'no'; ?>"
+                    data-has-variants="<?php echo $p['has_variants'] ? 'yes' : 'no'; ?>"
+                      data-title="<?php echo esc_attr($p['title']); ?>"
+                      data-description="<?php echo esc_attr($p['description']); ?>"
+                      data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
+                      <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
+                    </button>
+                  <?php endif; ?>
+                </div>
+              </article>
+            <?php endforeach; ?>
+          </div>
+        </section>
+      <?php endforeach; ?>
+    <?php endif; ?>
   </section>
 
   <!-- Allergen Legende Modal (A - R Codex Österreich) -->

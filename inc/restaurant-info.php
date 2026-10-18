@@ -1,67 +1,130 @@
 <?php
 /**
- * WOW Thai Steyr - Restaurant Info, Opening Hours & Structured Data (Schema.org)
- * Delegiert sämtliche Öffnungs- und Küchenzeiten an inc/hours.php (Single Source of Truth).
+ * WOW Thai - Restaurant Info, Opening Hours & Structured Data (Schema.org)
+ * Delegiert sämtliche Stammdaten an inc/branch-config.php und Öffnungszeiten an inc/hours.php.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+require_once __DIR__ . '/branch-config.php';
 require_once __DIR__ . '/hours.php';
 
 /**
- * Zentrale Restaurant-Stammdaten (Steyr)
+ * Zentrale Restaurant-Stammdaten (Multi-Tenant delegiert)
+ *
+ * @param string|null $branch_id Optional branch ID override.
+ * @return array
  */
-function wowthai_get_restaurant_data() {
-    $hd = wowthai_hours_display();
+function wowthai_get_restaurant_data(?string $branch_id = null): array {
+    $branch = function_exists('wowthai_get_branch_config')
+        ? wowthai_get_branch_config($branch_id)
+        : [];
+
+    $hd = function_exists('wowthai_hours_display') ? wowthai_hours_display($branch_id) : [];
+    $imprint = $branch['imprint_info'] ?? [];
+
     $data = [
-        'name'               => 'WOW Thai Steyr',
-        'legal_name'         => 'WOW Thai Steyr Gastronomie GmbH',
-        'cuisine'            => ['Thailändisch', 'Asiatisch', 'Sushi', 'Wok'],
-        'street'             => 'Leopold-Werndl-Straße 2 (City Point · 1. OG)',
-        'postal_code'        => '4400',
-        'city'               => 'Steyr',
-        'region'             => 'Oberösterreich',
-        'country'            => 'AT',
-        'country_name'       => 'Österreich',
-        'phone'              => '+43 7252 74973',
-        'phone_clean'        => '+43725274973',
-        'phone_tel'          => '+43725274973',
-        'email'              => 'info@wow-thai-restaurant.at',
-        'price_range'        => '€€',
-        'chamber'            => 'Wirtschaftskammer Oberösterreich, Fachgruppe Gastronomie',
-        'authority'          => 'Magistrat der Stadt Steyr',
-        'trade_regulation'   => 'Gewerbeordnung 1994 (abrufbar unter www.ris.bka.gv.at)',
-        'uid'                => (string) get_option('wowthai_legal_uid', ''),
-        'fn_number'          => (string) get_option('wowthai_legal_fn', ''),
-        'fn_court'           => (string) get_option('wowthai_legal_court', 'Landesgericht Steyr'),
-        'managing_director'  => (string) get_option('wowthai_legal_director', ''),
+        'id'                 => $branch['id'] ?? 'steyr',
+        'name'               => $branch['name'] ?? 'WOW Thai Steyr',
+        'short_name'         => $branch['short_name'] ?? 'WoW Thai',
+        'brand_sub'          => $branch['brand_sub'] ?? 'STEYR · CITY POINT',
+        'legal_name'         => $branch['legal_name'] ?? 'WOW Thai Steyr Gastronomie GmbH',
+        'cuisine'            => $branch['cuisine'] ?? ['Thailändisch', 'Asiatisch', 'Sushi', 'Wok'],
+        'street'             => $branch['street'] ?? 'Leopold-Werndl-Straße 2 (City Point · 1. OG)',
+        'street_short'       => $branch['street_short'] ?? 'City Point · 1. OG',
+        'postal_code'        => $branch['postal_code'] ?? '4400',
+        'postcode'           => $branch['postal_code'] ?? '4400',
+        'city'               => $branch['city'] ?? 'Steyr',
+        'region'             => $branch['region'] ?? 'Oberösterreich',
+        'country'            => $branch['country'] ?? 'AT',
+        'country_name'       => $branch['country_name'] ?? 'Österreich',
+        'phone'              => $branch['phone'] ?? '+43 7252 74973',
+        'phone_clean'        => $branch['phone_clean'] ?? '+43725274973',
+        'phone_tel'          => $branch['phone_tel'] ?? ($branch['phone_clean'] ?? '+43725274973'),
+        'email'              => $branch['email'] ?? 'info@wow-thai-restaurant.at',
+        'website'            => $branch['website'] ?? 'wow-thai-steyr.at',
+        'price_range'        => $branch['price_range'] ?? '€€',
+        'chamber'            => $imprint['chamber'] ?? 'Wirtschaftskammer Oberösterreich, Fachgruppe Gastronomie',
+        'authority'          => $imprint['authority'] ?? 'Magistrat der Stadt Steyr',
+        'trade_regulation'   => $imprint['trade_regulation'] ?? 'Gewerbeordnung 1994 (abrufbar unter www.ris.bka.gv.at)',
+        'business_purpose'   => $imprint['business_purpose'] ?? 'Gastronomiebetrieb (Restaurant, Zubereitung thailändischer Speisen, Sushi & Takeaway)',
+        'imprint_info'       => $imprint,
+        'uid'                => function_exists('get_option') ? (string) get_option('wowthai_legal_uid', $imprint['uid'] ?? '') : ($imprint['uid'] ?? ''),
+        'fn_number'          => function_exists('get_option') ? (string) get_option('wowthai_legal_fn', $imprint['fn_number'] ?? '') : ($imprint['fn_number'] ?? ''),
+        'fn_court'           => function_exists('get_option') ? (string) get_option('wowthai_legal_court', $imprint['fn_court'] ?? 'Landesgericht Steyr') : ($imprint['fn_court'] ?? 'Landesgericht Steyr'),
+        'managing_director'  => function_exists('get_option') ? (string) get_option('wowthai_legal_director', $imprint['managing_director'] ?? '') : ($imprint['managing_director'] ?? ''),
         'geo'                => [
-            'latitude'       => '48.0435',
-            'longitude'      => '14.4178',
+            'latitude'       => (string) ($branch['geo']['latitude'] ?? $branch['geo']['lat'] ?? '48.0435'),
+            'longitude'      => (string) ($branch['geo']['longitude'] ?? $branch['geo']['lng'] ?? '14.4178'),
         ],
-        'google_maps_url'    => 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr',
+        'google_maps_url'    => $branch['google_maps_url'] ?? 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr',
+        'has_dining'         => $branch['has_dining'] ?? true,
+        'has_dinein'         => $branch['has_dinein'] ?? ($branch['has_dining'] ?? true),
+        'has_takeaway'       => $branch['has_takeaway'] ?? true,
+        'has_delivery'       => $branch['has_delivery'] ?? false,
+        'has_reservations'   => $branch['has_reservations'] ?? true,
+        'has_sushi'          => $branch['has_sushi'] ?? true,
+        'has_mittagsmenu'    => $branch['has_mittagsmenu'] ?? true,
         'opening_hours_text' => [
-            'Mo–Sa'   => $hd['mosa_hours_uhr'],
-            'So'      => $hd['sun_hours_uhr'],
-            'Hinweis' => $hd['sushi_note'],
+            'Mo–Sa'   => $hd['mosa_hours_uhr'] ?? '',
+            'So'      => $hd['sun_hours_uhr'] ?? '',
+            'Hinweis' => $hd['sushi_note'] ?? '',
         ],
     ];
-    return apply_filters('wowthai_restaurant_data', $data);
+
+    if (function_exists('apply_filters')) {
+        return apply_filters('wowthai_restaurant_data', $data, $branch_id);
+    }
+    return $data;
+}
+
+/**
+ * Alias for wowthai_get_restaurant_data().
+ */
+function wowthai_get_restaurant_info(?string $branch_id = null): array {
+    return wowthai_get_restaurant_data($branch_id);
+}
+
+function wowthai_get_restaurant_name(?string $branch_id = null): string {
+    return wowthai_get_branch_name($branch_id);
+}
+
+function wowthai_get_restaurant_phone(?string $branch_id = null): string {
+    return wowthai_get_branch_phone($branch_id);
+}
+
+function wowthai_get_restaurant_email(?string $branch_id = null): string {
+    return wowthai_get_branch_email($branch_id);
+}
+
+function wowthai_get_restaurant_address(?string $branch_id = null): string {
+    return wowthai_get_branch_address($branch_id);
+}
+
+function wowthai_get_restaurant_city(?string $branch_id = null): string {
+    return wowthai_get_branch_city($branch_id);
+}
+
+function wowthai_get_restaurant_postcode(?string $branch_id = null): string {
+    return wowthai_get_branch_postcode($branch_id);
 }
 
 /**
  * Liefert eine verlässliche E-Mail-Adresse für Reservierungs- & Systembenachrichtigungen.
- * Verhindert, dass E-Mails an Platzhalter wie dev-email@wpengine.local verloren gehen.
  */
 function wowthai_get_notification_email(): string {
+    if (!function_exists('get_option')) {
+        return 'info@wow-thai-restaurant.at';
+    }
     $custom = trim((string) get_option('wowthai_notification_email', ''));
-    if ($custom !== '' && is_email($custom)) {
+    if ($custom !== '' && function_exists('is_email') && is_email($custom)) {
         return $custom;
     }
-    $admin_email = trim((string) get_option('admin_email'));
+    $admin_email = trim((string) get_option('admin_email', ''));
     if (
+        !function_exists('is_email') ||
         !is_email($admin_email) ||
         preg_match('/\.(local|invalid|test|example)$/i', $admin_email) ||
         stripos($admin_email, 'wpengine.local') !== false
@@ -90,7 +153,7 @@ add_filter('wp_mail_from', 'wowthai_filter_wp_mail_from', 20);
 
 function wowthai_filter_wp_mail_from_name($from_name) {
     if (empty($from_name) || $from_name === 'WordPress') {
-        return 'WOW Thai Steyr';
+        return wowthai_get_branch_name();
     }
     return $from_name;
 }
@@ -98,7 +161,6 @@ add_filter('wp_mail_from_name', 'wowthai_filter_wp_mail_from_name', 20);
 
 /**
  * Prüft ob am angegebenen Wochentag Sushi verfügbar ist
- * $day_of_week: 1 (Montag) bis 7 (Sonntag)
  */
 function wowthai_is_sushi_available_on_day($day_of_week = null) {
     return wowthai_sushi_available_on_dow($day_of_week !== null ? (int) $day_of_week : null);
@@ -123,12 +185,68 @@ function wowthai_get_available_pickup_slots($day = 'heute') {
  * Gibt Schema.org JSON-LD structured data für Google / Suchmaschinen im Header aus
  */
 function wowthai_output_restaurant_schema() {
-    $info = wowthai_get_restaurant_data();
-    $home = home_url('/');
+    $info     = wowthai_get_restaurant_data();
+    $home     = home_url('/');
     $menu_url = home_url('/menu/');
-    $res_url = home_url('/reservations/');
+    $res_url  = home_url('/reservations/');
     $logo_url = get_template_directory_uri() . '/assets/img/logo.png';
     $hero_url = get_template_directory_uri() . '/assets/img/hero.jpg';
+
+    $potential_actions = [];
+
+    // Table reservation action (only if supported)
+    if (!empty($info['has_reservations'])) {
+        $potential_actions[] = [
+            '@type' => 'ReserveAction',
+            'target' => [
+                '@type' => 'EntryPoint',
+                'urlTemplate' => $res_url,
+                'inLanguage' => 'de',
+                'actionPlatform' => [
+                    'http://schema.org/DesktopWebPlatform',
+                    'http://schema.org/MobileWebPlatform'
+                ]
+            ],
+            'result' => [
+                '@type' => 'FoodEstablishmentReservation',
+                'name'  => 'Tischreservierung ' . $info['name']
+            ]
+        ];
+    }
+
+    // Takeaway order action
+    if (!empty($info['has_takeaway'])) {
+        $potential_actions[] = [
+            '@type' => 'OrderAction',
+            'target' => [
+                '@type' => 'EntryPoint',
+                'urlTemplate' => $menu_url,
+                'inLanguage' => 'de',
+                'actionPlatform' => [
+                    'http://schema.org/DesktopWebPlatform',
+                    'http://schema.org/MobileWebPlatform'
+                ]
+            ],
+            'deliveryMethod' => 'http://purl.org/goodrelations/v1#DeliveryModePickUp'
+        ];
+    }
+
+    // Delivery order action
+    if (!empty($info['has_delivery'])) {
+        $potential_actions[] = [
+            '@type' => 'OrderAction',
+            'target' => [
+                '@type' => 'EntryPoint',
+                'urlTemplate' => $menu_url,
+                'inLanguage' => 'de',
+                'actionPlatform' => [
+                    'http://schema.org/DesktopWebPlatform',
+                    'http://schema.org/MobileWebPlatform'
+                ]
+            ],
+            'deliveryMethod' => 'http://purl.org/goodrelations/v1#DeliveryModeDirectDownload'
+        ];
+    }
 
     $schema = [
         '@context' => 'https://schema.org',
@@ -143,40 +261,10 @@ function wowthai_output_restaurant_schema() {
         'email'    => $info['email'],
         'priceRange' => $info['price_range'],
         'servesCuisine' => $info['cuisine'],
-        'acceptsReservations' => 'True',
+        'acceptsReservations' => !empty($info['has_reservations']) ? 'True' : 'False',
         'hasMenu' => $menu_url,
         'menu'    => $menu_url,
-        'potentialAction' => [
-            [
-                '@type' => 'ReserveAction',
-                'target' => [
-                    '@type' => 'EntryPoint',
-                    'urlTemplate' => $res_url,
-                    'inLanguage' => 'de',
-                    'actionPlatform' => [
-                        'http://schema.org/DesktopWebPlatform',
-                        'http://schema.org/MobileWebPlatform'
-                    ]
-                ],
-                'result' => [
-                    '@type' => 'FoodEstablishmentReservation',
-                    'name'  => 'Tischreservierung WOW Thai Steyr'
-                ]
-            ],
-            [
-                '@type' => 'OrderAction',
-                'target' => [
-                    '@type' => 'EntryPoint',
-                    'urlTemplate' => $menu_url,
-                    'inLanguage' => 'de',
-                    'actionPlatform' => [
-                        'http://schema.org/DesktopWebPlatform',
-                        'http://schema.org/MobileWebPlatform'
-                    ]
-                ],
-                'deliveryMethod' => 'http://purl.org/goodrelations/v1#DeliveryModePickUp'
-            ]
-        ],
+        'potentialAction' => $potential_actions,
         'address' => [
             '@type'           => 'PostalAddress',
             'streetAddress'   => $info['street'],
@@ -194,7 +282,7 @@ function wowthai_output_restaurant_schema() {
         'openingHoursSpecification' => wowthai_schema_opening_hours(),
     ];
 
-    echo "\n<!-- WOW Thai Steyr - Google Restaurant Schema.org JSON-LD -->\n";
+    echo "\n<!-- WOW Thai - Google Restaurant Schema.org JSON-LD -->\n";
     echo '<script type="application/ld+json">' . wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT ) . "</script>\n";
 }
 add_action( 'wp_head', 'wowthai_output_restaurant_schema', 5 );
@@ -211,11 +299,17 @@ function wowthai_output_menu_schema() {
         return;
     }
 
+    $info      = wowthai_get_restaurant_data();
     $menu_data = wowthai_get_menu_structure();
     $menu_url  = home_url('/menu/');
 
+    $menu_types = ['restaurant'];
+    if (!empty($info['has_sushi'])) {
+        $menu_types[] = 'sushi';
+    }
+
     $sections = [];
-    foreach (['restaurant', 'sushi'] as $type) {
+    foreach ($menu_types as $type) {
         if (empty($menu_data[$type])) {
             continue;
         }
@@ -255,18 +349,21 @@ function wowthai_output_menu_schema() {
         return;
     }
 
+    $menu_title = !empty($info['has_sushi'])
+        ? 'Speisekarte & Sushi – ' . $info['name']
+        : 'Speisekarte – ' . $info['name'];
+
     $schema = [
         '@context'       => 'https://schema.org',
         '@type'          => 'Menu',
         '@id'            => $menu_url . '#menu',
-        'name'           => 'Speisekarte & Sushi – WOW Thai Steyr',
+        'name'           => $menu_title,
         'url'            => $menu_url,
         'inLanguage'     => 'de',
         'hasMenuSection' => $sections,
     ];
 
-    echo "\n<!-- WOW Thai Steyr - Menu Schema.org JSON-LD -->\n";
+    echo "\n<!-- WOW Thai - Menu Schema.org JSON-LD -->\n";
     echo '<script type="application/ld+json">' . wp_json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "</script>\n";
 }
 add_action('wp_head', 'wowthai_output_menu_schema', 6);
-

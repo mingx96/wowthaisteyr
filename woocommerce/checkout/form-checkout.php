@@ -26,18 +26,117 @@ if ($has_sushi && !wowthai_sushi_available($now)) {
 $pickup_dates = wowthai_pickup_dates($now, $has_sushi, $has_lunch, $has_m4);
 $initial_mode = $asap_ready ? 'asap' : 'later';
 $wow_hd       = function_exists('wowthai_hours_display') ? wowthai_hours_display() : [];
+
+$b_name     = function_exists('wowthai_get_branch_name') ? wowthai_get_branch_name() : 'WOW Thai Steyr';
+$b_short    = function_exists('wowthai_get_branch_short_name') ? wowthai_get_branch_short_name() : 'WoW Thai';
+$b_city     = function_exists('wowthai_get_branch_city') ? wowthai_get_branch_city() : 'Steyr';
+$b_street   = function_exists('wowthai_get_branch_street') ? wowthai_get_branch_street() : 'Leopold-Werndl-Straße 2';
+$b_street_s = function_exists('wowthai_get_branch_street_short') ? wowthai_get_branch_street_short() : 'City Point · 1. OG';
+$b_postcode = function_exists('wowthai_get_branch_postcode') ? wowthai_get_branch_postcode() : '4400';
+$has_dlv      = function_exists('wowthai_branch_has_delivery') ? wowthai_branch_has_delivery() : false;
+$mode_badge   = $has_dlv ? 'LIEFERUNG & ABHOLUNG' : 'ABHOLUNG';
+$delivery_eta = function_exists('wowthai_get_delivery_eta') ? wowthai_get_delivery_eta() : 'ca. 30–45 Min.';
 ?>
 
 <div class="checkout-intro-bar">
-  <p class="eyebrow"><span class="eyebrow-dot"></span> WOW THAI · STEYR · ABHOLUNG</p>
-  <h1>Kasse &amp; <em>Abholung</em></h1>
-  <p class="intro-sub">Schließen Sie Ihre Bestellung ab – frisch zubereitet zur Selbstabholung im City Point Steyr.</p>
+  <p class="eyebrow"><span class="eyebrow-dot"></span> <?php echo esc_html(strtoupper($b_short . ' · ' . $b_city . ' · ' . $mode_badge)); ?></p>
+  <h1>Kasse &amp; <em><?php echo $has_dlv ? 'Lieferung' : 'Abholung'; ?></em></h1>
+  <p class="intro-sub">
+    <?php if ($has_dlv): ?>
+      Schließen Sie Ihre Bestellung ab – frisch zubereitet zur schnellen Lieferung oder Selbstabholung in <?php echo esc_html($b_city); ?>.
+    <?php else: ?>
+      Schließen Sie Ihre Bestellung ab – frisch zubereitet zur Selbstabholung bei <?php echo esc_html($b_name); ?> (<?php echo esc_html($b_street_s); ?>).
+    <?php endif; ?>
+  </p>
 </div>
 
 <form name="checkout" method="post" class="checkout woocommerce-checkout wowthai-checkout-grid" action="<?php echo esc_url( wc_get_checkout_url() ); ?>" enctype="multipart/form-data" aria-label="Kasse">
 
-  <!-- LEFT COLUMN: Takeaway Timing & Contact Details -->
+  <!-- LEFT COLUMN: Fulfillment, Delivery Address, Timing & Contact Details -->
   <div class="checkout-left-col">
+
+    <?php if ($has_dlv): ?>
+      <!-- FULFILLMENT MODE TOGGLE (When Branch Supports Delivery) -->
+      <div class="fulfillment-card" id="block-fulfillment" style="margin-bottom: 20px;">
+        <div class="fulfillment-segmented-control" role="tablist" aria-label="Bestellart">
+          <button type="button" class="ful-seg-btn active" id="btn-ful-delivery" data-fulfillment="delivery" role="tab" aria-selected="true">
+            <span class="ful-icon">🛵</span>
+            <div class="ful-text">
+              <span class="ful-title">Lieferung</span>
+              <small class="ful-sub">Zustellung nach Hause</small>
+            </div>
+            <span class="ful-pill"><?php echo esc_html($delivery_eta); ?></span>
+          </button>
+          <button type="button" class="ful-seg-btn" id="btn-ful-pickup" data-fulfillment="pickup" role="tab" aria-selected="false">
+            <span class="ful-icon">🥡</span>
+            <div class="ful-text">
+              <span class="ful-title">Selbstabholung</span>
+              <small class="ful-sub"><?php echo esc_html($b_street_s); ?></small>
+            </div>
+            <span class="ful-pill"><?php echo esc_html(wowthai_get_kitchen_prep_time()); ?></span>
+          </button>
+        </div>
+        <input type="hidden" name="fulfillment_type" id="fulfillment_type" value="delivery">
+      </div>
+
+      <!-- DELIVERY ESTIMATE & ADVISORY AREA -->
+      <div class="delivery-eta-badge-bar" id="delivery-eta-bar" style="margin-bottom: 20px; padding: 10px 14px; background: rgba(199, 157, 75, 0.12); border: 1px solid rgba(199, 157, 75, 0.35); font-size: 13px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <span class="eta-icon" style="margin-right: 6px;">🛵</span>
+          <span class="eta-text">Geschätzte Lieferzeit: <strong><?php echo esc_html($delivery_eta); ?></strong></span>
+        </div>
+        <span class="eta-zones-hint" style="font-size: 11px; opacity: 0.85;">St. Valentin (4300), Ennsdorf (4303), Enns (4470), Asten (4481)</span>
+      </div>
+
+      <!-- BLOCK 1: Lieferadresse -->
+      <div class="checkout-card" id="block-delivery-address" style="margin-bottom: 20px;">
+        <div class="card-head">
+          <span class="card-num">1</span>
+          <div>
+            <h2>Lieferadresse in St. Valentin &amp; Umgebung</h2>
+            <p>Wohin dürfen wir Ihre Bestellung zustellen?</p>
+          </div>
+        </div>
+
+        <div class="contact-grid">
+          <div class="field-box full" id="field-box-address-1">
+            <label for="billing_address_1">Straße &amp; Hausnummer <span class="req">*</span></label>
+            <input type="text" class="input-text" name="billing_address_1" id="billing_address_1" placeholder="z. B. Westbahnstraße 12" value="<?php echo esc_attr( $checkout->get_value( 'billing_address_1' ) ); ?>" autocomplete="address-line1">
+            <span class="field-error-msg" id="err-billing_address_1"></span>
+          </div>
+
+          <div class="field-box full" id="field-box-address-2">
+            <label for="billing_address_2">Stiege, Stockwerk, Tür / Top (optional)</label>
+            <input type="text" class="input-text" name="billing_address_2" id="billing_address_2" placeholder="z. B. Stiege 2, 1. Stock, Top 4" value="<?php echo esc_attr( $checkout->get_value( 'billing_address_2' ) ); ?>" autocomplete="address-line2">
+          </div>
+
+          <div class="field-box" id="field-box-postcode">
+            <label for="billing_postcode">Postleitzahl (PLZ) <span class="req">*</span></label>
+            <input type="text" class="input-text" name="billing_postcode" id="billing_postcode" placeholder="4300" maxlength="8" value="<?php echo esc_attr( $checkout->get_value( 'billing_postcode' ) ?: '4300' ); ?>" autocomplete="postal-code" inputmode="numeric">
+            <span class="field-error-msg" id="err-billing_postcode"></span>
+            <div id="plz-zone-badge" class="plz-zone-badge" style="display:none; margin-top: 6px; font-size: 12px; font-weight: 700;"></div>
+          </div>
+
+          <div class="field-box" id="field-box-city">
+            <label for="billing_city">Ort <span class="req">*</span></label>
+            <input type="text" class="input-text" name="billing_city" id="billing_city" placeholder="St. Valentin" value="<?php echo esc_attr( $checkout->get_value( 'billing_city' ) ?: 'St. Valentin' ); ?>" autocomplete="address-level2">
+            <span class="field-error-msg" id="err-billing_city"></span>
+          </div>
+        </div>
+
+        <!-- Realtime Dynamic Delivery Zone Callout Box -->
+        <div id="delivery-zone-callout" class="delivery-zone-callout" style="display:none; margin-top: 14px;">
+          <div id="delivery-zone-message" class="delivery-zone-message" style="padding: 10px 14px; font-size: 13px; line-height: 1.4;"></div>
+          <div id="delivery-fallback-cta" class="delivery-fallback-cta" style="display:none; margin-top: 10px;">
+            <button type="button" class="btn-fallback-pickup" id="btn-fallback-pickup" style="padding: 8px 14px; background: var(--green, #22c55e); color: #111; font-weight: 700; border: none; cursor: pointer;">
+              🥡 Zur kostenlosen Selbstabholung wechseln
+            </button>
+          </div>
+        </div>
+      </div>
+    <?php else: ?>
+      <input type="hidden" name="fulfillment_type" id="fulfillment_type" value="pickup">
+    <?php endif; ?>
 
     <!-- BLOCK 1: Abholzeitpunkt -->
     <div class="checkout-card" id="block-timing">
@@ -136,10 +235,12 @@ $wow_hd       = function_exists('wowthai_hours_display') ? wowthai_hours_display
 
       <!-- Hidden address defaults for restaurant takeaway so WooCommerce checkout.js & backend are completely satisfied -->
       <input type="hidden" name="billing_country" id="billing_country" value="AT">
-      <input type="hidden" name="billing_city" id="billing_city" value="Steyr">
-      <input type="hidden" name="billing_address_1" id="billing_address_1" value="Selbstabholung City Point Steyr">
-      <input type="hidden" name="billing_postcode" id="billing_postcode" value="4400">
       <input type="hidden" name="billing_state" id="billing_state" value="">
+      <?php if (!$has_dlv): ?>
+      <input type="hidden" name="billing_city" id="billing_city" value="<?php echo esc_attr($b_city); ?>">
+      <input type="hidden" name="billing_address_1" id="billing_address_1" value="<?php echo esc_attr('Selbstabholung ' . $b_name); ?>">
+      <input type="hidden" name="billing_postcode" id="billing_postcode" value="<?php echo esc_attr($b_postcode); ?>">
+      <?php endif; ?>
     </div>
 
   </div>
@@ -160,7 +261,7 @@ $wow_hd       = function_exists('wowthai_hours_display') ? wowthai_hours_display
         <span class="loc-icon">📍</span>
         <div>
           <strong>Abholadresse im Restaurant:</strong>
-          <span>WOW Thai · City Point 1. OG<br>Leopold-Werndl-Straße 2, 4400 Steyr</span>
+          <span><?php echo esc_html($b_name . ' · ' . $b_street_s); ?><br><?php echo esc_html($b_street . ', ' . $b_postcode . ' ' . $b_city); ?></span>
         </div>
       </div>
     </div>

@@ -98,7 +98,7 @@ body{background:radial-gradient(ellipse at 50% -24%,#302516 0,transparent 46%),v
 .button{min-height:52px;padding-inline:21px;border-radius:2px;letter-spacing:.015em}
 .button-quiet{border-color:#665a45;color:#f4eee4;background:#171513}
 .button-quiet:hover{background:#25211b}
-.hero-art{min-height:460px;background:linear-gradient(180deg,#08070616,#08070670),url("https://static.wixstatic.com/media/dee575_462b6c7eabea41a09bf5471dd55c0ddf~mv2.jpg") center 55%/cover no-repeat;border:1px solid #5a4930;border-radius:48% 48% 3px 3px;box-shadow:inset 0 0 60px #09080780,0 25px 70px #0006}
+.hero-art{min-height:460px;background:linear-gradient(180deg,#08070616,#08070670),url("../img/hero-art.jpg") center 55%/cover no-repeat;border:1px solid #5a4930;border-radius:48% 48% 3px 3px;box-shadow:inset 0 0 60px #09080780,0 25px 70px #0006}
 .hero-art:after{content:"";position:absolute;inset:13px;border:1px solid #c79d4b40;border-radius:inherit;pointer-events:none}
 .art-sun,.art-ring,.art-leaf{display:none}
 .art-sun{left:25%;top:11%;width:50%;background:radial-gradient(circle at 36% 30%,#f1dda8 0,#d0a651 38%,#986b2b 73%,#725021 100%);box-shadow:0 0 60px #d9b15c44}
