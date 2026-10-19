@@ -1,5 +1,34 @@
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
+## Documentation setup checkpoint — 2026-10-19T20:16:00Z
+
+- Task reference: `notion:3fe9ccae-c10f-81de-8d73-d35baf473442`. The task's private record owns lifecycle, acceptance and execution owner; no private Notion URL is published here.
+- Scope: documentation only on `docs/ai-handoff-contract-20261019`, based on main `2784511`. No PHP/JS/CSS/runtime/workflow changes, no merge, deployment or database write.
+- Delivery boundary: these instructions are proposed on this branch/PR, not activated on default main until reviewed and merged. Check the branch/PR for its current HEAD and CI, not a stale hash in prose.
+- Next: review docs, CI and main's publish trigger, then obtain the required merge decision. Opening the PR does not complete main activation.
+
+## Verified technical checkpoint — 2026-10-19T20:10:27Z
+
+- **Source:** GitHub read-only audit. Default branch `main`, HEAD [2784511](https://github.com/mingx96/wowthaisteyr/commit/278451185705cebc7b0e86f3617ee6fb544b493b); source `style.css` says 1.4.1. Neither value proves the running live revision.
+- **Menu HTML fix:** [PR #5](https://github.com/mingx96/wowthaisteyr/pull/5) merged 2026-10-19T19:02:51Z from `fix/menu-description-html-20261019` / `ca6178f`. No open PRs were returned at audit time.
+- **Evidence:** [Verify WordPress theme](https://github.com/mingx96/wowthaisteyr/actions/runs/39251193554) passed on `ca6178f`; [agent skills](https://github.com/mingx96/wowthaisteyr/actions/runs/39251193684) and [design/workflow skills](https://github.com/mingx96/wowthaisteyr/actions/runs/39251193598) also passed. The PR reports 13 menu-description cases and 98 hours assertions. These are not live WordPress/browser checkout checks.
+- **Live:** unknown in this audit. No deployment, product save, database write or live test was performed. The checked-in `.github/workflows/wpcom.yml` runs “Publish Website” artifact creation on every push to main without a path filter. The external deployment connection is not verified; historical hub notes describe auto-deploy. Recheck the actual deployment configuration and runtime before release work.
+- **Owner / shared-site claim:** not reverified. The older Antigravity claim below is preserved as a historical claim, not silently released or assigned to the current reader. Confirm current execution owner, allowed scope and site-write permission in the existing private task before any shared-site write.
+- **Next action:** read the existing task's latest acceptance/release decision and compare the approved source with the active runtime using read-only checks. Do not repeat the old “review/merge PR #5” step; do not deploy based only on this file.
+
+## Checkpoint contract
+
+Follow [AGENTS.md](AGENTS.md). Notion owns task lifecycle/priority/decisions; this file owns the repo's technical checkpoint and shared-site coordination evidence. Keep private task URLs/session links out of this public repo.
+
+For the active task record: `Task ID`; `updated_at/observed_at (UTC)`; `execution owner + allowed file/site scope`; `base/branch/HEAD/PR`; `dirty/untracked WIP`; `changed`; `test command + environment + SHA + result + evidence URL`; `release observed/reported/unknown`; `blocker/resume condition`; `next action`; `Notion sync time or pending`.
+
+Checkpoint before stopping or handing off. Re-read current owner before accepting a handoff. Missing freshness is a reason to verify, not permission to overwrite. Review the actual script and [docs/TESTING.md](docs/TESTING.md), not historic gate counts.
+
+## Historical records — preserve context, do not treat as current authorization
+
+Entries below record what was known at their written time. “Active/current”, branch/PR state, version numbers, machine paths and test counts in these entries are historical unless reverified above. Their safety constraints continue to apply; they do not grant permission to merge, deploy or mutate a database.
+
+
 ## 2026-10-19 — Codex: menu description HTML hotfix, review only
 
 - Scope: branch `fix/menu-description-html-20261019`, based on `dbd75c0`.
