@@ -203,7 +203,10 @@ function initPortal(cfg) {
   let mutations = 0;
   const originalApi = api;
   // Current Operations endpoints continue to own all writes and version checks.
-  async function read(path) { return originalApi(path, {read: true}); }
+  async function read(path) {
+    const separator = path.includes('?') ? '&' : '?';
+    return originalApi(path + separator + 'portal_revision=' + encodeURIComponent(cfg.read_revision || ''), {read: true});
+  }
   function formatDate(value, withTime = false) {
     if (!value) return 'Datum unbekannt';
     const date = new Date(value.length === 10 ? value + 'T12:00:00+00:00' : value);

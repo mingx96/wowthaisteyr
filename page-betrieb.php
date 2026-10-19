@@ -10,7 +10,10 @@ if (!defined('ABSPATH')) {
 }
 
 $theme_uri = get_template_directory_uri();
-$version = '1.4.2';
+$version = '1.4.3';
+// A release number can already be cached before an asynchronous deployment finishes.
+$portal_js_version = $version . '-' . substr(hash_file('sha256', get_template_directory() . '/assets/js/portal.js'), 0, 12);
+$portal_css_version = $version . '-' . substr(hash_file('sha256', get_template_directory() . '/assets/css/portal.css'), 0, 12);
 
 // Fallback direct POST login handler
 $login_error = '';
@@ -74,7 +77,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
 
   <!-- Fonts & Portal CSS -->
   <link rel="stylesheet" href="<?php echo esc_url($theme_uri . '/assets/css/fonts.css?v=' . $version); ?>">
-  <link rel="stylesheet" href="<?php echo esc_url($theme_uri . '/assets/css/portal.css?v=' . $version); ?>">
+  <link rel="stylesheet" href="<?php echo esc_url($theme_uri . '/assets/css/portal.css?v=' . $portal_css_version); ?>">
 </head>
 <body>
 
@@ -538,13 +541,14 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
 window.wtoPortalConfig = {
   api: '<?php echo esc_url_raw(rest_url("wowthai-operations/v1/")); ?>',
   read_api: '<?php echo esc_url_raw(rest_url("wowthai-portal/v1/")); ?>',
+  read_revision: '<?php echo esc_js($portal_js_version); ?>',
   nonce: '<?php echo esc_js(wp_create_nonce("wp_rest")); ?>',
   ajax_url: '<?php echo esc_url_raw(admin_url("admin-ajax.php")); ?>',
   user: '<?php echo esc_js($current_user->display_name ?? ""); ?>',
   prep_time: '<?php echo esc_js($prep_time); ?>'
 };
 </script>
-<script src="<?php echo esc_url($theme_uri . '/assets/js/portal.js?v=' . $version); ?>"></script>
+<script src="<?php echo esc_url($theme_uri . '/assets/js/portal.js?v=' . $portal_js_version); ?>"></script>
 
 </body>
 </html>
