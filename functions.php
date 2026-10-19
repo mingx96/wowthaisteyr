@@ -26,7 +26,7 @@ add_action('after_setup_theme', 'wowthai_theme_setup');
 // 2. Enqueue Styles & Scripts
 function wowthai_enqueue_scripts() {
     $theme_uri = get_template_directory_uri();
-    $version = '1.4.1';
+    $version = '1.4.2';
 
     // Fonts & Base Styles
     wp_enqueue_style('wowthai-fonts', $theme_uri . '/assets/css/fonts.css', [], $version);
@@ -769,3 +769,5 @@ function wowthai_ajax_portal_login() {
     wp_send_json_success(['redirect' => home_url('/betrieb/'), 'user' => $user->display_name]);
 }
 
+// Read-only staff portal API; mutations remain in WOW Thai Operations.
+require_once get_template_directory() . '/inc/portal-read-model.php';

@@ -1,5 +1,18 @@
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
+## Betrieb repair checkpoint — 2026-10-19T22:30:18+00:00
+
+- Task ID: `notion:3fe9ccae-c10f-811c-aa0f-f561d4c47a8f`. Execution owner: Codex in the assigned repair chat; owner/scope registered in the existing private project task. The user approved implementing/releasing these scoped repairs. Historical multi-branch/other-agent local work remains outside scope.
+- Scope: theme portal/read-only API only, v1.4.2. Canonical kitchen hours, archive visibility/pagination, reservation scope/date/totals, global alerts, daily order-value drilldown and accessible polling feedback. Current Operations plugin remains responsible for writes, version tokens, email and payment behavior. No product/customer/production database or CRM changes.
+- Base: main `5980f6bb5b72a3f9fbb85e9560cb72e48ad74882`; branch `fix/betrieb-consistency-20261019`. HEAD before commit: base; scoped PHP/JS/CSS/tests/docs are in the isolated worktree. The proposed branch/PR HEAD is authoritative after commit; no unrelated WIP was moved.
+- Verification: native PHP8.2.34/Node24, `node dev/verify.mjs` G1–G11 PASS (98 hours, 13 menu-description, 25 read-model assertions). `python dev/tests/portal.browser.py` PASS at1440/390/768px using actual template/assets and synthetic APIs. Independent review approved after global-chime/focus fixes. Local WordPress7.1.3/WooCommerce11.2.1 integration:14 assertions PASS each in legacy and HPOS, including REST permissions/no-store, >200orders, real refund and full detail reconciliation. Local fixture database only; outbound mail/HTTP blocked. Snapshot DTOs used for integration are not a live plugin source fingerprint.
+- Tested runtime source fingerprints: assets/js/portal.js: `e0e82f0aec6ab767534c6e06d726238ed0a629cef314c35d9c918ed975548647`; inc/portal-read-model.php: `692b59c7bd9c6e7fb3490ed4b27dc0ab01315a3be73b8df61660919708493c61`.
+- Release: pending. Public live JS previously matched main (`da88798512f08019022dfd20e36567bc9397b4c27e4023072fe9e0a9d9a80889`); current live plugin reports Operations1.0.2, its source bytes are unverified. GitHub's main publish workflow uploads an artifact; external deployment and authenticated staff API/UI smoke require separate observed evidence.
+- Rollback: preserve base code/ZIP and revert only scoped theme changes if release smoke fails; do not restore/sync a database. Managed backup check reports active/last attempt finished, not a restore rehearsal.
+- Notion: owner/scope and Business OS audit plan saved and read back in the existing project. Lifecycle remains in progress until release evidence is recorded; no cash-closing/POS feature in this patch.
+- Next: publish reviewable branch/PR, verify exact-head CI, release through the configured path, compare live assets and staff read API behavior, then record observed result/limitations in the same task.
+
+
 ## Documentation setup checkpoint — 2026-10-19T20:16:00Z
 
 - Task reference: `notion:3fe9ccae-c10f-81de-8d73-d35baf473442`. The task's private record owns lifecycle, acceptance and execution owner; no private Notion URL is published here.

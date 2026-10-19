@@ -143,7 +143,7 @@ function recordGate(id, name, issues, warnOnly = false) {
                 issues.push(`PHP syntax error in ${rel}: ${err.message}`);
             }
         }
-        for (const testName of ['hours.test.php', 'menu-description.test.php']) {
+        for (const testName of ['hours.test.php', 'menu-description.test.php', 'portal-read-model.test.php']) {
             const testFile = path.join(ROOT, 'dev', 'tests', testName);
             if (!fs.existsSync(testFile)) continue;
             try {
@@ -153,7 +153,7 @@ function recordGate(id, name, issues, warnOnly = false) {
             }
         }
     }
-    recordGate('G5', 'JS & PHP Syntax Check + Hours and Menu Description Unit Suites', issues, false);
+    recordGate('G5', 'JS & PHP Syntax + Hours, Menu and Portal Unit Suites', issues, false);
 }
 
 // G6: Version Synchronization between style.css and functions.php
