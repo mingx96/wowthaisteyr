@@ -1,5 +1,14 @@
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
+## Live release/cache observation — 2026-10-19T22:35:00Z
+
+- Same Task ID: `notion:3fe9ccae-c10f-811c-aa0f-f561d4c47a8f`. Source PR7/f63c9dc merged to main797139e; exact-head and main CI/publish-artifact jobs passed. The scoped release was authorized by the user.
+- At22:32 UTC public probes still saw old runtime and404. At22:33 a cache-busting probe saw new JS SHA256 `e0e82f0aec6ab767534c6e06d726238ed0a629cef314c35d9c918ed975548647`, style1.4.2, new login config and401 on the new protected API. The external publication path therefore delivered the code after a delay; no new credentials or deployment setup is requested.
+- **Material cache defect:** at22:34 the actual `portal.js?v=1.4.2` / `portal.css?v=1.4.2` URLs still returned old assets, while a fresh query served new code. The bare summary URL also retained an earlier404 while uncached protected routes returned401. Do not call the UI smoke complete from the fresh-query response alone.
+- Follow-up branch `fix/betrieb-release-cache-20261019`, based on797139e, bumps patch to1.4.3 and adds content fingerprints to rendered portal asset URLs/read requests and a regression assertion. Same owner/scope; no changes to business transitions, plugin, data, credentials or infrastructure. The cache correction, fixture assertions, version bump and checkpoint are local WIP pending the follow-up commit.
+- Full backend and synthetic UI coverage for the original repair remains as below. Native G1–G11, packaging and browser1440/390/768 passed after the1.4.3 cache correction; independent review approved; authenticated live staff API/UI still requires a logged-in session and remains NOT RUN in this cloud.
+- Next: review/publish the small cache follow-up, verify actual rendered JS/CSS URLs against source bytes and anonymous API denial, then record acceptance/remaining authenticated smoke in the existing task. No DB restore or sync.
+
 ## Betrieb repair checkpoint — 2026-10-19T22:30:18+00:00
 
 - Task ID: `notion:3fe9ccae-c10f-811c-aa0f-f561d4c47a8f`. Execution owner: Codex in the assigned repair chat; owner/scope registered in the existing private project task. The user approved implementing/releasing these scoped repairs. Historical multi-branch/other-agent local work remains outside scope.

@@ -2,7 +2,7 @@
 Runs the actual PHP template, CSS and JS against synthetic, staff-only API fixtures.
 No Internet, production data or real order/reservation mutations are involved.
 """
-import json, os, subprocess, threading, http.server, functools, tempfile
+import json, os, subprocess, threading, http.server, functools, tempfile, hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
@@ -33,7 +33,7 @@ try:
         path=r.request.url; query=parse_qs(urlparse(path).query)
         current=int(query.get('page',[1])[0])
         if r.request.method!='GET': flags['posts']+=1
-        if '/summary' in path or path.endswith('/stats'):
+        if '/summary' in path or '/stats' in path:
           if flags['fail']:
             r.fulfill(status=503,content_type='application/json',body='{"message":"fixture disconnected"}'); return
           data={'date':'2026-10-19','is_open':flags['open'],'pending_reservations':6,'new_orders':2,'active_orders':3,'backlog_orders':1,'new_order_ids':flags['new_ids']}
@@ -55,6 +55,8 @@ try:
         r.fulfill(status=200,content_type='application/json',body=json.dumps(data))
       page.route('**/api/**',route)
       page.goto(f'http://127.0.0.1:{server.server_port}/fixture')
+      assert hashlib.sha256((ROOT/'assets/js/portal.js').read_bytes()).hexdigest()[:12] in page.locator('script[src*="portal.js"]').get_attribute('src'), 'portal URL must change when its bytes change; version alone can retain stale CDN assets'
+      assert hashlib.sha256((ROOT/'assets/css/portal.css').read_bytes()).hexdigest()[:12] in page.locator('link[href*="portal.css"]').get_attribute('href'), 'portal CSS must carry its content fingerprint'
       expect(page.locator('#wto-opening-status')).to_contain_text('geschlossen')
       expect(page.locator('#wto-badge-res')).to_have_text('6')
       # Every active card, including the second card, keeps its action buttons.

@@ -5,6 +5,7 @@ function nocache_headers() {}
 define('ABSPATH', __DIR__);
 $_SERVER['REQUEST_METHOD'] = 'GET';
 function get_template_directory_uri() { return ''; }
+function get_template_directory() { return dirname(__DIR__, 2); }
 function is_user_logged_in() { return true; }
 function wp_get_current_user() { return (object)['display_name'=>'Test staff','user_login'=>'fixture','roles'=>['administrator']]; }
 function current_user_can($cap) { return true; }
