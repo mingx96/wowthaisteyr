@@ -1650,3 +1650,67 @@ dialog.wto-modal::backdrop {
   }
 }
 
+
+/* Operational clarity: explicit scope, accessible feedback, and real archive. */
+#wto-portal-app [hidden] { display: none !important; }
+.wto-portal-viewport, .wto-view { min-height: 0; }
+.wto-data-status {
+  margin: 0;
+  padding: 6px 20px;
+  color: var(--wto-ink-muted);
+  font-size: 13px;
+  flex-shrink: 0;
+  overflow-wrap: anywhere;
+}
+.wto-data-status:empty { display: none; }
+.wto-data-status.is-error { color: #ffd2cc; background: var(--wto-red-bg); }
+.wto-status-pill.unknown { color: #ffe0a6; border-color: var(--wto-amber-border); background: var(--wto-amber-bg); }
+.wto-archive-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  align-content: start;
+  gap: 16px;
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 20px;
+}
+.wto-archive-grid .wto-order-card { margin-bottom: 0; }
+.wto-pagination, .wto-daily-toolbar {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px;
+}
+.wto-daily-toolbar { justify-content: flex-start; }
+.wto-daily-toolbar input { background: var(--wto-surface); color: var(--wto-ink); border: 1px solid var(--wto-line-light); border-radius: 6px; padding: 8px; color-scheme: dark; }
+#wto-view-stats { overflow-y: auto; }
+.wto-stats-grid { flex-shrink: 0; }
+.wto-daily-orders { padding: 12px 20px; }
+.wto-daily-order { border: 1px solid var(--wto-line-light); border-radius: 8px; padding: 12px; margin-bottom: 10px; background: var(--wto-surface); }
+.wto-daily-order summary { cursor: pointer; min-height: 44px; padding: 8px; overflow-wrap: anywhere; }
+.wto-daily-order .wto-order-card { margin-top: 12px; }
+.wto-res-date, .wto-order-status { font-weight: 700; color: var(--wto-ink-muted); margin: 0 0 8px; }
+.wto-res-card .wto-btn, .wto-pagination .wto-btn, .wto-shift-btn, .wto-res-filters button, .wto-orders-switch button { min-height: 44px; min-width: 44px; }
+.wto-res-card .wto-btn { font-size: 13px !important; }
+#wto-portal-app button:focus-visible, #wto-portal-app input:focus-visible, #wto-portal-app summary:focus-visible { outline: 3px solid var(--wto-gold); outline-offset: 3px; }
+#wto-portal-app button:disabled { opacity: .55; cursor: not-allowed; }
+@media (max-width: 768px) {
+  .wto-portal-header { height: auto; min-height: 52px; flex-wrap: wrap; padding-block: 8px; }
+  .wto-header-center { order: 3; width: 100%; justify-content: space-between; min-width: 0; }
+  .wto-status-pill { white-space: normal; }
+  .wto-archive-grid { padding: 12px; grid-template-columns: minmax(0, 1fr); }
+  .wto-data-status { padding: 5px 12px; font-size: 12px; }
+  .wto-pagination { gap: 8px; padding: 6px 12px; font-size: 12px; }
+  .wto-res-top { flex-wrap: wrap; gap: 8px; }
+  .wto-res-card .wto-card-note { font-size: 14px !important; }
+  .wto-orders-toolbar { height: auto; min-height: 52px; flex-wrap: wrap; padding-block: 6px; gap: 6px; }
+  .wto-orders-switch { flex-wrap: wrap; height: auto; }
+  .wto-daily-orders { padding: 8px 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #wto-portal-app *, #wto-portal-app *::before, #wto-portal-app *::after { animation: none !important; transition: none !important; }
+}

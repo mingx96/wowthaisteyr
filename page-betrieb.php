@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 $theme_uri = get_template_directory_uri();
-$version = '1.4.1';
+$version = '1.4.2';
 
 // Fallback direct POST login handler
 $login_error = '';
@@ -44,6 +44,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wto_portal_login'])) 
 }
 
 $is_logged_in = is_user_logged_in();
+// Staff pages must not be stored in shared browser/CDN caches.
+nocache_headers();
 $current_user = wp_get_current_user();
 $is_staff     = $is_logged_in && (
     current_user_can('manage_woocommerce') 
@@ -54,13 +56,13 @@ $is_staff     = $is_logged_in && (
 );
 
 $prep_time    = function_exists('wowthai_get_kitchen_prep_time') ? wowthai_get_kitchen_prep_time() : '25–35 Min.';
-$is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_restaurant_open_now() : true;
+$is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
 ?>
 <!doctype html>
 <html lang="de">
 <head>
   <meta charset="<?php bloginfo('charset'); ?>">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WOW Thai Betrieb · Restaurant-Verwaltung</title>
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#141210">
@@ -160,7 +162,7 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
   <!-- =======================================================================
        AUTHORIZED STAFF OPERATIONS PORTAL APPLICATION
        ======================================================================= -->
-  <div id="wto-portal-app" class="wto-portal-app" aria-live="polite">
+  <div id="wto-portal-app" class="wto-portal-app">
     
     <!-- Top Header -->
     <header class="wto-portal-header">
@@ -180,8 +182,8 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
         </div>
 
         <!-- Open / Closed Badge -->
-        <div class="wto-status-pill <?php echo $is_open ? 'open' : 'closed'; ?>">
-          <span><?php echo $is_open ? '🟢 Geöffnet' : '⏸️ Geschlossen / Pause'; ?></span>
+        <div id="wto-opening-status" class="wto-status-pill <?php echo $is_open === null ? 'unknown' : ($is_open ? 'open' : 'closed'); ?>" role="status">
+          <span><?php echo $is_open === null ? 'Küchenstatus unbekannt' : ($is_open ? 'Küche geöffnet' : 'Küche geschlossen / Pause'); ?></span>
         </div>
 
         <!-- Kitchen Prep Time Selector -->
@@ -274,11 +276,12 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
       </button>
 
       <button type="button" class="wto-nav-tab" data-tab="stats">
-        <span>📊 Tagesabschluss</span>
+        <span>📊 Tagesübersicht</span>
       </button>
     </nav>
 
     <!-- Main Viewport -->
+    <p id="wto-sync-status" class="wto-data-status" role="status" aria-live="polite">Daten werden geladen …</p>
     <main class="wto-portal-viewport">
       
       <!-- ===================================================================
@@ -345,7 +348,9 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
         </div>
 
         <!-- Archive List (Hidden by default) -->
-        <div id="wto-archive-list" class="wto-cards-scroll" style="display:none;padding:20px;"></div>
+        <div id="wto-archive-list" class="wto-archive-grid" hidden></div>
+        <nav id="wto-orders-pagination" class="wto-pagination" aria-label="Bestellseiten"></nav>
+        <p id="wto-orders-feedback" class="wto-data-status" role="status"></p>
       </section>
 
       <!-- ===================================================================
@@ -361,7 +366,7 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
             </div>
 
             <div class="wto-res-date-picker">
-              <span>📅 Datum:</span>
+              <label for="wto-res-date-input">📅 Datum:</label>
               <input type="date" id="wto-res-date-input">
             </div>
 
@@ -373,14 +378,16 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
           </div>
 
           <div class="wto-res-kpis">
-            <span class="wto-kpi-item">Tische: <strong id="wto-kpi-res-total">0</strong></span>
-            <span class="wto-kpi-item">Erwartete Gäste: <strong id="wto-kpi-res-guests">0</strong></span>
+            <span class="wto-kpi-item">Reservierungen: <strong id="wto-kpi-res-total">—</strong></span>
+            <span class="wto-kpi-item">Gäste (ohne Storno): <strong id="wto-kpi-res-guests">—</strong></span>
             <button type="button" id="wto-btn-new-reservation" class="wto-btn btn-primary" style="height:38px;padding:0 14px;">
               + Telefonreservierung
             </button>
           </div>
         </div>
 
+        <p id="wto-res-scope" class="wto-data-status" role="status"></p>
+        <p class="wto-data-status">Zeiträume: Mittag vor 16 Uhr · Abend ab 16 Uhr. Dies sind Filter, keine Öffnungszeiten. Kennzahlen gelten für den gesamten Filter; Karten sind seitenweise.</p>
         <!-- Mobile Column Switcher for Reservations (Visible on mobile only) -->
         <div class="wto-mobile-col-switcher" id="wto-res-col-switcher">
           <button type="button" class="wto-mcol-btn active" data-col="new">
@@ -397,6 +404,8 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
         <div id="wto-res-list" class="wto-res-scroll" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
           <p class="wto-empty-col">Lade Reservierungen …</p>
         </div>
+        <nav id="wto-res-pagination" class="wto-pagination" aria-label="Reservierungsseiten"></nav>
+        <p id="wto-res-feedback" class="wto-data-status" role="status"></p>
       </section>
 
       <!-- ===================================================================
@@ -441,25 +450,33 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
       <!-- ===================================================================
            VIEW 4: TAGESABSCHLUSS & STATISTIKEN
            =================================================================== -->
-      <section id="wto-view-stats" class="wto-view" aria-label="Tagesabschluss">
+      <section id="wto-view-stats" class="wto-view" aria-label="Tagesübersicht">
+        <div class="wto-daily-toolbar"><label for="wto-daily-date">Datum (Wien)</label> <input id="wto-daily-date" type="date"></div>
+        <p id="wto-daily-scope" class="wto-data-status" role="status">Lade Tagesübersicht …</p>
         <div class="wto-stats-grid">
           <div class="wto-stat-card">
-            <span>Bestellungen heute</span>
-            <strong id="wto-stat-orders-today">0</strong>
+            <span>Bestellungen am gewählten Tag</span>
+            <strong id="wto-stat-orders-today">—</strong>
           </div>
           <div class="wto-stat-card">
-            <span>Umsatz heute</span>
-            <strong id="wto-stat-revenue-today">0,00 €</strong>
+            <span>Bestellwert nach Erstattungen</span>
+            <strong id="wto-stat-revenue-today">—</strong>
           </div>
           <div class="wto-stat-card">
-            <span>Reservierte Tische</span>
-            <strong id="wto-stat-res-today">0</strong>
+            <span>Reservierungen (ohne Storno)</span>
+            <strong id="wto-stat-res-today">—</strong>
           </div>
           <div class="wto-stat-card">
-            <span>Gäste heute</span>
-            <strong id="wto-stat-guests-today">0</strong>
+            <span>Gäste (ohne Storno)</span>
+            <strong id="wto-stat-guests-today">—</strong>
           </div>
         </div>
+        <p id="wto-daily-totals" class="wto-data-status"></p>
+        <p class="wto-data-status">Zuordnung nach Erstellungsdatum der Bestellung in Europe/Vienna. Storniert / fehlgeschlagen: im Detail sichtbar, nicht im Bestellwert. Erstattungen: bisher für diese Bestellungen erfasst, auch an anderen Tagen. Zahlungsangaben aus WooCommerce sind kein Kassenabschluss und kein Nachweis tatsächlich kassierter Beträge.</p>
+        <p id="wto-daily-backlog" class="wto-data-status"></p>
+        <div id="wto-daily-orders" class="wto-daily-orders"></div>
+        <nav id="wto-daily-pagination" class="wto-pagination" aria-label="Tagesbestellseiten"></nav>
+        <p id="wto-daily-feedback" class="wto-data-status" role="status"></p>
       </section>
 
     </main>
@@ -520,6 +537,7 @@ $is_open      = function_exists('wowthai_is_restaurant_open_now') ? wowthai_is_r
 <script>
 window.wtoPortalConfig = {
   api: '<?php echo esc_url_raw(rest_url("wowthai-operations/v1/")); ?>',
+  read_api: '<?php echo esc_url_raw(rest_url("wowthai-portal/v1/")); ?>',
   nonce: '<?php echo esc_js(wp_create_nonce("wp_rest")); ?>',
   ajax_url: '<?php echo esc_url_raw(admin_url("admin-ajax.php")); ?>',
   user: '<?php echo esc_js($current_user->display_name ?? ""); ?>',

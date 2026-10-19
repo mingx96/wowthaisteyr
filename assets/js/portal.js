@@ -82,18 +82,14 @@ function initPortal(cfg) {
     } else if (typeof a === 'string' && a.includes('-')) {
       let d = new Date(a);
       createdMs = d.getTime();
-      if (createdMs > Date.now() + 30000) {
-        createdMs -= 7200000;
-      }
+
     } else if (b) {
       if (!isNaN(b) && Number(b) > 1000000000) {
         createdMs = Number(b) * 1000;
       } else if (typeof b === 'string' && b.includes('-')) {
         let d = new Date(b);
         createdMs = d.getTime();
-        if (createdMs > Date.now() + 30000) {
-          createdMs -= 7200000;
-        }
+
       }
     }
     if (!createdMs || isNaN(createdMs)) return 'gerade eben';
@@ -110,7 +106,7 @@ function initPortal(cfg) {
     const remMin = diffMin % 60;
     return `vor ${diffHours} Std. ${remMin} Min.`;
   }
-  
+
   const todayStr = new Intl.DateTimeFormat('sv-SE', {
     timeZone: 'Europe/Vienna',
     year: 'numeric',
@@ -120,6 +116,8 @@ function initPortal(cfg) {
 
   const state = {
     activeTab: 'orders',
+    orderPage: 1, resPage: 1, dailyPage: 1, dailyDate: todayStr,
+    orderData: null, resData: null,
     orderView: 'kanban', // 'kanban' or 'archive'
     mobileOrdersCol: 'new', // 'new', 'prep', 'ready'
     mobileResCol: 'new',    // 'new', 'prep', 'ready'
@@ -179,7 +177,12 @@ function initPortal(cfg) {
 
   // --- REST API Fetcher ---
   async function api(path, options = {}) {
-    const res = await fetch(cfg.api + path, {
+    const mutating = options.method && options.method !== 'GET';
+    if (mutating) mutations++;
+    try {
+    const res = await fetch((options.read ? cfg.read_api : cfg.api) + path, {
+      signal: AbortSignal.timeout(20000),
+      cache: 'no-store',
       method: options.method || 'GET',
       headers: {
         'X-WP-Nonce': cfg.nonce,
@@ -192,6 +195,78 @@ function initPortal(cfg) {
       throw new Error(data.message || `HTTP ${res.status}`);
     }
     return data;
+    } finally { if (mutating) mutations--; }
+  }
+
+  const requestIds = {};
+  const channelStatus = {};
+  let mutations = 0;
+  const originalApi = api;
+  // Current Operations endpoints continue to own all writes and version checks.
+  async function read(path) { return originalApi(path, {read: true}); }
+  function formatDate(value, withTime = false) {
+    if (!value) return 'Datum unbekannt';
+    const date = new Date(value.length === 10 ? value + 'T12:00:00+00:00' : value);
+    if (Number.isNaN(date.getTime())) return 'Datum unbekannt';
+    return new Intl.DateTimeFormat('de-AT', {timeZone: 'Europe/Vienna', dateStyle: 'medium', ...(withTime ? {timeStyle: 'short'} : {})}).format(date);
+  }
+  function minorMoney(value, currency = 'EUR') {
+    return new Intl.NumberFormat('de-AT', {style: 'currency', currency}).format(Number(value || 0) / 100);
+  }
+  const statusNames = {pending: 'Zahlung ausstehend', 'on-hold': 'Wartend', processing: 'In Bearbeitung', completed: 'Abgeschlossen', cancelled: 'Storniert', failed: 'Fehlgeschlagen', refunded: 'Erstattet'};
+  function markChannel(channel, ok) {
+    channelStatus[channel] = ok;
+    const failed = Object.values(channelStatus).includes(false);
+    setNetworkStatus(!failed);
+    const status = document.getElementById('wto-sync-status');
+    if (status) {
+      status.classList.toggle('is-error', failed);
+      status.textContent = failed ? 'Abgleich fehlgeschlagen. Angezeigte Daten können veraltet sein. Automatischer Neuversuch alle 12 Sekunden.' : 'Letzter Abgleich: ' + new Intl.DateTimeFormat('de-AT', {timeZone:'Europe/Vienna',timeStyle:'medium'}).format(new Date()) + ' · Wien';
+    }
+  }
+  function feedback(id, message, error = false) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = message;
+    el.classList.toggle('is-error', error);
+    el.setAttribute('role', error ? 'alert' : 'status');
+  }
+  // Skip unchanged DOM; preserve scroll and keyboard focus when polling updates cards.
+  function patchHTML(container, html) {
+    if (!container || container.dataset.rendered === html) return;
+    const scrolls = [...container.querySelectorAll('.wto-cards-scroll')].map(el => el.scrollTop);
+    const ownScroll = container.scrollTop;
+    const expanded = [...container.querySelectorAll('details[open][data-order]')].map(el => el.dataset.order);
+    const focused = container.contains(document.activeElement) ? document.activeElement : null;
+    const cardId = focused?.closest('article')?.dataset.id;
+    const actionClass = focused ? [...focused.classList].find(c => c.startsWith('btn-')) : null;
+    const action = focused?.dataset.action;
+    const focusedPage = focused?.dataset.page;
+    const focusedDetail = focused?.tagName === 'SUMMARY' ? focused.closest('details')?.dataset.order : null;
+    container.innerHTML = html;
+    container.dataset.rendered = html;
+    container.scrollTop = ownScroll;
+    expanded.forEach(id => { const detail = container.querySelector(`details[data-order="${CSS.escape(id)}"]`); if (detail) detail.open = true; });
+    container.querySelectorAll('.wto-cards-scroll').forEach((el, i) => { el.scrollTop = scrolls[i] || 0; });
+    if (focusedDetail) {
+      container.querySelector(`details[data-order="${CSS.escape(focusedDetail)}"] > summary`)?.focus({preventScroll:true});
+    }
+    if (focusedPage) {
+      const next = container.querySelector(`[data-page="${CSS.escape(focusedPage)}"]:not(:disabled)`);
+      if (next) next.focus({preventScroll:true});
+    }
+    if (cardId && actionClass) {
+      const next = container.querySelector(`article[data-id="${CSS.escape(cardId)}"] .${CSS.escape(actionClass)}${action ? `[data-action="${CSS.escape(action)}"]` : ''}`);
+      if (next) next.focus({preventScroll: true});
+      else { container.tabIndex = -1; container.focus({preventScroll: true}); }
+    }
+  }
+  function paginate(id, data, navigate) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const page = data.page || 1, pages = data.pages || 1;
+    patchHTML(el, `<button type="button" class="wto-btn btn-secondary" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>Zurück</button><span>Seite ${page} / ${pages} · ${data.records ?? data.total ?? 0} Einträge</span><button type="button" class="wto-btn btn-secondary" data-page="${page + 1}" ${page >= pages ? 'disabled' : ''}>Weiter</button>`);
+    el.querySelectorAll('[data-page]').forEach(btn => { btn.onclick = () => navigate(Number(btn.dataset.page)); });
   }
 
   // --- Live Vienna Clock & Order Timers ---
@@ -295,6 +370,7 @@ function initPortal(cfg) {
     if (existing) existing.remove();
     const toast = document.createElement('div');
     toast.className = 'wto-toast' + (isError ? ' error' : '');
+    toast.setAttribute('role', isError ? 'alert' : 'status');
     toast.textContent = text;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3500);
@@ -319,6 +395,8 @@ function initPortal(cfg) {
       orderSwitchButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.orderView = btn.dataset.view;
+      state.orderPage = 1; state.orders = []; state.orderData = null;
+      renderOrdersUI();
       loadOrders();
     });
   });
@@ -340,47 +418,39 @@ function initPortal(cfg) {
   });
 
   async function loadOrders() {
+    const request = requestIds.orders = (requestIds.orders || 0) + 1;
+    const view = state.orderView, page = state.orderPage;
+    feedback('wto-orders-feedback', 'Bestellungen werden aktualisiert …');
     try {
-      const data = await api(`orders?view=${state.orderView === 'archive' ? 'archive' : 'active'}`);
-      setNetworkStatus(true);
+      const data = await read(`orders?view=${view === 'archive' ? 'archive' : 'active'}&page=${page}`);
+      if (request !== requestIds.orders || mutations) return;
+      markChannel('orders', true);
       state.orders = data.items || [];
-
-      // Update badge
-      const newOrders = state.orders.filter(o => o.stage === 'new');
-      const badge = document.getElementById('wto-badge-orders');
-      if (badge) {
-        badge.textContent = newOrders.length;
-        badge.style.display = newOrders.length > 0 ? 'inline-flex' : 'none';
-        badge.classList.toggle('urgent', newOrders.length > 0);
-      }
-
-      // Check if new incoming orders exist to chime
-      if (!state.isInitialLoad) {
-        const hasUnseen = newOrders.some(o => !state.knownOrders.has(String(o.id)));
-        if (hasUnseen) {
-          playChime();
-        }
-      }
-      newOrders.forEach(o => state.knownOrders.add(String(o.id)));
-      state.isInitialLoad = false;
-
+      state.orderData = data;
+      state.orderPage = data.page;
       renderOrdersUI();
+      paginate('wto-orders-pagination', data, p => { state.orderPage = p; loadOrders(); });
+      feedback('wto-orders-feedback', view === 'archive' ? 'Archiv · alle Tage · nur Ansicht' : 'Aktive Bestellungen · alle Tage. Spaltenzahlen gelten für alle Seiten; Karten zeigen diese Seite.');
     } catch (err) {
-      setNetworkStatus(false);
-      console.warn('Orders poll error:', err);
+      if (request !== requestIds.orders) return;
+      markChannel('orders', false);
+      feedback('wto-orders-feedback', 'Bestellungen konnten nicht geladen werden. Vorhandene Karten können veraltet sein.', true);
     }
   }
 
   function renderOrdersUI() {
-    if (state.orderView === 'archive') {
+    const archive = state.orderView === 'archive';
+    document.getElementById('wto-kanban-board').hidden = archive;
+    document.getElementById('wto-orders-col-switcher').hidden = archive;
+    document.getElementById('wto-archive-list').hidden = !archive;
+    if (archive) {
       const container = document.getElementById('wto-archive-list');
       if (!container) return;
       if (state.orders.length === 0) {
-        container.innerHTML = '<p class="wto-empty-col">Keine archivierten Bestellungen vorhanden.</p>';
+        patchHTML(container, '<p class="wto-empty-col">' + (state.orderData ? 'Keine archivierten Bestellungen vorhanden.' : 'Lade Archiv …') + '</p>');
         return;
       }
-      container.innerHTML = state.orders.map(renderOrderCard).join('');
-      attachOrderCardEvents(container);
+      patchHTML(container, state.orders.map(o => renderOrderCard(o, true)).join(''));
       return;
     }
 
@@ -391,48 +461,48 @@ function initPortal(cfg) {
 
     const newOrders = state.orders.filter(o => o.stage === 'new');
     const prepOrders = state.orders.filter(o => o.stage === 'preparing');
-    const readyOrders = state.orders.filter(o => o.stage === 'ready');
+    const readyOrders = state.orders.filter(o => o.stage === 'ready' || o.stage === 'dispatched');
 
-    document.getElementById('wto-count-new').textContent = newOrders.length;
-    document.getElementById('wto-count-prep').textContent = prepOrders.length;
-    document.getElementById('wto-count-ready').textContent = readyOrders.length;
+    document.getElementById('wto-count-new').textContent = state.orderData?.counts?.new ?? newOrders.length;
+    document.getElementById('wto-count-prep').textContent = state.orderData?.counts?.preparing ?? prepOrders.length;
+    document.getElementById('wto-count-ready').textContent = (state.orderData ? (state.orderData.counts?.ready || 0) + (state.orderData.counts?.dispatched || 0) : readyOrders.length);
 
     const mNew = document.getElementById('wto-m-count-new');
-    if (mNew) mNew.textContent = newOrders.length;
+    if (mNew) mNew.textContent = state.orderData?.counts?.new ?? newOrders.length;
     const mPrep = document.getElementById('wto-m-count-prep');
-    if (mPrep) mPrep.textContent = prepOrders.length;
+    if (mPrep) mPrep.textContent = state.orderData?.counts?.preparing ?? prepOrders.length;
     const mReady = document.getElementById('wto-m-count-ready');
-    if (mReady) mReady.textContent = readyOrders.length;
+    if (mReady) mReady.textContent = (state.orderData ? (state.orderData.counts?.ready || 0) + (state.orderData.counts?.dispatched || 0) : readyOrders.length);
 
     document.querySelectorAll('#wto-orders-col-switcher .wto-mcol-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.col === (state.mobileOrdersCol || 'new'));
     });
 
-    colNew.innerHTML = newOrders.length > 0 
-      ? newOrders.map(renderOrderCard).join('') 
-      : '<p class="wto-empty-col">Keine neuen Bestellungen.</p>';
-      
-    colPrep.innerHTML = prepOrders.length > 0 
-      ? prepOrders.map(renderOrderCard).join('') 
-      : '<p class="wto-empty-col">Küche ist aktuell frei.</p>';
-      
-    colReady.innerHTML = readyOrders.length > 0 
-      ? readyOrders.map(renderOrderCard).join('') 
-      : '<p class="wto-empty-col">Keine abholbereiten Speisen.</p>';
+    patchHTML(colNew, newOrders.length > 0
+      ? newOrders.map(o => renderOrderCard(o)).join('')
+      : '<p class="wto-empty-col">Keine neuen Bestellungen.</p>');
+
+    patchHTML(colPrep, prepOrders.length > 0
+      ? prepOrders.map(o => renderOrderCard(o)).join('')
+      : '<p class="wto-empty-col">Küche ist aktuell frei.</p>');
+
+    patchHTML(colReady, readyOrders.length > 0
+      ? readyOrders.map(o => renderOrderCard(o)).join('')
+      : '<p class="wto-empty-col">Keine abholbereiten Speisen.</p>');
 
     attachOrderCardEvents(document.getElementById('wto-kanban-board'));
   }
 
-  function renderOrderCard(o) {
-    const isNew = o.stage === 'new';
+  function renderOrderCard(o, readOnly = false) {
+    const isNew = !readOnly && o.stage === 'new';
 
     return `
       <article class="wto-order-card ${isNew ? 'urgent' : ''}" data-id="${esc(o.id)}" data-version="${esc(o.version)}">
         <div class="wto-card-top">
           <span class="wto-card-num">#${esc(o.number)}</span>
-          <span class="wto-card-age wto-live-timer" data-created="${esc(o.created)}" data-ts="${esc(o.created_ts || '')}">⏱️ ${formatElapsed(o.created_ts, o.created)}</span>
+          ${readOnly ? `<span class="wto-card-age">${esc(formatDate(o.created, true))} · Wien</span>` : `<span class="wto-card-age wto-live-timer" data-created="${esc(o.created)}" data-ts="${esc(o.created_ts || '')}">⏱️ ${formatElapsed(o.created_ts, o.created)}</span>`}
         </div>
-        
+
         <div class="wto-card-pickup-banner">
           <span>🕒 ${esc(o.pickup || 'Sofort (ASAP)')}</span>
           <span style="font-size:11px;opacity:0.85;">Abholung</span>
@@ -459,7 +529,8 @@ function initPortal(cfg) {
           <span class="wto-card-total">${esc(formatMoney(o.total))}</span>
         </div>
 
-        <div class="wto-card-actions">
+        <p class="wto-order-status">${esc(statusNames[o.status] || o.status || o.stage)}${o.stage === 'dispatched' ? ' · Unterwegs' : ''}</p>
+        ${readOnly ? '' : `<div class="wto-card-actions">
           ${o.stage === 'new' ? `
             <button type="button" class="wto-btn btn-primary btn-order-accept" data-id="${esc(o.id)}">✓ Annehmen</button>
             <button type="button" class="wto-btn btn-danger btn-order-reject" data-id="${esc(o.id)}">✕ Ablehnen</button>
@@ -474,7 +545,7 @@ function initPortal(cfg) {
             <button type="button" class="wto-btn btn-primary btn-order-complete" data-id="${esc(o.id)}">✓ Abgeholt</button>
             <button type="button" class="wto-btn btn-secondary btn-order-print" data-id="${esc(o.id)}">🖨️ Bon</button>
           ` : ''}
-        </div>
+        </div>`}
       </article>
     `;
   }
@@ -482,7 +553,7 @@ function initPortal(cfg) {
   function attachOrderCardEvents(container) {
     // Accept
     container.querySelectorAll('.btn-order-accept').forEach(btn => {
-      btn.addEventListener('click', async () => {
+      btn.onclick = async () => {
         const id = btn.dataset.id;
         const card = btn.closest('.wto-order-card');
         const ver = card.dataset.version;
@@ -493,17 +564,17 @@ function initPortal(cfg) {
             body: { action: 'accept', version: ver }
           });
           showToast(`Bestellung #${id} angenommen!`);
-          await loadOrders();
+          await loadOrders(); loadStats();
         } catch (err) {
           showToast(`Fehler: ${err.message}`, true);
           btn.disabled = false;
         }
-      });
+      };
     });
 
     // Reject
     container.querySelectorAll('.btn-order-reject').forEach(btn => {
-      btn.addEventListener('click', async () => {
+      btn.onclick = async () => {
         const id = btn.dataset.id;
         const card = btn.closest('.wto-order-card');
         const ver = card.dataset.version;
@@ -515,17 +586,17 @@ function initPortal(cfg) {
             body: { action: 'reject', version: ver }
           });
           showToast(`Bestellung #${id} abgelehnt.`);
-          await loadOrders();
+          await loadOrders(); loadStats();
         } catch (err) {
           showToast(`Fehler: ${err.message}`, true);
           btn.disabled = false;
         }
-      });
+      };
     });
 
     // Ready
     container.querySelectorAll('.btn-order-ready').forEach(btn => {
-      btn.addEventListener('click', async () => {
+      btn.onclick = async () => {
         const id = btn.dataset.id;
         const card = btn.closest('.wto-order-card');
         const ver = card.dataset.version;
@@ -536,17 +607,17 @@ function initPortal(cfg) {
             body: { action: 'ready', version: ver }
           });
           showToast(`Bestellung #${id} ist abholbereit!`);
-          await loadOrders();
+          await loadOrders(); loadStats();
         } catch (err) {
           showToast(`Fehler: ${err.message}`, true);
           btn.disabled = false;
         }
-      });
+      };
     });
 
     // Complete (Picked up)
     container.querySelectorAll('.btn-order-complete').forEach(btn => {
-      btn.addEventListener('click', async () => {
+      btn.onclick = async () => {
         const id = btn.dataset.id;
         const card = btn.closest('.wto-order-card');
         const ver = card.dataset.version;
@@ -557,21 +628,21 @@ function initPortal(cfg) {
             body: { action: 'complete', version: ver }
           });
           showToast(`Bestellung #${id} als abgeholt markiert.`);
-          await loadOrders();
+          await loadOrders(); loadStats();
         } catch (err) {
           showToast(`Fehler: ${err.message}`, true);
           btn.disabled = false;
         }
-      });
+      };
     });
 
     // Print Thermal Bon (80 mm)
     container.querySelectorAll('.btn-order-print').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.onclick = () => {
         const id = btn.dataset.id;
         const order = state.orders.find(o => String(o.id) === String(id));
         if (order) printBon(order);
-      });
+      };
     });
   }
 
@@ -596,7 +667,7 @@ function initPortal(cfg) {
       </div>
       <div>Gast: <strong>${esc(order.name)}</strong></div>
       ${order.phone ? `<div>Tel: ${esc(order.phone)}</div>` : ''}
-      
+
       ${order.note ? `
         <div class="bon-divider"></div>
         <div style="border:1px solid #000;padding:4px;">
@@ -635,8 +706,9 @@ function initPortal(cfg) {
   if (resDatePicker) {
     resDatePicker.value = state.resDate;
     resDatePicker.addEventListener('change', () => {
-      state.resDate = resDatePicker.value;
-      loadReservations();
+      state.resDate = resDatePicker.value || todayStr;
+      state.resPage = 1; state.reservations = []; state.resData = null;
+      renderReservationsUI(); loadReservations();
     });
   }
 
@@ -645,7 +717,9 @@ function initPortal(cfg) {
       document.querySelectorAll('.wto-res-filters button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.resFilter = btn.dataset.view;
-      loadReservations();
+      state.resPage = 1; state.reservations = []; state.resData = null;
+      resDatePicker.disabled = state.resFilter !== 'daily';
+      renderReservationsUI(); loadReservations();
     });
   });
 
@@ -654,7 +728,8 @@ function initPortal(cfg) {
       document.querySelectorAll('.wto-shift-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.resShift = btn.dataset.shift;
-      renderReservationsUI();
+      state.resPage = 1; state.reservations = []; state.resData = null;
+      renderReservationsUI(); loadReservations();
     });
   });
 
@@ -680,28 +755,24 @@ function initPortal(cfg) {
   });
 
   async function loadReservations() {
+    const request = requestIds.reservations = (requestIds.reservations || 0) + 1;
+    feedback('wto-res-feedback', 'Reservierungen werden aktualisiert …');
     try {
-      const data = await api(`reservations?view=${state.resFilter}&date=${encodeURIComponent(state.resDate)}`);
-      setNetworkStatus(true);
+      const data = await read(`reservations?view=${state.resFilter}&date=${encodeURIComponent(state.resDate)}&shift=${state.resShift}&page=${state.resPage}`);
+      if (request !== requestIds.reservations || mutations) return;
+      markChannel('reservations', true);
       state.reservations = data.items || [];
-
-      // Update KPI
-      document.getElementById('wto-kpi-res-total').textContent = data.total || 0;
-      document.getElementById('wto-kpi-res-guests').textContent = data.guests_on_page || 0;
-
-      // Update badge
-      const pendingCount = state.reservations.filter(r => r.status === 'pending').length;
-      const badge = document.getElementById('wto-badge-res');
-      if (badge) {
-        badge.textContent = pendingCount;
-        badge.style.display = pendingCount > 0 ? 'inline-flex' : 'none';
-        badge.classList.toggle('urgent', pendingCount > 0);
-      }
-
+      state.resData = data;
+      state.resPage = data.page;
+      document.getElementById('wto-kpi-res-total').textContent = data.total ?? '—';
+      document.getElementById('wto-kpi-res-guests').textContent = data.guests ?? '—';
       renderReservationsUI();
+      paginate('wto-res-pagination', data, p => { state.resPage = p; loadReservations(); });
+      feedback('wto-res-feedback', data.records ? 'Aktualisiert · stornierte Reservierungen bleiben im Detail sichtbar.' : 'Keine Reservierungen im gewählten Filter.');
     } catch (err) {
-      setNetworkStatus(false);
-      console.warn('Reservations poll error:', err);
+      if (request !== requestIds.reservations) return;
+      markChannel('reservations', false);
+      feedback('wto-res-feedback', 'Reservierungen konnten nicht geladen werden. Vorhandene Daten können veraltet sein.', true);
     }
   }
 
@@ -709,19 +780,13 @@ function initPortal(cfg) {
     const container = document.getElementById('wto-res-list');
     if (!container) return;
 
-    if (state.reservations.length === 0) {
-      container.innerHTML = '<p class="wto-empty-col" style="padding:40px;text-align:center;">Keine Reservierungen für dieses Datum vorhanden.</p>';
-      return;
+    const scope = state.resFilter === 'daily' ? formatDate(state.resDate) + ' · Wien' : state.resFilter === 'pending' ? 'Offene Anfragen · alle Tage' : 'Alle Reservierungen · alle Tage';
+    feedback('wto-res-scope', scope + ' · ' + ({all:'alle Zeiträume',lunch:'Mittag (vor 16 Uhr)',dinner:'Abend (ab 16 Uhr)'}[state.resShift]));
+    if (!state.resData) {
+      document.getElementById('wto-kpi-res-total').textContent = '—';
+      document.getElementById('wto-kpi-res-guests').textContent = '—';
     }
-
-    // Filter by shift if selected
-    let list = state.reservations;
-    if (state.resShift === 'lunch') {
-      list = list.filter(r => (r.time || '') >= '11:00' && (r.time || '') <= '15:00'); // hours-ok
-    } else if (state.resShift === 'dinner') {
-      list = list.filter(r => (r.time || '') >= '17:00' && (r.time || '') <= '22:00'); // hours-ok
-    }
-
+    const list = state.reservations;
     const pending = list.filter(r => r.status === 'pending');
     const confirmed = list.filter(r => r.status === 'confirmed');
     const arrived = list.filter(r => r.status === 'arrived');
@@ -733,11 +798,11 @@ function initPortal(cfg) {
 
     // Update mobile switcher badges
     const mResNew = document.getElementById('wto-m-res-new');
-    if (mResNew) mResNew.textContent = pending.length;
+    if (mResNew) mResNew.textContent = state.resData?.counts?.pending?.count || 0;
     const mResPrep = document.getElementById('wto-m-res-prep');
-    if (mResPrep) mResPrep.textContent = confirmed.length;
+    if (mResPrep) mResPrep.textContent = state.resData?.counts?.confirmed?.count || 0;
     const mResReady = document.getElementById('wto-m-res-ready');
-    if (mResReady) mResReady.textContent = arrived.length;
+    if (mResReady) mResReady.textContent = state.resData?.counts?.arrived?.count || 0;
 
     document.querySelectorAll('#wto-res-col-switcher .wto-mcol-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.col === (state.mobileResCol || 'new'));
@@ -752,11 +817,11 @@ function initPortal(cfg) {
               <span class="wto-col-dot" style="background:var(--wto-amber);"></span>
               <span>📩 Neue Anfragen</span>
             </div>
-            <span class="wto-col-count">${pending.length} · ${pendingGuests} Gäste</span>
+            <span class="wto-col-count">${state.resData?.counts?.pending?.count || 0} · ${state.resData?.counts?.pending?.guests || 0} Gäste</span>
           </div>
           <div class="wto-cards-scroll">
-            ${pending.length > 0 
-              ? pending.map(renderReservationCard).join('') 
+            ${pending.length > 0
+              ? pending.map(renderReservationCard).join('')
               : '<p class="wto-empty-col">Keine offenen Anfragen.</p>'}
           </div>
         </section>
@@ -768,11 +833,11 @@ function initPortal(cfg) {
               <span class="wto-col-dot" style="background:var(--wto-gold);"></span>
               <span>📅 Bestätigt · Erwartet</span>
             </div>
-            <span class="wto-col-count">${confirmed.length} · ${confirmedGuests} Gäste</span>
+            <span class="wto-col-count">${state.resData?.counts?.confirmed?.count || 0} · ${state.resData?.counts?.confirmed?.guests || 0} Gäste</span>
           </div>
           <div class="wto-cards-scroll">
-            ${confirmed.length > 0 
-              ? confirmed.map(renderReservationCard).join('') 
+            ${confirmed.length > 0
+              ? confirmed.map(renderReservationCard).join('')
               : '<p class="wto-empty-col">Keine ausstehenden Gäste.</p>'}
           </div>
         </section>
@@ -784,11 +849,11 @@ function initPortal(cfg) {
               <span class="wto-col-dot" style="background:var(--wto-green);"></span>
               <span>🍽️ Platziert (Im Haus)</span>
             </div>
-            <span class="wto-col-count">${arrived.length} · ${arrivedGuests} Gäste</span>
+            <span class="wto-col-count">${state.resData?.counts?.arrived?.count || 0} · ${state.resData?.counts?.arrived?.guests || 0} Gäste</span>
           </div>
           <div class="wto-cards-scroll">
-            ${arrived.length > 0 
-              ? arrived.map(renderReservationCard).join('') 
+            ${arrived.length > 0
+              ? arrived.map(renderReservationCard).join('')
               : '<p class="wto-empty-col">Noch keine Gäste platziert.</p>'}
             ${cancelled.length > 0 ? `
               <div style="margin-top:20px;border-top:1px dashed var(--wto-line);padding-top:10px;">
@@ -801,7 +866,7 @@ function initPortal(cfg) {
       </div>
     `;
 
-    container.innerHTML = html;
+    patchHTML(container, html);
     attachReservationEvents(container);
   }
 
@@ -813,13 +878,14 @@ function initPortal(cfg) {
       cancelled: 'Storniert'
     };
 
-    const isLunch = (r.time || '') >= '11:00' && (r.time || '') <= '15:00'; // hours-ok
-    const shiftBadge = isLunch 
-      ? '<span class="wto-shift-pill lunch">☀️ Mittag</span>' 
+    const isLunch = r.period === 'lunch';
+    const shiftBadge = r.period === 'unknown' ? '<span>Zeitraum unbekannt</span>' : isLunch
+      ? '<span class="wto-shift-pill lunch">☀️ Mittag</span>'
       : '<span class="wto-shift-pill dinner">🌙 Abend</span>';
 
     return `
       <article class="wto-res-card status-${esc(r.status)}" data-id="${esc(r.id)}" data-version="${esc(r.version)}">
+        <p class="wto-res-date">${esc(formatDate(r.date))} · Wien</p>
         <div class="wto-res-top">
           <span class="wto-res-time" style="display:inline-flex;align-items:center;gap:6px;">
             🕒 <strong>${esc(r.time)} Uhr</strong> ${shiftBadge}
@@ -840,14 +906,14 @@ function initPortal(cfg) {
           <div style="display:flex;gap:6px;">
             ${r.status === 'pending' ? `
               <button type="button" class="wto-btn btn-success btn-res-action" data-action="confirmed" data-id="${esc(r.id)}" style="height:32px;padding:0 12px;font-size:11px;font-weight:700;">✓ Bestätigen</button>
-              <button type="button" class="wto-btn btn-danger btn-res-action" data-action="cancelled" data-id="${esc(r.id)}" style="height:32px;padding:0 8px;font-size:11px;">✕</button>
+              <button type="button" class="wto-btn btn-danger btn-res-action" data-action="cancelled" data-id="${esc(r.id)}" aria-label="Reservierung stornieren" style="height:32px;padding:0 8px;font-size:11px;">✕</button>
             ` : ''}
             ${r.status === 'confirmed' ? `
               <button type="button" class="wto-btn btn-primary btn-res-action" data-action="arrived" data-id="${esc(r.id)}" style="height:32px;padding:0 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg, #d4af37, #b8860b);color:#141210;">🍽️ Gast da</button>
-              <button type="button" class="wto-btn btn-danger btn-res-action" data-action="cancelled" data-id="${esc(r.id)}" style="height:32px;padding:0 8px;font-size:11px;">Storno</button>
+              <button type="button" class="wto-btn btn-danger btn-res-action" data-action="cancelled" data-id="${esc(r.id)}" aria-label="Reservierung stornieren" style="height:32px;padding:0 8px;font-size:11px;">Storno</button>
             ` : ''}
             ${r.status === 'arrived' ? `
-              <button type="button" class="wto-btn btn-secondary btn-res-action" data-action="confirmed" data-id="${esc(r.id)}" style="height:32px;padding:0 8px;font-size:11px;" title="Zurück zu Erwartet">↩</button>
+              <button type="button" class="wto-btn btn-secondary btn-res-action" data-action="confirmed" data-id="${esc(r.id)}" style="height:32px;padding:0 8px;font-size:11px;" title="Zurück zu Erwartet" aria-label="Zurück zu Erwartet">↩</button>
             ` : ''}
           </div>
         </div>
@@ -857,7 +923,7 @@ function initPortal(cfg) {
 
   function attachReservationEvents(container) {
     container.querySelectorAll('.btn-res-action').forEach(btn => {
-      btn.addEventListener('click', async () => {
+      btn.onclick = async () => {
         const id = btn.dataset.id;
         const action = btn.dataset.action;
         const card = btn.closest('.wto-res-card');
@@ -869,12 +935,12 @@ function initPortal(cfg) {
             body: { action: action, version: ver }
           });
           showToast(`Reservierung aktualisiert.`);
-          await loadReservations();
+          await loadReservations(); loadStats();
         } catch (err) {
           showToast(`Fehler: ${err.message}`, true);
           btn.disabled = false;
         }
-      });
+      };
     });
   }
 
@@ -995,15 +1061,67 @@ function initPortal(cfg) {
   // STATS TAB CONTROLLER
   // =========================================================================
   async function loadStats() {
+    const request = requestIds.summary = (requestIds.summary || 0) + 1;
     try {
-      const stats = await api('stats');
+      const stats = await read('summary');
+      if (request !== requestIds.summary) return;
+      if (typeof stats.is_open !== 'boolean' && stats.is_open !== null) throw new Error('Ungültiger Küchenstatus');
+      const newIds = (stats.new_order_ids || []).map(String);
+      if (!state.isInitialLoad && newIds.some(id => !state.knownOrders.has(id))) playChime();
+      state.knownOrders = new Set(newIds); state.isInitialLoad = false;
       state.stats = stats;
-      document.getElementById('wto-stat-orders-today').textContent = (stats.orders?.completed || 0) + (stats.orders?.new || 0) + (stats.orders?.preparing || 0) + (stats.orders?.ready || 0);
-      document.getElementById('wto-stat-revenue-today').textContent = stats.orders?.revenue || '0,00 €';
-      document.getElementById('wto-stat-res-today').textContent = stats.reservations?.total || 0;
-      document.getElementById('wto-stat-guests-today').textContent = stats.reservations?.total_guests || 0;
+      markChannel('summary', true);
+      const pill = document.getElementById('wto-opening-status');
+      pill.className = 'wto-status-pill ' + (stats.is_open === null ? 'unknown' : stats.is_open ? 'open' : 'closed');
+      pill.textContent = stats.is_open === null ? 'Küchenstatus unbekannt' : stats.is_open ? 'Küche geöffnet' : 'Küche geschlossen / Pause';
+      for (const [id, count] of [['wto-badge-res', stats.pending_reservations], ['wto-badge-orders', stats.new_orders]]) {
+        const badge = document.getElementById(id);
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'inline-flex' : 'none';
+        badge.classList.toggle('urgent', count > 0);
+        badge.title = 'Offen · alle Tage';
+      }
+      feedback('wto-daily-backlog', `${stats.backlog_orders} aktive Bestellungen aus früheren Tagen · ${stats.active_orders} aktive Bestellungen insgesamt. Im Küchenboard prüfen.`);
     } catch (err) {
-      console.warn('Stats error:', err);
+      if (request !== requestIds.summary) return;
+      markChannel('summary', false);
+      const pill = document.getElementById('wto-opening-status');
+      pill.className = 'wto-status-pill unknown'; pill.textContent = 'Küchenstatus unbekannt · Abgleich fehlt';
+    }
+  }
+
+  const dailyDate = document.getElementById('wto-daily-date');
+  if (dailyDate) {
+    dailyDate.value = state.dailyDate;
+    dailyDate.addEventListener('change', () => {
+      state.dailyDate = dailyDate.value || todayStr; state.dailyPage = 1;
+      document.getElementById('wto-daily-orders').innerHTML = '';
+      ['wto-stat-orders-today', 'wto-stat-revenue-today', 'wto-stat-res-today', 'wto-stat-guests-today'].forEach(id => { document.getElementById(id).textContent = '—'; });
+      loadDaily();
+    });
+  }
+  async function loadDaily() {
+    const request = requestIds.daily = (requestIds.daily || 0) + 1;
+    feedback('wto-daily-feedback', 'Tagesübersicht wird aktualisiert …');
+    feedback('wto-daily-scope', formatDate(state.dailyDate) + ' · Wien · Bestellungen nach Erstellungsdatum');
+    try {
+      const data = await read(`daily?date=${state.dailyDate}&page=${state.dailyPage}`);
+      if (request !== requestIds.daily) return;
+      markChannel('daily', true);
+      state.dailyPage = data.page;
+      document.getElementById('wto-stat-orders-today').textContent = data.orders.total;
+      const sums = Object.entries(data.currencies || {}).map(([currency, sum]) => `${minorMoney(sum.net_minor, currency)}`).join(' / ');
+      document.getElementById('wto-stat-revenue-today').textContent = sums || '0,00 €';
+      document.getElementById('wto-stat-res-today').textContent = data.reservations.total;
+      document.getElementById('wto-stat-guests-today').textContent = data.reservations.guests;
+      feedback('wto-daily-totals', Object.entries(data.currencies || {}).map(([c, v]) => `Bestellwert ${minorMoney(v.gross_minor, c)} − Erstattungen ${minorMoney(v.refund_minor, c)} = ${minorMoney(v.net_minor, c)}`).join(' · ') + ` · ${data.orders.excluded} storniert / fehlgeschlagen (nicht eingerechnet)`);
+      patchHTML(document.getElementById('wto-daily-orders'), (data.items || []).map(o => `<details class="wto-daily-order" data-order="${esc(o.id)}"><summary><strong>#${esc(o.number)}</strong> · ${esc(formatDate(o.created, true))} · ${esc(statusNames[o.status] || o.status)} · ${esc(minorMoney(o.net_minor, o.currency))}</summary><p>Bestellwert: ${esc(minorMoney(o.gross_minor, o.currency))} · Erstattung: ${esc(minorMoney(o.refund_minor, o.currency))} · ${o.included ? 'Eingerechnet' : 'Nicht eingerechnet'}</p>${renderOrderCard(o, true)}</details>`).join('') || '<p class="wto-empty-col">Keine Bestellungen an diesem Tag.</p>');
+      paginate('wto-daily-pagination', data, p => { state.dailyPage = p; loadDaily(); });
+      feedback('wto-daily-feedback', 'Aktualisiert · Details per Klick oder Tastatur öffnen.');
+    } catch (err) {
+      if (request !== requestIds.daily) return;
+      markChannel('daily', false);
+      feedback('wto-daily-feedback', 'Tagesübersicht konnte nicht geladen werden. Vorhandene Werte können veraltet sein.', true);
     }
   }
 
@@ -1012,7 +1130,7 @@ function initPortal(cfg) {
     if (state.activeTab === 'orders') loadOrders();
     else if (state.activeTab === 'reservations') loadReservations();
     else if (state.activeTab === 'customers') loadCustomers();
-    else if (state.activeTab === 'stats') loadStats();
+    else if (state.activeTab === 'stats') loadDaily();
   }
 
   // Initial load
@@ -1023,16 +1141,8 @@ function initPortal(cfg) {
   state.pollTimer = setInterval(() => {
     if (state.activeTab === 'orders') loadOrders();
     else if (state.activeTab === 'reservations') loadReservations();
+    else if (state.activeTab === 'stats') loadDaily();
     loadStats();
   }, 12000);
 
-  // Real-time 1-second ticker for live order elapsed timers
-  setInterval(() => {
-    document.querySelectorAll('.wto-live-timer').forEach(el => {
-      const created = el.dataset.created;
-      if (created) {
-        el.textContent = '⏱️ ' + formatElapsed(created);
-      }
-    });
-  }, 1000);
 }
