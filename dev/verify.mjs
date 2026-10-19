@@ -143,16 +143,17 @@ function recordGate(id, name, issues, warnOnly = false) {
                 issues.push(`PHP syntax error in ${rel}: ${err.message}`);
             }
         }
-        const hoursTest = path.join(ROOT, 'dev', 'tests', 'hours.test.php');
-        if (fs.existsSync(hoursTest)) {
+        for (const testName of ['hours.test.php', 'menu-description.test.php']) {
+            const testFile = path.join(ROOT, 'dev', 'tests', testName);
+            if (!fs.existsSync(testFile)) continue;
             try {
-                execFileSync(phpBin, [hoursTest], { stdio: 'pipe' });
+                execFileSync(phpBin, [testFile], { stdio: 'pipe' });
             } catch (err) {
-                issues.push(`PHP unit test failure in dev/tests/hours.test.php: ${err.message}`);
+                issues.push(`PHP unit test failure in dev/tests/${testName}: ${err.message}`);
             }
         }
     }
-    recordGate('G5', 'JS & PHP Syntax Check + Hours Unit Suite (98 assertions)', issues, false);
+    recordGate('G5', 'JS & PHP Syntax Check + Hours and Menu Description Unit Suites', issues, false);
 }
 
 // G6: Version Synchronization between style.css and functions.php

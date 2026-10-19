@@ -52,9 +52,18 @@ function wowthai_menu_fallback_descriptions(): array {
 
 /**
  * Bereinigt einen Titel- oder Beschreibungstext anhand des Wörterbuchs und dekodiert HTML-Entities (z.B. &#8211;).
+ * Optional plain-text output is only enabled by the menu data builder.
  */
-function wowthai_normalize_menu_text(string $text, string $context_title = ''): string {
+function wowthai_normalize_menu_text(string $text, string $context_title = '', bool $plain_text = false): string {
     $text = trim(html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+    // Cards, search, modal text and schema share a plain-text description.
+    // Decode first so escaped editor markup is removed too; keep block spacing.
+    if ($plain_text) {
+        $text = preg_replace('~<br\s*/?>|</(?:p|div|li|h[1-6])\s*>~i', ' ', $text);
+        $text = wp_strip_all_tags($text);
+        $text = trim(preg_replace('/[\s\x{00A0}]+/u', ' ', $text));
+    }
 
     if ($text === '' && $context_title !== '') {
         $norm_title = wowthai_normalize_menu_text($context_title);

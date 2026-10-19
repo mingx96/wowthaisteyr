@@ -668,7 +668,7 @@ function wowthai_get_products_in_cat($term_id) {
             $raw_title = get_the_title();
             $raw_desc  = get_the_content();
             $title     = function_exists('wowthai_normalize_menu_text') ? wowthai_normalize_menu_text($raw_title) : $raw_title;
-            $desc      = function_exists('wowthai_normalize_menu_text') ? wowthai_normalize_menu_text($raw_desc, $title) : $raw_desc;
+            $desc      = function_exists('wowthai_normalize_menu_text') ? wowthai_normalize_menu_text($raw_desc, $title, true) : wp_strip_all_tags($raw_desc);
 
             $spice = function_exists('wowthai_get_dish_spice_level') ? wowthai_get_dish_spice_level($title, $desc, $labels) : ['level' => 0, 'icons' => '', 'pill' => ''];
 

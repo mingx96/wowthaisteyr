@@ -1,5 +1,23 @@
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
+## 2026-10-19 — Codex: menu description HTML hotfix, review only
+
+- Scope: branch `fix/menu-description-html-20261019`, based on `dbd75c0`.
+  Public `/menu/` inspection found six lunch cards displaying literal `<em>`
+  markup after product edits. The menu builder passed rich product content to
+  plain-text card/modal/search/schema consumers.
+- Change: opt-in plain-text normalization at the shared menu data boundary;
+  decode entities, strip editor HTML and preserve word spacing. Existing rich
+  WooCommerce descriptions, product data, prices and choices are unchanged.
+- Verification: regression reproduced nine failures before the fix, then
+  13/13 passed; existing hours suite 98/98 passed. G1–G11 passed using the local
+  PHP-WASM CLI. Native PHP 8.2 verification is required in PR CI; these are not
+  live WordPress/browser checkout tests.
+- Next: review the PR and its CI, compare the changed PHP files against the
+  active theme before a scoped release, then verify menu cards and selection
+  dialogs on mobile. No live upload, database write, or deployment occurred.
+  This branch does not claim the shared-site write lock listed below.
+
 - **Active Agent in Charge**: **Antigravity (Mobile-First Redesign & Operations Portal v1.4.0)**
 - **Current scope**: Mobile-First redesign for `/betrieb/` (compact header, segmented Kanban switcher), customer menu above-the-fold, global header drawer, typography unification.
 - **Current Theme Version**: `v1.4.0`
