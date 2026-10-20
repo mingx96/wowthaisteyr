@@ -21,7 +21,7 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
         <h1>Unsere <em>Speisekarte</em></h1>
         <p class="page-intro-desc">Was darf es heute sein? Entdecken Sie unsere Spezialitäten und bestellen Sie zur frischen Zubereitung und bequemen Abholung im City Point Steyr.</p>
       </div>
-      <a class="button button-quiet menu-res-btn" href="<?php echo esc_url(home_url('/reservations/')); ?>">Tisch reservieren <span aria-hidden="true">↗</span></a>
+      <a class="button button-quiet menu-res-btn" href="<?php echo esc_url(home_url('/reservations/')); ?>">Tisch reservieren <?php echo wowthai_action_icon(); ?></a>
     </div>
 
     <!-- Öffnungszeiten / Vorbestellungs-Banner -->
@@ -150,7 +150,7 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
                     data-title="<?php echo esc_attr($p['title']); ?>"
                     data-description="<?php echo esc_attr($p['description']); ?>"
                     data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
-                    <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
+                    <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Auswählen' : 'In den Warenkorb +'; ?>
                   </button>
                 <?php endif; ?>
               </div>
@@ -221,7 +221,7 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
                     data-title="<?php echo esc_attr($p['title']); ?>"
                     data-description="<?php echo esc_attr($p['description']); ?>"
                     data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
-                    <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Auswählen ↗' : 'In den Warenkorb +'; ?>
+                    <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Auswählen' : 'In den Warenkorb +'; ?>
                   </button>
                 <?php endif; ?>
               </div>

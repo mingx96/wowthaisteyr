@@ -131,6 +131,14 @@ empty unavailable checkout FormData, preserved WooCommerce disabled state,
 hours rows/closure notices, Restaurant JSON-LD and revision refresh events.
 It never submits an order or reservation.
 
+`node dev/tests/public-design.test.mjs` and
+`python dev/tests/public-design.browser.py` protect the customer-facing visual
+contract. They verify the local Chonburi/DM Sans font pair, shared decorative
+SVG action icon, equal-weight glass Hero actions, 44px touch targets, no
+horizontal overflow, and form-first reservation layout at 320/390/768px while
+preserving the two-column desktop layout. The browser test renders synthetic
+templates only and does not submit a reservation.
+
 `wp eval-file wp-content/themes/wowthai/dev/tests/hours-api.integration.php`
 is an opt-in **disposable-database** test with the same exact fixture URL,
 `WOWTHAI_PORTAL_TEST`, WP-CLI and outbound HTTP/mail protections described above.

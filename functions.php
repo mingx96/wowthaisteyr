@@ -23,10 +23,12 @@ function wowthai_theme_setup() {
 }
 add_action('after_setup_theme', 'wowthai_theme_setup');
 
+require_once get_template_directory() . '/inc/ui.php';
+
 // 2. Enqueue Styles & Scripts
 function wowthai_enqueue_scripts() {
     $theme_uri = get_template_directory_uri();
-    $version = '1.5.1';
+    $version = '1.5.2';
 
     // Fonts & Base Styles
     wp_enqueue_style('wowthai-fonts', $theme_uri . '/assets/css/fonts.css', [], $version);
