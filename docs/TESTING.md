@@ -133,7 +133,7 @@ It never submits an order or reservation.
 
 `node dev/tests/public-design.test.mjs` and
 `python dev/tests/public-design.browser.py` protect the customer-facing visual
-contract. They verify the local Chonburi/DM Sans font pair, shared decorative
+contract. They verify the local Playfair Display/DM Sans font pair, shared decorative
 SVG action icon, equal-weight glass Hero actions, 44px touch targets, no
 horizontal overflow, and form-first reservation layout at 320/390/768px while
 preserving the two-column desktop layout. The browser test renders synthetic

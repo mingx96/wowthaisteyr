@@ -19,18 +19,24 @@ assert.ok(
 );
 
 const fonts = read('assets/css/fonts.css');
-assert.match(fonts, /font-family:\s*['"]Chonburi['"]/u, 'Chonburi must be declared locally');
-assert.doesNotMatch(fonts, /Playfair Display/u, 'Playfair Display must not remain in the active font stylesheet');
-for (const file of ['Chonburi-Regular-latin.woff2', 'Chonburi-Regular-latin-ext.woff2']) {
+assert.match(fonts, /font-family:\s*['"]Playfair Display['"]/u, 'Playfair Display must be declared locally');
+assert.doesNotMatch(fonts, /Chonburi/u, 'Chonburi must not remain in the active font stylesheet');
+for (const file of [
+  'nuFkD-vYSZviVYUb_rj3ij__anPXDTnogkk7.woff2',
+  'nuFkD-vYSZviVYUb_rj3ij__anPXDTnojEk72xU.woff2',
+  'nuFiD-vYSZviVYUb_rj3ij__anPXDTzYgA.woff2',
+  'nuFiD-vYSZviVYUb_rj3ij__anPXDTLYgFE_.woff2',
+]) {
   const full = path.join(root, 'assets/fonts', file);
   assert.ok(fs.existsSync(full) && fs.statSync(full).size > 1000, `${file} must be a non-empty self-hosted font`);
 }
 
 for (const file of ['assets/css/styles.css', 'assets/css/checkout.css', 'assets/css/portal.css']) {
-  assert.doesNotMatch(read(file), /Playfair Display/u, `${file} must not reference the retired display font`);
+  assert.match(read(file), /Playfair Display/u, `${file} must use the restored display font`);
+  assert.doesNotMatch(read(file), /Chonburi/u, `${file} must not reference the rejected display font`);
 }
 
-assert.match(read('functions.php'), /\$version\s*=\s*['"]1\.5\.2['"]/u, 'theme asset version must be 1.5.2');
-assert.match(read('style.css'), /Version:\s*1\.5\.2/u, 'theme header version must be 1.5.2');
+assert.match(read('functions.php'), /\$version\s*=\s*['"]1\.5\.3['"]/u, 'theme asset version must be 1.5.3');
+assert.match(read('style.css'), /Version:\s*1\.5\.3/u, 'theme header version must be 1.5.3');
 
-console.log('PASS public design static contract: local two-font system, shared SVG arrows, form-first source, version 1.5.2');
+console.log('PASS public design static contract: restored local Playfair/DM Sans system, shared SVG arrows, form-first source, version 1.5.3');

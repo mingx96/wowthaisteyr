@@ -28,7 +28,7 @@ require_once get_template_directory() . '/inc/ui.php';
 // 2. Enqueue Styles & Scripts
 function wowthai_enqueue_scripts() {
     $theme_uri = get_template_directory_uri();
-    $version = '1.5.2';
+    $version = '1.5.3';
 
     // Fonts & Base Styles
     wp_enqueue_style('wowthai-fonts', $theme_uri . '/assets/css/fonts.css', [], $version);
