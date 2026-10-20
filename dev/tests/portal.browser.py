@@ -16,7 +16,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         else: super().do_GET()
 server=http.server.ThreadingHTTPServer(('127.0.0.1',0),functools.partial(Handler,directory=str(ROOT)))
 threading.Thread(target=server.serve_forever,daemon=True).start()
-ORDER={'id':1,'number':'TEST-001','stage':'completed','status':'completed','created':'2026-10-19T12:00:00+02:00','created_ts':1792404000,'name':'Fixture guest','items':[{'name':'Test meal','quantity':1,'choices':['Test choice']}],'total':'20,00 €','payment':'Barzahlung bei Abholung','version':'fixture','currency':'EUR','gross_minor':2000,'refund_minor':500,'net_minor':1500,'included':True}
+ORDER={'id':1,'number':'TEST-001','stage':'completed','status':'completed','created':'2026-10-19T12:00:00+02:00','created_ts':1792404000,'name':'Fixture guest','items':[{'name':'Test meal','quantity':1,'choices':['Test choice']}],'total':'20,00 €','payment':'Bezahlt','payment_display':'Barzahlung vor Ort','version':'fixture','currency':'EUR','gross_minor':2000,'refund_minor':500,'net_minor':1500,'included':True}
 RES={'id':1,'date':'2026-10-24','time':'12:00','party':2,'status':'pending','name':'Fixture reservation','version':'fixture','period':'lunch'}
 try:
   with sync_playwright() as p:
@@ -24,7 +24,7 @@ try:
     for width,height in [(1440,1000),(390,844),(768,1024)]:
       page=browser.new_page(viewport={'width':width,'height':height})
       page.clock.install(time=datetime(2026,10,19,19,30,tzinfo=timezone.utc))
-      flags={'open':False,'fail':False,'archive_empty':False,'note':'','posts':0,'new_ids':[],'daily_note':'','daily_fail':False}
+      flags={'open':False,'fail':False,'archive_empty':False,'note':'','posts':0,'new_ids':[],'daily_note':'','daily_fail':False,'res_status':'pending','mixed_res':False}
       page.add_init_script('''window.chimes=0; window.AudioContext=class { constructor(){this.state='running';this.currentTime=0;this.destination={};} createOscillator(){return {type:'',frequency:{setValueAtTime(){}},connect(){},start(){window.chimes++},stop(){}}} createGain(){return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}}} };''')
       errors=[]
       page.on('pageerror',lambda error: errors.append(str(error)))
@@ -36,7 +36,7 @@ try:
         if '/summary' in path or '/stats' in path:
           if flags['fail']:
             r.fulfill(status=503,content_type='application/json',body='{"message":"fixture disconnected"}'); return
-          data={'date':'2026-10-19','is_open':flags['open'],'pending_reservations':6,'new_orders':2,'active_orders':3,'backlog_orders':1,'new_order_ids':flags['new_ids']}
+          data={'date':'2026-10-19','is_open':flags['open'],'pending_reservations':60,'new_orders':2,'active_orders':3,'backlog_orders':1,'new_order_ids':flags['new_ids']}
         elif '/daily?' in path:
           if flags['daily_fail']:
             r.fulfill(status=503,content_type='application/json',body='{}'); return
@@ -45,8 +45,10 @@ try:
         elif '/reservations?' in path:
           pending=query.get('view',['daily'])[0]=='pending'
           dinner=query.get('shift',['all'])[0]=='dinner'
-          cards=[{**RES,'id':i,'notes':flags['note']} for i in range(1,16)] if pending and not dinner else []
-          data={'items':cards,'total':6 if cards else 0,'guests':29 if cards else 0,'counts':{'pending':{'count':6 if cards else 0,'guests':29 if cards else 0}},'page':1,'pages':1,'records':len(cards)}
+          cards=[{**RES,'id':i,'status':flags['res_status'],'notes':flags['note']} for i in range((current-1)*50+1,min(current*50,60)+1)] if pending and not dinner else []
+          data={'items':cards,'total':60 if cards else 0,'guests':120 if cards else 0,'counts':{flags['res_status']:{'count':60 if cards else 0,'guests':120 if cards else 0}},'page':current,'pages':2 if cards else 1,'records':60 if cards else 0}
+          if flags['mixed_res']:
+            data={'items':[{**RES,'id':900,'status':'arrived'}]+[{**RES,'id':901+i,'status':'cancelled','name':f'Cancelled fixture {i}'} for i in range(5)],'total':1,'guests':2,'counts':{'arrived':{'count':1,'guests':2},'cancelled':{'count':5,'guests':10}},'page':1,'pages':1,'records':6}
         elif '/orders?' in path:
           archive='archive' in path
           active=[{**ORDER,'id':i,'stage':'new','status':'processing'} for i in [1,2]]
@@ -58,29 +60,41 @@ try:
       assert hashlib.sha256((ROOT/'assets/js/portal.js').read_bytes()).hexdigest()[:12] in page.locator('script[src*="portal.js"]').get_attribute('src'), 'portal URL must change when its bytes change; version alone can retain stale CDN assets'
       assert hashlib.sha256((ROOT/'assets/css/portal.css').read_bytes()).hexdigest()[:12] in page.locator('link[href*="portal.css"]').get_attribute('href'), 'portal CSS must carry its content fingerprint'
       expect(page.locator('#wto-opening-status')).to_contain_text('geschlossen')
-      expect(page.locator('#wto-badge-res')).to_have_text('6')
+      expect(page.locator('#wto-badge-res')).to_have_text('60')
       # Every active card, including the second card, keeps its action buttons.
       expect(page.locator('.btn-order-accept')).to_have_count(2)
+      expect(page.locator('.wto-card-payment').first).to_have_text('Barzahlung vor Ort')
+      expect(page.locator('#wto-orders-pagination')).not_to_be_visible()
+      expect(page.locator('#wto-orders-feedback')).to_be_empty()
+      if width >= 1024:
+        assert page.locator('#wto-kanban-board').bounding_box()['height'] >= height * .70, 'daily controls must leave enough space for orders'
+      page.get_by_role('button',name='Hilfe',exact=True).click()
+      expect(page.locator('#wto-dialog-help')).to_be_visible()
+      expect(page.locator('#wto-dialog-help')).to_contain_text('Zeiträume')
+      page.locator('#wto-dialog-help').get_by_role('button',name='Hilfe schließen').click()
+
       page.locator('[data-view="archive"]').click()
       expect(page.locator('#wto-archive-list')).to_be_visible()
       expect(page.locator('#wto-kanban-board')).not_to_be_visible()
       expect(page.locator('#wto-orders-col-switcher')).not_to_be_visible()
       expect(page.locator('#wto-archive-list')).to_contain_text('TEST-001')
+      assert page.locator('#wto-orders-pagination button').first.bounding_box()['width'] < 160, 'pagination buttons must fit their labels'
       expect(page.locator('#wto-archive-list')).to_contain_text('19.10.2026')
       expect(page.locator('#wto-archive-list')).to_contain_text('Abgeschlossen')
       assert page.locator('#wto-archive-list [class*="btn-order-"]').count()==0
       page.locator('#wto-orders-pagination').get_by_role('button',name='Weiter').click()
       expect(page.locator('#wto-archive-list')).to_contain_text('TEST-002')
-      expect(page.locator('#wto-badge-res')).to_have_text('6')
+      expect(page.locator('#wto-badge-res')).to_have_text('60')
       flags['archive_empty']=True; page.clock.run_for(12000)
       expect(page.locator('#wto-archive-list')).to_contain_text('Keine archivierten')
       page.locator('[data-tab="reservations"]').click()
+      expect(page.locator('#wto-res-pagination')).not_to_be_visible()
       page.locator('.wto-res-filters [data-view="pending"]').click()
       expect(page.locator('#wto-res-date-input')).to_be_disabled()
       expect(page.locator('#wto-res-scope')).to_contain_text('alle Tage')
       expect(page.locator('.wto-res-date').first).to_contain_text('24.10.2026')
-      expect(page.locator('#wto-kpi-res-guests')).to_have_text('29')
-      expect(page.locator('#wto-kpi-res-total')).to_have_text('6')
+      expect(page.locator('#wto-kpi-res-guests')).to_have_text('120')
+      expect(page.locator('#wto-kpi-res-total')).to_have_text('60')
       # Poll preserves an operator's keyboard focus and scrolled column.
       action=page.locator('.btn-res-action[data-action="confirmed"]').first
       action.focus()
@@ -92,7 +106,7 @@ try:
       page.locator('[data-shift="dinner"]').click()
       expect(page.locator('#wto-kpi-res-total')).to_have_text('0')
       expect(page.locator('#wto-m-res-new')).to_have_text('0')
-      expect(page.locator('#wto-badge-res')).to_have_text('6')
+      expect(page.locator('#wto-badge-res')).to_have_text('60')
       flags['daily_fail']=True
       page.locator('[data-tab="stats"]').click()
       expect(page.locator('#wto-daily-feedback')).to_contain_text('nicht geladen')
@@ -117,13 +131,47 @@ try:
       flags['fail']=True; page.clock.run_for(12000)
       expect(page.locator('#wto-opening-status')).to_contain_text('unbekannt')
       expect(page.locator('#wto-sync-status')).to_contain_text('veraltet')
+      if width <= 768:
+        page.locator('#wto-btn-mobile-settings').click()
+        expect(page.locator('#wto-dialog-mobile-settings [data-network-text]')).to_contain_text('getrennt')
+        page.locator('#wto-dialog-mobile-settings .wto-btn-close').click()
       flags['fail']=False; page.clock.run_for(12000)
       expect(page.locator('#wto-opening-status')).to_contain_text('geöffnet')
       assert flags['posts']==0,'read-only navigation/polling must not mutate anything'
       assert not errors,errors
       assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth'), 'horizontal overflow'
+      page.locator('[data-tab="reservations"]').click()
+      page.locator('[data-shift="all"]').click()
+      expect(page.locator('#wto-kpi-res-total')).to_have_text('60')
+      expect(page.locator('.wto-res-card').first).to_contain_text('Fixture reservation')
       folder=Path(os.environ.get('PORTAL_TEST_ARTIFACTS',str(Path(tempfile.gettempdir())/'wowthai-portal-artifacts')));folder.mkdir(parents=True,exist_ok=True)
-      page.screenshot(path=str(folder/f'daily-{width}.png'))
+      page.screenshot(path=str(folder/f'reservations-{width}.png'))
+      page.locator('[data-tab="orders"]').click()
+      page.locator('[data-view="kanban"]').click()
+      expect(page.locator('.btn-order-accept')).to_have_count(2)
+      expect(page.locator('#wto-orders-pagination')).not_to_be_visible()
+      page.screenshot(path=str(folder/f'orders-{width}.png'))
+      # Cancelled rows are separate from guests in-house and remain reachable on short screens.
+      flags['mixed_res']=True
+      page.locator('[data-tab="reservations"]').click()
+      page.locator('.wto-res-filters [data-view="all"]').click()
+      expect(page.locator('.wto-cancelled')).to_be_visible()
+      expect(page.locator('.col-ready .wto-res-card')).to_have_count(1)
+      expect(page.locator('.col-ready .btn-res-action')).to_have_count(0)
+      if width == 390: page.set_viewport_size({'width':390,'height':667})
+      disclosure=page.locator('.wto-cancelled')
+      disclosure.locator('summary').click()
+      expect(disclosure.locator('.wto-res-card')).to_have_count(5)
+      assert page.locator('#wto-res-list').evaluate('(el)=>el.scrollHeight<=el.clientHeight+1 || ["auto","scroll"].includes(getComputedStyle(el).overflowY)'), 'overflowing history requires a user-scrollable outer list'
+      # Both the outer list and inner history scrollport must let the final card enter view.
+      page.locator('#wto-res-list').evaluate('(el)=>el.scrollTop=el.scrollHeight')
+      disclosure.locator('.wto-cancelled-cards').evaluate('(el)=>el.scrollTop=el.scrollHeight')
+      last=disclosure.locator('.wto-res-card').last.bounding_box()
+      outer=page.locator('#wto-res-list').bounding_box()
+      assert last['y']+last['height'] <= outer['y']+outer['height']+1, 'cancelled history bottom must remain reachable on short screens'
+      disclosure.locator('summary').focus(); page.clock.run_for(12000)
+      expect(disclosure).to_have_attribute('open','')
+      expect(disclosure.locator('summary')).to_be_focused()
       print(f'PASS: {width}px archive/pagination/readonly, booking dates/filter/counts/focus/scroll, daily details/refunds, polling/open/failure/recovery')
       page.close()
     browser.close()

@@ -25,6 +25,7 @@ class FakeOrder {
     function get_date_created() { return new DateTimeImmutable($this->created); }
     function get_id() { return $this->id; }
     function get_order_number() { return 'TEST-'.$this->id; }
+    function get_payment_method() { return 'cod'; }
     function get_payment_method_title() { return 'Fixture cash'; }
 }
 function wc_get_orders($args) {

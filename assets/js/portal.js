@@ -224,7 +224,10 @@ function initPortal(cfg) {
     const status = document.getElementById('wto-sync-status');
     if (status) {
       status.classList.toggle('is-error', failed);
-      status.textContent = failed ? 'Abgleich fehlgeschlagen. Angezeigte Daten können veraltet sein. Automatischer Neuversuch alle 12 Sekunden.' : 'Letzter Abgleich: ' + new Intl.DateTimeFormat('de-AT', {timeZone:'Europe/Vienna',timeStyle:'medium'}).format(new Date()) + ' · Wien';
+      const syncedAt = new Intl.DateTimeFormat('de-AT', {timeZone:'Europe/Vienna',timeStyle:'medium'}).format(new Date());
+      status.textContent = failed ? 'Abgleich fehlgeschlagen · Daten können veraltet sein.' : '';
+      const network = document.querySelector('.wto-network-pill');
+      if (network) network.title = failed ? 'Abgleich fehlgeschlagen' : 'Letzter Abgleich: ' + syncedAt + ' · Wien';
     }
   }
   function feedback(id, message, error = false) {
@@ -268,7 +271,9 @@ function initPortal(cfg) {
     const el = document.getElementById(id);
     if (!el) return;
     const page = data.page || 1, pages = data.pages || 1;
-    patchHTML(el, `<button type="button" class="wto-btn btn-secondary" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>Zurück</button><span>Seite ${page} / ${pages} · ${data.records ?? data.total ?? 0} Einträge</span><button type="button" class="wto-btn btn-secondary" data-page="${page + 1}" ${page >= pages ? 'disabled' : ''}>Weiter</button>`);
+    el.hidden = pages <= 1;
+    if (pages <= 1) { patchHTML(el, ''); return; }
+    patchHTML(el, `<button type="button" class="wto-btn btn-secondary" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>Zurück</button><span>${page} / ${pages} · ${data.records ?? data.total ?? 0} Einträge</span><button type="button" class="wto-btn btn-secondary" data-page="${page + 1}" ${page >= pages ? 'disabled' : ''}>Weiter</button>`);
     el.querySelectorAll('[data-page]').forEach(btn => { btn.onclick = () => navigate(Number(btn.dataset.page)); });
   }
 
@@ -296,6 +301,8 @@ function initPortal(cfg) {
   }
   setInterval(updateClock, 1000);
   updateClock();
+
+  document.getElementById('wto-help-toggle')?.addEventListener('click', () => { document.getElementById('wto-dialog-help').showModal(); });
 
   // --- Header Sound Toggle (Desktop & Mobile) ---
   const soundBtn = document.getElementById('wto-sound-toggle');
@@ -382,11 +389,11 @@ function initPortal(cfg) {
   // --- Network Dot ---
   function setNetworkStatus(online) {
     const dot = document.getElementById('wto-network-dot');
-    const label = document.getElementById('wto-network-text');
-    if (dot && label) {
-      dot.className = 'wto-network-dot' + (online ? '' : ' stale');
+    if (dot) dot.className = 'wto-network-dot' + (online ? '' : ' stale');
+    document.querySelectorAll('[data-network-text]').forEach(label => {
       label.textContent = online ? 'Verbunden' : 'Verbindung getrennt';
-    }
+      label.classList.toggle('is-offline', !online);
+    });
   }
 
   // =========================================================================
@@ -423,7 +430,7 @@ function initPortal(cfg) {
   async function loadOrders() {
     const request = requestIds.orders = (requestIds.orders || 0) + 1;
     const view = state.orderView, page = state.orderPage;
-    feedback('wto-orders-feedback', 'Bestellungen werden aktualisiert …');
+    if (!state.orderData) feedback('wto-orders-feedback', 'Lade Bestellungen …');
     try {
       const data = await read(`orders?view=${view === 'archive' ? 'archive' : 'active'}&page=${page}`);
       if (request !== requestIds.orders || mutations) return;
@@ -433,7 +440,7 @@ function initPortal(cfg) {
       state.orderPage = data.page;
       renderOrdersUI();
       paginate('wto-orders-pagination', data, p => { state.orderPage = p; loadOrders(); });
-      feedback('wto-orders-feedback', view === 'archive' ? 'Archiv · alle Tage · nur Ansicht' : 'Aktive Bestellungen · alle Tage. Spaltenzahlen gelten für alle Seiten; Karten zeigen diese Seite.');
+      feedback('wto-orders-feedback', '');
     } catch (err) {
       if (request !== requestIds.orders) return;
       markChannel('orders', false);
@@ -528,7 +535,7 @@ function initPortal(cfg) {
         ${o.note ? `<p class="wto-card-note"><strong>Hinweis:</strong> ${esc(o.note)}</p>` : ''}
 
         <div class="wto-card-bottom">
-          <span class="wto-card-payment">${esc(o.payment)}</span>
+          <span class="wto-card-payment">${esc(o.payment_display || o.payment)}</span>
           <span class="wto-card-total">${esc(formatMoney(o.total))}</span>
         </div>
 
@@ -694,7 +701,7 @@ function initPortal(cfg) {
         <span>GESAMT:</span>
         <span>${esc(formatMoney(order.total))}</span>
       </div>
-      <div style="font-size:11px;margin-top:2px;">Zahlung: ${esc(order.payment)}</div>
+      <div style="font-size:11px;margin-top:2px;">Zahlung: ${esc(order.payment_display || order.payment)}</div>
       <div class="bon-divider"></div>
       <div class="bon-center" style="font-size:11px;margin-top:8px;">Guten Appetit! ขอบคุณมาก</div>
     `;
@@ -759,7 +766,7 @@ function initPortal(cfg) {
 
   async function loadReservations() {
     const request = requestIds.reservations = (requestIds.reservations || 0) + 1;
-    feedback('wto-res-feedback', 'Reservierungen werden aktualisiert …');
+    if (!state.resData) feedback('wto-res-feedback', 'Lade Reservierungen …');
     try {
       const data = await read(`reservations?view=${state.resFilter}&date=${encodeURIComponent(state.resDate)}&shift=${state.resShift}&page=${state.resPage}`);
       if (request !== requestIds.reservations || mutations) return;
@@ -771,7 +778,7 @@ function initPortal(cfg) {
       document.getElementById('wto-kpi-res-guests').textContent = data.guests ?? '—';
       renderReservationsUI();
       paginate('wto-res-pagination', data, p => { state.resPage = p; loadReservations(); });
-      feedback('wto-res-feedback', data.records ? 'Aktualisiert · stornierte Reservierungen bleiben im Detail sichtbar.' : 'Keine Reservierungen im gewählten Filter.');
+      feedback('wto-res-feedback', '');
     } catch (err) {
       if (request !== requestIds.reservations) return;
       markChannel('reservations', false);
@@ -783,8 +790,8 @@ function initPortal(cfg) {
     const container = document.getElementById('wto-res-list');
     if (!container) return;
 
-    const scope = state.resFilter === 'daily' ? formatDate(state.resDate) + ' · Wien' : state.resFilter === 'pending' ? 'Offene Anfragen · alle Tage' : 'Alle Reservierungen · alle Tage';
-    feedback('wto-res-scope', scope + ' · ' + ({all:'alle Zeiträume',lunch:'Mittag (vor 16 Uhr)',dinner:'Abend (ab 16 Uhr)'}[state.resShift]));
+    const scope = state.resFilter === 'daily' ? formatDate(state.resDate) : state.resFilter === 'pending' ? 'Offene Anfragen · alle Tage' : 'Alle Reservierungen · alle Tage';
+    feedback('wto-res-scope', scope + ' · ' + ({all:'alle Zeiträume',lunch:'Mittag',dinner:'Abend'}[state.resShift]));
     if (!state.resData) {
       document.getElementById('wto-kpi-res-total').textContent = '—';
       document.getElementById('wto-kpi-res-guests').textContent = '—';
@@ -858,15 +865,11 @@ function initPortal(cfg) {
             ${arrived.length > 0
               ? arrived.map(renderReservationCard).join('')
               : '<p class="wto-empty-col">Noch keine Gäste platziert.</p>'}
-            ${cancelled.length > 0 ? `
-              <div style="margin-top:20px;border-top:1px dashed var(--wto-line);padding-top:10px;">
-                <div style="font-size:11px;color:var(--wto-ink-subtle);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Storniert (${cancelled.length})</div>
-                ${cancelled.map(renderReservationCard).join('')}
-              </div>
-            ` : ''}
+
           </div>
         </section>
       </div>
+      ${cancelled.length ? `<details class="wto-cancelled" data-order="cancelled"><summary>Storniert (${cancelled.length})</summary><div class="wto-cancelled-cards">${cancelled.map(renderReservationCard).join('')}</div></details>` : ''}
     `;
 
     patchHTML(container, html);
@@ -888,7 +891,7 @@ function initPortal(cfg) {
 
     return `
       <article class="wto-res-card status-${esc(r.status)}" data-id="${esc(r.id)}" data-version="${esc(r.version)}">
-        <p class="wto-res-date">${esc(formatDate(r.date))} · Wien</p>
+        <p class="wto-res-date">${esc(formatDate(r.date))}</p>
         <div class="wto-res-top">
           <span class="wto-res-time" style="display:inline-flex;align-items:center;gap:6px;">
             🕒 <strong>${esc(r.time)} Uhr</strong> ${shiftBadge}
@@ -915,9 +918,7 @@ function initPortal(cfg) {
               <button type="button" class="wto-btn btn-primary btn-res-action" data-action="arrived" data-id="${esc(r.id)}" style="height:32px;padding:0 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg, #d4af37, #b8860b);color:#141210;">🍽️ Gast da</button>
               <button type="button" class="wto-btn btn-danger btn-res-action" data-action="cancelled" data-id="${esc(r.id)}" aria-label="Reservierung stornieren" style="height:32px;padding:0 8px;font-size:11px;">Storno</button>
             ` : ''}
-            ${r.status === 'arrived' ? `
-              <button type="button" class="wto-btn btn-secondary btn-res-action" data-action="confirmed" data-id="${esc(r.id)}" style="height:32px;padding:0 8px;font-size:11px;" title="Zurück zu Erwartet" aria-label="Zurück zu Erwartet">↩</button>
-            ` : ''}
+
           </div>
         </div>
       </article>
@@ -1120,7 +1121,7 @@ function initPortal(cfg) {
       feedback('wto-daily-totals', Object.entries(data.currencies || {}).map(([c, v]) => `Bestellwert ${minorMoney(v.gross_minor, c)} − Erstattungen ${minorMoney(v.refund_minor, c)} = ${minorMoney(v.net_minor, c)}`).join(' · ') + ` · ${data.orders.excluded} storniert / fehlgeschlagen (nicht eingerechnet)`);
       patchHTML(document.getElementById('wto-daily-orders'), (data.items || []).map(o => `<details class="wto-daily-order" data-order="${esc(o.id)}"><summary><strong>#${esc(o.number)}</strong> · ${esc(formatDate(o.created, true))} · ${esc(statusNames[o.status] || o.status)} · ${esc(minorMoney(o.net_minor, o.currency))}</summary><p>Bestellwert: ${esc(minorMoney(o.gross_minor, o.currency))} · Erstattung: ${esc(minorMoney(o.refund_minor, o.currency))} · ${o.included ? 'Eingerechnet' : 'Nicht eingerechnet'}</p>${renderOrderCard(o, true)}</details>`).join('') || '<p class="wto-empty-col">Keine Bestellungen an diesem Tag.</p>');
       paginate('wto-daily-pagination', data, p => { state.dailyPage = p; loadDaily(); });
-      feedback('wto-daily-feedback', 'Aktualisiert · Details per Klick oder Tastatur öffnen.');
+      feedback('wto-daily-feedback', '');
     } catch (err) {
       if (request !== requestIds.daily) return;
       markChannel('daily', false);

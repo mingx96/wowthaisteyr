@@ -49,6 +49,12 @@ $og_image   = $seo_meta['og_image'] ?? ($theme_uri . '/assets/img/hero.jpg');
   <link rel="preload" as="image" href="<?php echo esc_url($theme_uri . '/assets/img/hero.jpg'); ?>" fetchpriority="high">
   <?php endif; ?>
   <?php wp_head(); ?>
+  <?php if (!get_option('site_icon')): ?>
+  <!-- Use the existing brand when WordPress.com supplies its default icon. -->
+  <link rel="icon" type="image/png" sizes="32x32" href="<?php echo esc_url($theme_uri . '/assets/img/logo-sm.png'); ?>">
+  <link rel="icon" type="image/png" sizes="192x192" href="<?php echo esc_url($theme_uri . '/assets/img/logo-sm.png'); ?>">
+  <link rel="apple-touch-icon" href="<?php echo esc_url($theme_uri . '/assets/img/logo-sm.png'); ?>">
+  <?php endif; ?>
 </head>
 <body <?php body_class(); ?>>
 <?php wp_body_open(); ?>

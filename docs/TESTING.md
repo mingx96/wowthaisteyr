@@ -61,3 +61,19 @@ that the live plugin has those exact bytes. Before calling a live release
 verified, inspect authenticated `wowthai-portal/v1/{summary,orders,reservations,daily}`
 responses and staff UI, preserve current order/version behavior, and record the
 runtime source/asset fingerprint separately from CI or merge status.
+
+## Full Operations roundtrip fixture
+
+`wp eval-file wp-content/themes/wowthai/dev/tests/portal-roundtrip.integration.php`
+requires the **full inspected Operations plugin**, its schema and hooks in the
+same disposable setup above. It additionally checks `WP_HTTP_BLOCK_EXTERNAL`.
+Suppress outbound email before activation/testing. Run separately in legacy and
+HPOS modes. It makes synthetic REST writes, reads real stored values back,
+checks concurrency conflicts and validates prep choices; it cleans its own
+orders/reservations and restores the prep option. Contact/audit fixtures may
+remain in this disposable database. Never run this on the restaurant database.
+
+The browser suite also checks compact pagination, shared help, mobile failure
+labels, cash display and cancelled-history reachability at 390×667, including
+polling disclosure/focus preservation. These are synthetic fixtures, not live
+staff acceptance. See [portal-data-flow.md](portal-data-flow.md) for boundaries.

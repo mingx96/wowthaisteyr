@@ -55,6 +55,10 @@ function wowthai_portal_order_row($order): array {
     $row['created'] = $order->get_date_created() ? $order->get_date_created()->format(DATE_ATOM) : '';
     $row['created_ts'] = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0;
     $row['currency'] = $order->get_currency();
+    // WC processing/completed can be is_paid() even for COD. Name the method,
+    // without turning that order status into a claim that cash was collected.
+    $cash = in_array(strtolower((string)$order->get_payment_method()), ['cod', 'bar', 'cash', 'barzahlung'], true);
+    $row['payment_display'] = $cash ? 'Barzahlung vor Ort' : (string)($row['payment'] ?? $order->get_payment_method_title());
     $row['gross_minor'] = (int)round((float)$order->get_total() * 100);
     $row['refund_minor'] = (int)round((float)$order->get_total_refunded() * 100);
     $row['included'] = !in_array($row['status'], ['cancelled', 'failed'], true);

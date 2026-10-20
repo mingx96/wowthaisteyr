@@ -1,5 +1,15 @@
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
+## Compact portal / favicon follow-up — 2026-10-20T09:18:00Z
+
+- Task ID: `notion:3fe9ccae-c10f-811c-aa0f-f561d4c47a8f`. Owner Codex in the same repair chat; user confirms prior release works and requests favicon, compact staff layout and data-flow verification. Scope/release via existing GitHub → WordPress.com Deployments recorded in that task, status in progress. No competing owner/open overlapping PR found; prior worktree WIP preserved.
+- Base main `ee0857cf47ee86380b5302549e967bcb0663cc6d`; isolated branch `fix/compact-portal-favicon-20261020`, v1.4.4. Scoped source/tests/docs currently uncommitted; subsequent branch/PR HEAD is authoritative.
+- Changes: brand favicon fallback after platform defaults when no native site icon; smaller desktop toolbar/buttons, conditional compact pagination, shared on-demand help, readable booking counts, separate cancelled history. Mobile retains 44px targets. Connection failures now reach mobile settings too. Unsupported arrived→confirmed button removed to match inspected Operations API. Additive `payment_display` avoids calling COD money collected; no financial flags or plugin mutations.
+- Verification: `node dev/verify.mjs` G1–G11 and `node dev/build.mjs` PASS using native PHP8.2.34/Node24. Actual-template Playwright1440/390/768 PASS; added 390×667 cancelled-history regression reproduced overflow before fix then passed. Independent review found that clipping issue; outer history scrolling fixed, final re-review approved with no remaining blockers. Full inspected Operations1.0.2 in isolated WordPress7.1.3/Woo11.2.1:26 REST/database roundtrip assertions PASS each legacy/HPOS; read reconciliation14 each PASS; final HPOS and legacy reruns PASS. Synthetic data only, HTTP/mail blocked; no production writes or database sync.
+- Live evidence at start: native site_icon0; public homepage platform icon vs portal brand icon; supported WordPress settings/plugin reads work. No authenticated production staff API/browser or direct SQL session is available. Tests prove the inspected fixture contract, not live plugin byte equality or cash collection. User screenshots are prior1.4.3 staff acceptance, not1.4.4 acceptance.
+- Next: final review and exact-head CI, merge scoped repair under existing authorization, observe actual rendered asset URLs/favicon on live and anonymous API protection; save runtime evidence in same Notion task. Rollback is scoped theme revert to base; never restore/sync a database.
+- Notion follow-up scope saved/read back at start; test evidence sync prepared; PR/runtime evidence follows in the same task. Details: docs/portal-data-flow.md and docs/TESTING.md.
+
 ## Live release/cache observation — 2026-10-19T22:35:00Z
 
 - Same Task ID: `notion:3fe9ccae-c10f-811c-aa0f-f561d4c47a8f`. Source PR7/f63c9dc merged to main797139e; exact-head and main CI/publish-artifact jobs passed. The scoped release was authorized by the user.
