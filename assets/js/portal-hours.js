@@ -21,7 +21,10 @@ document.addEventListener('DOMContentLoaded', () => {
     error.textContent = text; error.hidden = !text;
     if (field) {
       field.setAttribute('aria-invalid', 'true');
-      if (focus) field.focus({preventScroll:false});
+      if (focus) {
+        tab('exceptions');
+        field.focus({preventScroll:false});
+      }
     }
     return text;
   }

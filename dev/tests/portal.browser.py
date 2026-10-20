@@ -98,6 +98,7 @@ try:
       assert len(menu.locator('.wto-portal-nav').evaluate('(el)=>getComputedStyle(el).gridTemplateColumns.split(" ")'))==1, 'menu areas must use one compact scan column'
       assert menu.locator('.wto-command-panel').bounding_box()['width'] <= 380, 'desktop command menu must stay compact'
       expect(menu.get_by_role('link',name='Abmelden ⎋')).to_be_visible()
+      assert menu.get_by_role('link',name='Abmelden ⎋').bounding_box()['height'] >= 44, 'logout must remain a 44px touch target'
       expect(page.locator('#wto-network-dot')).to_be_visible()
       page.keyboard.press('Escape')
       expect(menu).not_to_have_attribute('open','')
@@ -304,7 +305,9 @@ try:
       expect(end).to_have_attribute('aria-invalid','true')
       expect(page.locator('#wto-hours-date-error')).to_be_visible()
       expect(page.locator('#wto-hours-date-error')).to_contain_text('Enddatum darf nicht vor dem Startdatum liegen')
+      page.locator('#wto-hours-tab-preview').click()
       before=len(flags['hours_posts']); page.locator('#wto-hours-check').click()
+      expect(page.locator('#wto-hours-tab-exceptions')).to_have_attribute('aria-selected','true')
       expect(end).to_be_focused()
       assert len(flags['hours_posts'])==before, 'invalid date range must not reach the preview API'
       end.fill('2026-12-25'); end.press('Tab')

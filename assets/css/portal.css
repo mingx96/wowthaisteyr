@@ -1825,6 +1825,7 @@ dialog.wto-modal::backdrop {
 .wto-btn-sound::before { width: 8px; height: 8px; border-radius: 50%; background: var(--wto-green); box-shadow: 0 0 0 3px var(--wto-green-bg); content: ''; }
 .wto-btn-sound.sound-off::before { background: var(--wto-ink-subtle); box-shadow: none; }
 .wto-command-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 8px 4px; }
+.wto-command-footer .wto-btn-logout { display: inline-flex; min-height: 44px; align-items: center; }
 .wto-command-user { min-width: 0; overflow: hidden; color: var(--wto-ink-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .wto-command-header .wto-network-pill { display: flex; margin-left: auto; }
 .wto-global-alerts, .wto-queue-badge { display: flex; align-items: center; gap: 6px; }
