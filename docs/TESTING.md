@@ -77,3 +77,10 @@ The browser suite also checks compact pagination, shared help, mobile failure
 labels, cash display and cancelled-history reachability at 390×667, including
 polling disclosure/focus preservation. These are synthetic fixtures, not live
 staff acceptance. See [portal-data-flow.md](portal-data-flow.md) for boundaries.
+
+The single-dropdown follow-up keeps native disclosure semantics and tests Enter,
+Tab exit, Escape/focus return, outside dismissal, current archive labeling,
+viewport-bounded scrolling, visible mobile logout/network state, mobile column
+selection, reservation dialog access, and the relocated CRM filter. The suite
+includes 320px phones as well as 390/768/1440px and the short-phone history case.
+These tests intercept APIs; they do not authenticate to production.

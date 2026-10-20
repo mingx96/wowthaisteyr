@@ -26,7 +26,7 @@ add_action('after_setup_theme', 'wowthai_theme_setup');
 // 2. Enqueue Styles & Scripts
 function wowthai_enqueue_scripts() {
     $theme_uri = get_template_directory_uri();
-    $version = '1.4.4';
+    $version = '1.4.5';
 
     // Fonts & Base Styles
     wp_enqueue_style('wowthai-fonts', $theme_uri . '/assets/css/fonts.css', [], $version);
