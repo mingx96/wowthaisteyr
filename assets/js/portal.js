@@ -302,11 +302,38 @@ function initPortal(cfg) {
   setInterval(updateClock, 1000);
   updateClock();
 
-  document.getElementById('wto-help-toggle')?.addEventListener('click', () => { document.getElementById('wto-dialog-help').showModal(); });
+  // Native disclosure keeps one tab stop for all navigation/options.
+  const commandMenu = document.getElementById('wto-command-menu');
+  const commandTrigger = commandMenu.querySelector('summary');
+  function closeCommandMenu(restoreFocus = false) {
+    commandMenu.open = false;
+    if (restoreFocus) commandTrigger.focus({preventScroll: true});
+  }
+  document.addEventListener('pointerdown', event => {
+    if (commandMenu.open && !commandMenu.contains(event.target)) closeCommandMenu();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && commandMenu.open) {
+      event.preventDefault(); closeCommandMenu(true);
+    }
+  });
+  commandMenu.addEventListener('focusout', event => {
+    if (commandMenu.open && event.relatedTarget && !commandMenu.contains(event.relatedTarget)) closeCommandMenu();
+  });
+  commandMenu.querySelectorAll('.wto-orders-switch button, .wto-res-filters button, .wto-shift-btn, .wto-mcol-btn').forEach(button => {
+    button.addEventListener('click', () => closeCommandMenu(true));
+  });
+  function updateCommandLabel() {
+    const titles = {orders: 'Bestellungen', reservations: 'Reservierungen', customers: 'Kunden & CRM', stats: 'Tagesübersicht'};
+    document.getElementById('wto-current-section').textContent = titles[state.activeTab] + (state.activeTab === 'orders' && state.orderView === 'archive' ? ' · Archiv' : '');
+    commandMenu.querySelectorAll('[data-menu-section]').forEach(section => { section.hidden = section.dataset.menuSection !== state.activeTab; });
+  }
+  document.getElementById('wto-help-toggle')?.addEventListener('click', () => {
+    closeCommandMenu(true); document.getElementById('wto-dialog-help').showModal();
+  });
 
   // --- Header Sound Toggle (Desktop & Mobile) ---
   const soundBtn = document.getElementById('wto-sound-toggle');
-  const soundBtnM = document.getElementById('wto-sound-toggle-m');
   function toggleSound() {
     state.soundOn = !state.soundOn;
     localStorage.setItem('wto_sound', state.soundOn ? 'on' : 'off');
@@ -314,7 +341,6 @@ function initPortal(cfg) {
     if (state.soundOn) playChime();
   }
   if (soundBtn) soundBtn.addEventListener('click', toggleSound);
-  if (soundBtnM) soundBtnM.addEventListener('click', toggleSound);
 
   function updateSoundBtn() {
     const text = state.soundOn ? '🔔 Signal: AN' : '🔕 Signal: AUS';
@@ -323,19 +349,13 @@ function initPortal(cfg) {
       soundBtn.className = cls;
       soundBtn.innerHTML = text;
     }
-    if (soundBtnM) {
-      soundBtnM.className = cls;
-      soundBtnM.innerHTML = text;
-    }
   }
   updateSoundBtn();
 
   // --- Kitchen Prep Time Dropdown (Desktop & Mobile) ---
   const prepSelect = document.getElementById('wto-kitchen-prep-select');
-  const prepSelectM = document.getElementById('wto-kitchen-prep-select-m');
   async function handlePrepChange(val) {
     if (prepSelect) prepSelect.value = val;
-    if (prepSelectM) prepSelectM.value = val;
     try {
       await api('prep', { method: 'POST', body: { prep: val } });
       showToast(`Küchenzeit auf ${val} gesetzt.`);
@@ -344,16 +364,6 @@ function initPortal(cfg) {
     }
   }
   if (prepSelect) prepSelect.addEventListener('change', () => handlePrepChange(prepSelect.value));
-  if (prepSelectM) prepSelectM.addEventListener('change', () => handlePrepChange(prepSelectM.value));
-
-  // --- Mobile Quick Settings Dialog ---
-  const btnMobileSettings = document.getElementById('wto-btn-mobile-settings');
-  const dialogMobileSettings = document.getElementById('wto-dialog-mobile-settings');
-  if (btnMobileSettings && dialogMobileSettings) {
-    btnMobileSettings.addEventListener('click', () => {
-      dialogMobileSettings.showModal();
-    });
-  }
 
   // --- Navigation Tabs ---
   document.querySelectorAll('.wto-nav-tab').forEach(tabBtn => {
@@ -371,6 +381,7 @@ function initPortal(cfg) {
     document.querySelectorAll('.wto-view').forEach(v => {
       v.classList.toggle('active', v.id === `wto-view-${tabId}`);
     });
+    updateCommandLabel(); closeCommandMenu(true);
     loadTabData();
   }
 
@@ -449,6 +460,7 @@ function initPortal(cfg) {
   }
 
   function renderOrdersUI() {
+    updateCommandLabel();
     const archive = state.orderView === 'archive';
     document.getElementById('wto-kanban-board').hidden = archive;
     document.getElementById('wto-orders-col-switcher').hidden = archive;
@@ -790,12 +802,14 @@ function initPortal(cfg) {
     const container = document.getElementById('wto-res-list');
     if (!container) return;
 
-    const scope = state.resFilter === 'daily' ? formatDate(state.resDate) : state.resFilter === 'pending' ? 'Offene Anfragen · alle Tage' : 'Alle Reservierungen · alle Tage';
+    const scope = state.resFilter === 'daily' ? formatDate(state.resDate) : state.resFilter === 'pending' ? 'Offen · alle Tage' : 'Alle Reservierungen · alle Tage';
     feedback('wto-res-scope', scope + ' · ' + ({all:'alle Zeiträume',lunch:'Mittag',dinner:'Abend'}[state.resShift]));
     if (!state.resData) {
       document.getElementById('wto-kpi-res-total').textContent = '—';
       document.getElementById('wto-kpi-res-guests').textContent = '—';
     }
+    document.querySelector('.wto-res-nav').hidden = state.resFilter !== 'daily';
+    document.getElementById('wto-res-scope').hidden = state.resFilter === 'daily' && state.resShift === 'all';
     const list = state.reservations;
     const pending = list.filter(r => r.status === 'pending');
     const confirmed = list.filter(r => r.status === 'confirmed');
@@ -878,9 +892,9 @@ function initPortal(cfg) {
 
   function renderReservationCard(r) {
     const statusLabels = {
-      pending: 'Anfrage (Neu)',
+      pending: 'Neu',
       confirmed: 'Bestätigt',
-      arrived: 'Gast da (Platziert)',
+      arrived: 'Im Haus',
       cancelled: 'Storniert'
     };
 
@@ -899,13 +913,13 @@ function initPortal(cfg) {
           <span class="wto-res-party">👥 <strong>${esc(r.party)}</strong> Pers.</span>
         </div>
 
-        <div class="wto-res-guest" style="margin:10px 0 6px;">
+        <div class="wto-res-guest" style="margin:0;">
           <strong style="font-size:15px;color:var(--wto-ink);">${esc(r.name)}</strong>
           ${r.phone ? `<div style="margin-top:4px;"><a href="tel:${esc(r.phone)}" style="color:var(--wto-gold);text-decoration:none;font-weight:600;">📞 ${esc(r.phone)}</a></div>` : ''}
           ${r.email ? `<div style="font-size:11px;color:var(--wto-ink-subtle);margin-top:2px;">✉️ ${esc(r.email)}</div>` : ''}
         </div>
 
-        ${r.notes ? `<p class="wto-card-note" style="background:rgba(217,172,54,0.1);border-left:3px solid var(--wto-gold);color:var(--wto-gold-bright);margin:8px 0;padding:6px 10px;border-radius:4px;font-size:12px;"><strong>Notiz:</strong> ${esc(r.notes)}</p>` : ''}
+        ${r.notes ? `<p class="wto-card-note" style="background:rgba(217,172,54,0.1);border-left:3px solid var(--wto-gold);color:var(--wto-gold-bright);margin:4px 0;padding:6px 10px;border-radius:4px;font-size:12px;"><strong>Notiz:</strong> ${esc(r.notes)}</p>` : ''}
 
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:auto;border-top:1px solid var(--wto-line);padding-top:10px;gap:8px;">
           <span class="wto-res-badge badge-${esc(r.status)}">${esc(statusLabels[r.status] || r.status)}</span>
@@ -1077,13 +1091,16 @@ function initPortal(cfg) {
       markChannel('summary', true);
       const pill = document.getElementById('wto-opening-status');
       pill.className = 'wto-status-pill ' + (stats.is_open === null ? 'unknown' : stats.is_open ? 'open' : 'closed');
-      pill.textContent = stats.is_open === null ? 'Küchenstatus unbekannt' : stats.is_open ? 'Küche geöffnet' : 'Küche geschlossen / Pause';
+      pill.textContent = stats.is_open === null ? 'Küchenstatus unbekannt' : stats.is_open ? 'Küche geöffnet' : 'Küche geschlossen';
       for (const [id, count] of [['wto-badge-res', stats.pending_reservations], ['wto-badge-orders', stats.new_orders]]) {
         const badge = document.getElementById(id);
         badge.textContent = count;
         badge.style.display = count > 0 ? 'inline-flex' : 'none';
         badge.classList.toggle('urgent', count > 0);
         badge.title = 'Offen · alle Tage';
+        const queue = badge.closest('.wto-queue-badge');
+        queue.hidden = !(count > 0);
+        queue.setAttribute('aria-label', `${count} ${id === 'wto-badge-res' ? 'offene Reservierungen' : 'neue Bestellungen'} · alle Tage`);
       }
       feedback('wto-daily-backlog', `${stats.backlog_orders} aktive Bestellungen aus früheren Tagen · ${stats.active_orders} aktive Bestellungen insgesamt. Im Küchenboard prüfen.`);
     } catch (err) {

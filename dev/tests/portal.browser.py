@@ -21,7 +21,7 @@ RES={'id':1,'date':'2026-10-24','time':'12:00','party':2,'status':'pending','nam
 try:
   with sync_playwright() as p:
     browser=p.chromium.launch(headless=True)
-    for width,height in [(1440,1000),(390,844),(768,1024)]:
+    for width,height in [(1440,1000),(390,844),(768,1024),(320,667)]:
       page=browser.new_page(viewport={'width':width,'height':height})
       page.clock.install(time=datetime(2026,10,19,19,30,tzinfo=timezone.utc))
       flags={'open':False,'fail':False,'archive_empty':False,'note':'','posts':0,'new_ids':[],'daily_note':'','daily_fail':False,'res_status':'pending','mixed_res':False}
@@ -57,6 +57,29 @@ try:
         r.fulfill(status=200,content_type='application/json',body=json.dumps(data))
       page.route('**/api/**',route)
       page.goto(f'http://127.0.0.1:{server.server_port}/fixture')
+      menu=page.locator('#wto-command-menu')
+      expect(menu).to_have_count(1)
+      trigger=menu.locator('summary')
+      expect(menu.locator('.wto-portal-nav')).not_to_be_visible()
+      trigger.focus(); trigger.press('Enter')
+      expect(menu.locator('.wto-portal-nav')).to_be_visible()
+      expect(menu.get_by_role('link',name='Abmelden ⎋')).to_be_visible()
+      expect(page.locator('#wto-network-dot')).to_be_visible()
+      page.keyboard.press('Escape')
+      expect(menu).not_to_have_attribute('open','')
+      expect(trigger).to_be_focused()
+      trigger.press('Enter')
+      for _ in range(25):
+        page.keyboard.press('Tab')
+        if not menu.evaluate('(el)=>el.open'): break
+      expect(menu).not_to_have_attribute('open','')
+      def menu_click(selector):
+        if not menu.evaluate('(el)=>el.open'): trigger.click()
+        page.locator(selector).click()
+        if menu.evaluate('(el)=>el.open'): trigger.click()
+      trigger.click()
+      page.locator('#wto-kanban-board').click(position={'x':5,'y':5})
+      expect(menu).not_to_have_attribute('open','')
       assert hashlib.sha256((ROOT/'assets/js/portal.js').read_bytes()).hexdigest()[:12] in page.locator('script[src*="portal.js"]').get_attribute('src'), 'portal URL must change when its bytes change; version alone can retain stale CDN assets'
       assert hashlib.sha256((ROOT/'assets/css/portal.css').read_bytes()).hexdigest()[:12] in page.locator('link[href*="portal.css"]').get_attribute('href'), 'portal CSS must carry its content fingerprint'
       expect(page.locator('#wto-opening-status')).to_contain_text('geschlossen')
@@ -67,13 +90,13 @@ try:
       expect(page.locator('#wto-orders-pagination')).not_to_be_visible()
       expect(page.locator('#wto-orders-feedback')).to_be_empty()
       if width >= 1024:
-        assert page.locator('#wto-kanban-board').bounding_box()['height'] >= height * .70, 'daily controls must leave enough space for orders'
-      page.get_by_role('button',name='Hilfe',exact=True).click()
+        assert page.locator('#wto-kanban-board').bounding_box()['height'] >= height * .86, 'daily controls must leave enough space for orders'
+      menu_click('#wto-help-toggle')
       expect(page.locator('#wto-dialog-help')).to_be_visible()
       expect(page.locator('#wto-dialog-help')).to_contain_text('Zeiträume')
       page.locator('#wto-dialog-help').get_by_role('button',name='Hilfe schließen').click()
 
-      page.locator('[data-view="archive"]').click()
+      menu_click('[data-view="archive"]')
       expect(page.locator('#wto-archive-list')).to_be_visible()
       expect(page.locator('#wto-kanban-board')).not_to_be_visible()
       expect(page.locator('#wto-orders-col-switcher')).not_to_be_visible()
@@ -87,9 +110,17 @@ try:
       expect(page.locator('#wto-badge-res')).to_have_text('60')
       flags['archive_empty']=True; page.clock.run_for(12000)
       expect(page.locator('#wto-archive-list')).to_contain_text('Keine archivierten')
-      page.locator('[data-tab="reservations"]').click()
+      menu_click('[data-tab="reservations"]')
       expect(page.locator('#wto-res-pagination')).not_to_be_visible()
-      page.locator('.wto-res-filters [data-view="pending"]').click()
+      page.locator('#wto-btn-new-reservation').click()
+      expect(page.locator('#wto-dialog-new-res')).to_be_visible()
+      page.locator('#wto-dialog-new-res .wto-btn-close').click()
+      if width <= 768:
+        menu_click('#wto-res-col-switcher [data-col="prep"]')
+        expect(page.locator('.wto-res-kanban-board .col-prep')).to_be_visible()
+        expect(page.locator('.wto-res-kanban-board .col-new')).not_to_be_visible()
+        menu_click('#wto-res-col-switcher [data-col="new"]')
+      menu_click('.wto-res-filters [data-view="pending"]')
       expect(page.locator('#wto-res-date-input')).to_be_disabled()
       expect(page.locator('#wto-res-scope')).to_contain_text('alle Tage')
       expect(page.locator('.wto-res-date').first).to_contain_text('24.10.2026')
@@ -103,12 +134,18 @@ try:
       page.clock.run_for(12000)
       expect(page.locator('.btn-res-action[data-action="confirmed"]').first).to_be_focused()
       assert page.locator('#wto-res-list .wto-cards-scroll').first.evaluate('(el)=>el.scrollTop')>=80
-      page.locator('[data-shift="dinner"]').click()
+      menu_click('[data-shift="dinner"]')
       expect(page.locator('#wto-kpi-res-total')).to_have_text('0')
       expect(page.locator('#wto-m-res-new')).to_have_text('0')
       expect(page.locator('#wto-badge-res')).to_have_text('60')
+      menu_click('[data-tab="customers"]')
+      trigger.click()
+      expect(menu.locator('#wto-cust-consent')).to_be_visible()
+      menu.locator('#wto-cust-consent').select_option('eligible')
+      trigger.click()
+      expect(page.locator('#wto-cust-search')).to_be_visible()
       flags['daily_fail']=True
-      page.locator('[data-tab="stats"]').click()
+      menu_click('[data-tab="stats"]')
       expect(page.locator('#wto-daily-feedback')).to_contain_text('nicht geladen')
       expect(page.locator('#wto-stat-revenue-today')).to_have_text('—')
       flags['daily_fail']=False; page.clock.run_for(12000)
@@ -132,29 +169,37 @@ try:
       expect(page.locator('#wto-opening-status')).to_contain_text('unbekannt')
       expect(page.locator('#wto-sync-status')).to_contain_text('veraltet')
       if width <= 768:
-        page.locator('#wto-btn-mobile-settings').click()
-        expect(page.locator('#wto-dialog-mobile-settings [data-network-text]')).to_contain_text('getrennt')
-        page.locator('#wto-dialog-mobile-settings .wto-btn-close').click()
+        trigger.click()
+        expect(menu.locator('[data-network-text]')).to_contain_text('getrennt')
+        trigger.click()
       flags['fail']=False; page.clock.run_for(12000)
       expect(page.locator('#wto-opening-status')).to_contain_text('geöffnet')
       assert flags['posts']==0,'read-only navigation/polling must not mutate anything'
       assert not errors,errors
       assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth'), 'horizontal overflow'
-      page.locator('[data-tab="reservations"]').click()
-      page.locator('[data-shift="all"]').click()
+      menu_click('[data-tab="reservations"]')
+      menu_click('[data-shift="all"]')
       expect(page.locator('#wto-kpi-res-total')).to_have_text('60')
       expect(page.locator('.wto-res-card').first).to_contain_text('Fixture reservation')
       folder=Path(os.environ.get('PORTAL_TEST_ARTIFACTS',str(Path(tempfile.gettempdir())/'wowthai-portal-artifacts')));folder.mkdir(parents=True,exist_ok=True)
+      assert page.locator('#wto-res-list').bounding_box()['height'] >= page.viewport_size['height'] * .70, 'booking controls must leave most of the viewport for reservations'
       page.screenshot(path=str(folder/f'reservations-{width}.png'))
-      page.locator('[data-tab="orders"]').click()
-      page.locator('[data-view="kanban"]').click()
+      trigger.click()
+      panel=menu.locator('.wto-command-panel')
+      box=panel.bounding_box()
+      assert box['x'] >= 0 and box['x']+box['width'] <= width+1, 'dropdown must fit the viewport'
+      assert box['y']+box['height'] <= page.viewport_size['height']+1, 'dropdown must scroll within short screens'
+      page.screenshot(path=str(folder/f'menu-{width}.png'))
+      trigger.click()
+      menu_click('[data-tab="orders"]')
+      menu_click('[data-view="kanban"]')
       expect(page.locator('.btn-order-accept')).to_have_count(2)
       expect(page.locator('#wto-orders-pagination')).not_to_be_visible()
       page.screenshot(path=str(folder/f'orders-{width}.png'))
       # Cancelled rows are separate from guests in-house and remain reachable on short screens.
       flags['mixed_res']=True
-      page.locator('[data-tab="reservations"]').click()
-      page.locator('.wto-res-filters [data-view="all"]').click()
+      menu_click('[data-tab="reservations"]')
+      menu_click('.wto-res-filters [data-view="all"]')
       expect(page.locator('.wto-cancelled')).to_be_visible()
       expect(page.locator('.col-ready .wto-res-card')).to_have_count(1)
       expect(page.locator('.col-ready .btn-res-action')).to_have_count(0)
