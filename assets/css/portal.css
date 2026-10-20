@@ -1714,3 +1714,80 @@ dialog.wto-modal::backdrop {
 @media (prefers-reduced-motion: reduce) {
   #wto-portal-app *, #wto-portal-app *::before, #wto-portal-app *::after { animation: none !important; transition: none !important; }
 }
+
+/* Compact daily workspace. Keep instructions in the shared Help dialog. */
+.wto-portal-header { height: 56px; padding-inline: 16px; gap: 10px; }
+.wto-header-center { gap: 8px; }
+.wto-brand-mini { width: 34px; height: 34px; font-size: 18px; }
+.wto-brand-text strong { font-size: 16px; }
+.wto-brand-text span { font-size: 10px; }
+.wto-clock-pill, .wto-status-pill { padding: 5px 9px; font-size: 12px; }
+.wto-portal-nav { height: 44px; gap: 6px; padding-inline: 16px; }
+.wto-nav-tab { height: 34px; padding-inline: 12px; }
+.wto-orders-toolbar { height: 46px; min-height: 46px; padding: 4px 12px; }
+.wto-orders-switch button, .wto-res-filters button, .wto-shift-btn { min-height: 34px; padding: 5px 10px; white-space: nowrap; }
+.wto-help-toggle { color: var(--wto-ink-muted); background: transparent; border: 1px solid var(--wto-line-light); border-radius: 6px; min-height: 34px; padding: 5px 10px; cursor: pointer; }
+.wto-help-dialog { max-width: 650px; }
+.wto-help-body { padding: 0 20px 20px; line-height: 1.6; color: var(--wto-ink-muted); }
+.wto-help-body h3 { color: var(--wto-ink); margin: 18px 0 5px; }
+.wto-help-body p { margin: 0; }
+.wto-help-dialog .wto-modal-head h2 { margin: 0; font-size: 18px; }
+#wto-sync-status:empty, .wto-pagination:empty { display: none; }
+.wto-data-status { padding: 5px 12px; }
+.wto-kanban-board, .wto-res-kanban-board { padding: 10px 12px; gap: 12px; min-height: 0; }
+.wto-col-head { padding: 10px 12px; }
+.wto-cards-scroll { padding: 10px; gap: 10px; min-height: 0; scrollbar-width: thin; }
+.wto-order-card { padding: 12px; gap: 8px; }
+.wto-empty-col { padding: 24px 12px; }
+.wto-btn { flex: 0 0 auto; height: 36px; }
+.wto-card-actions .wto-btn { flex: 1 1 auto; min-height: 44px; }
+.wto-res-card .wto-btn { min-height: 36px; }
+.wto-pagination { padding: 4px 12px; gap: 12px; }
+.wto-pagination .wto-btn { min-height: 34px; height: 34px; padding-inline: 12px; }
+.wto-res-toolbar { height: auto; min-height: 48px; padding: 6px 12px; gap: 12px; flex-wrap: wrap; }
+.wto-res-nav { flex-wrap: wrap; gap: 8px; }
+.wto-res-kpis { gap: 12px; white-space: nowrap; }
+.wto-res-shift-filters { margin-left: 0 !important; }
+.wto-res-date-picker { padding: 4px 8px; font-size: 12px; min-height: 34px; }
+.wto-res-date-picker input { width: 124px; min-width: 0; }
+.wto-res-kanban-board .wto-col-count { width: auto; height: auto; min-width: 48px; padding: 3px 7px; border-radius: 6px; white-space: nowrap; font-size: 12px; }
+.wto-res-card { padding: 12px; }
+.wto-res-date { margin-bottom: 2px; font-size: 12px; }
+.wto-cancelled { flex: 0 0 auto; margin: 0 12px 6px; color: var(--wto-ink-muted); }
+.wto-cancelled > summary { cursor: pointer; min-height: 34px; padding: 6px; }
+.wto-cancelled-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px; max-height: 35vh; overflow: auto; padding: 6px; }
+@media (max-width: 1100px) and (min-width: 769px) {
+  .wto-desktop-staff { display: none; }
+  .wto-header-brand .wto-brand-text span { display: none; }
+  .wto-portal-header { gap: 6px; padding-inline: 12px; }
+  .wto-header-center { gap: 6px; }
+}
+@media (max-width: 768px) {
+  .wto-portal-header { height: auto; padding: 6px 10px; gap: 6px; }
+  .wto-header-center { gap: 6px; }
+  .wto-brand-mini { width: 28px; height: 28px; }
+  .wto-portal-nav { min-height: 44px; padding-inline: 8px; }
+  .wto-nav-tab { min-height: 44px; padding-inline: 10px; }
+  .wto-help-toggle { min-width: 44px; min-height: 44px; padding: 4px 8px; }
+  .wto-header-actions { gap: 8px; }
+  .wto-orders-toolbar { padding: 3px 10px; }
+  .wto-orders-switch { width: auto; align-self: flex-start; }
+  .wto-orders-switch button { padding: 5px 12px; }
+  .wto-res-toolbar { padding: 5px 10px; gap: 5px; }
+  .wto-res-nav { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 8px; }
+  .wto-res-filters { width: auto; min-width: 0; }
+  .wto-res-filters button { padding-inline: 6px; }
+  .wto-res-date-picker { width: auto; gap: 5px; padding: 4px 6px; }
+  .wto-res-date-picker input { width: 118px; font-size: 12px; }
+  .wto-res-shift-filters { grid-column: 1 / -1; gap: 8px !important; width: auto; }
+  .wto-res-kpis { gap: 8px; font-size: 12px; padding-top: 0; flex-wrap: wrap; }
+  .wto-kpi-item strong { font-size: 14px; }
+  #wto-btn-new-reservation { width: auto; min-height: 44px; height: 44px !important; margin-left: auto; }
+  .wto-res-filters button, .wto-shift-btn, .wto-orders-switch button, .wto-btn { min-height: 44px; }
+  .wto-res-card .wto-btn, .wto-pagination .wto-btn { min-height: 44px; }
+  .wto-mobile-col-switcher { padding: 4px 10px; }
+  .wto-res-kanban-board .wto-col-count { font-size: 12px; }
+}
+@media (pointer: coarse) {
+  #wto-portal-app button, #wto-portal-app summary { min-height: 44px; }
+}

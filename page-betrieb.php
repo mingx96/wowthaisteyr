@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 $theme_uri = get_template_directory_uri();
-$version = '1.4.3';
+$version = '1.4.4';
 // A release number can already be cached before an asynchronous deployment finishes.
 $portal_js_version = $version . '-' . substr(hash_file('sha256', get_template_directory() . '/assets/js/portal.js'), 0, 12);
 $portal_css_version = $version . '-' . substr(hash_file('sha256', get_template_directory() . '/assets/css/portal.css'), 0, 12);
@@ -203,6 +203,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
       </div>
 
       <div class="wto-header-actions">
+        <button type="button" id="wto-help-toggle" class="wto-help-toggle" aria-haspopup="dialog">Hilfe</button>
         <!-- Audio Chime Toggle -->
         <button type="button" id="wto-sound-toggle" class="wto-btn-sound" title="Akustisches Signal bei neuen Bestellungen / Reservierungen">
           🔔 Signal: AN
@@ -211,7 +212,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
         <!-- Network Indicator -->
         <div class="wto-network-pill">
           <span id="wto-network-dot" class="wto-network-dot"></span>
-          <span id="wto-network-text">Verbunden</span>
+          <span id="wto-network-text" data-network-text>Verbunden</span>
         </div>
 
         <!-- Current Staff & Logout -->
@@ -227,11 +228,30 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
       </div>
     </header>
 
+    <dialog id="wto-dialog-help" class="wto-modal wto-help-dialog" aria-labelledby="wto-help-title">
+      <div class="wto-modal-head">
+        <h2 id="wto-help-title">Betrieb · Hilfe</h2>
+        <button type="button" class="wto-btn-close" aria-label="Hilfe schließen" onclick="document.getElementById('wto-dialog-help').close()">×</button>
+      </div>
+      <div class="wto-help-body">
+        <h3>Bestellungen</h3>
+        <p>Das Küchenboard enthält aktive Bestellungen aller Tage. Im Archiv sind abgeschlossene, stornierte, fehlgeschlagene und erstattete Bestellungen nur lesbar.</p>
+        <h3>Reservierungen · Zeiträume</h3>
+        <p>Tag: gewähltes Datum. Offen / Alle: alle Tage; das Datumsfeld ist dann deaktiviert. Mittag vor 16 Uhr, Abend ab 16 Uhr sind Filter, keine Öffnungszeiten. Stornos stehen separat und zählen nicht zu Reservierungen oder Gästen.</p>
+        <h3>Seiten und Kennzahlen</h3>
+        <p>Die Kennzahlen gelten für den gesamten Filter. Bei mehreren Seiten zeigen die Karten die gewählte Seite. Weitere Seiten sind unten erreichbar.</p>
+        <h3>Tagesübersicht</h3>
+        <p>Zuordnung nach Erstellungsdatum in Europe/Vienna. Storniert / fehlgeschlagen bleibt sichtbar und zählt nicht zum Bestellwert. Erstattungen sind bisher für diese Bestellungen erfasste Beträge, auch von anderen Tagen. Bestellwerte und Zahlungsangaben sind kein Kassenabschluss oder Nachweis kassierter Beträge. „Barzahlung vor Ort“ nennt die Zahlungsart und bestätigt keinen Zahlungseingang.</p>
+        <h3>Abgleich</h3>
+        <p>Automatische Aktualisierung alle 12 Sekunden. Bei Verbindungsfehlern bleiben Daten zur Orientierung sichtbar und werden als möglicherweise veraltet gekennzeichnet.</p>
+      </div>
+    </dialog>
+
     <!-- Mobile Quick Settings Dialog -->
     <dialog id="wto-dialog-mobile-settings" class="wto-modal" style="max-width:380px;">
       <div class="wto-modal-head">
         <h3>⚙️ Betrieb · Einstellungen</h3>
-        <button type="button" class="wto-btn-close" onclick="document.getElementById('wto-dialog-mobile-settings').close()">×</button>
+        <button type="button" class="wto-btn-close" aria-label="Einstellungen schließen" onclick="document.getElementById('wto-dialog-mobile-settings').close()">×</button>
       </div>
       <div class="wto-mobile-sheet-body" style="padding:18px;display:flex;flex-direction:column;gap:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -248,7 +268,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
           <span>Verbindung:</span>
-          <span style="color:var(--wto-green);font-weight:700;">🟢 Verbunden</span>
+          <span data-network-text>Verbunden</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;border-top:1px solid var(--wto-line);padding-top:12px;">
           <span>Angemeldet:</span>
@@ -293,12 +313,10 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
       <section id="wto-view-orders" class="wto-view active" aria-label="Bestellungs-Management">
         <div class="wto-orders-toolbar">
           <div class="wto-orders-switch">
-            <button type="button" class="active" data-view="kanban">Live-Küchenboard</button>
-            <button type="button" data-view="archive">Abgeschlossene Bestellungen (Archiv)</button>
+            <button type="button" class="active" data-view="kanban">Küchenboard</button>
+            <button type="button" data-view="archive">Archiv</button>
           </div>
-          <div class="wto-orders-summary">
-            <span>Automatischer Live-Abgleich alle 12 Sek.</span>
-          </div>
+
         </div>
 
         <!-- Mobile Column Switcher (Visible on mobile only) -->
@@ -363,26 +381,26 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
         <div class="wto-res-toolbar">
           <div class="wto-res-nav">
             <div class="wto-res-filters">
-              <button type="button" class="active" data-view="daily">Tagesansicht</button>
-              <button type="button" data-view="pending">Offene Anfragen</button>
+              <button type="button" class="active" data-view="daily">Tag</button>
+              <button type="button" data-view="pending">Offen</button>
               <button type="button" data-view="all">Alle</button>
             </div>
 
             <div class="wto-res-date-picker">
-              <label for="wto-res-date-input">📅 Datum:</label>
+              <label for="wto-res-date-input">Datum</label>
               <input type="date" id="wto-res-date-input">
             </div>
 
             <div class="wto-res-shift-filters" style="display:flex;gap:6px;margin-left:8px;">
-              <button type="button" class="wto-shift-btn active" data-shift="all">Alle Schichten</button>
+              <button type="button" class="wto-shift-btn active" data-shift="all">Alle</button>
               <button type="button" class="wto-shift-btn" data-shift="lunch">☀️ Mittag</button>
               <button type="button" class="wto-shift-btn" data-shift="dinner">🌙 Abend</button>
             </div>
           </div>
 
           <div class="wto-res-kpis">
-            <span class="wto-kpi-item">Reservierungen: <strong id="wto-kpi-res-total">—</strong></span>
-            <span class="wto-kpi-item">Gäste (ohne Storno): <strong id="wto-kpi-res-guests">—</strong></span>
+            <span class="wto-kpi-item">Reservierungen <strong id="wto-kpi-res-total">—</strong></span>
+            <span class="wto-kpi-item">Gäste <strong id="wto-kpi-res-guests">—</strong></span>
             <button type="button" id="wto-btn-new-reservation" class="wto-btn btn-primary" style="height:38px;padding:0 14px;">
               + Telefonreservierung
             </button>
@@ -390,7 +408,6 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
         </div>
 
         <p id="wto-res-scope" class="wto-data-status" role="status"></p>
-        <p class="wto-data-status">Zeiträume: Mittag vor 16 Uhr · Abend ab 16 Uhr. Dies sind Filter, keine Öffnungszeiten. Kennzahlen gelten für den gesamten Filter; Karten sind seitenweise.</p>
         <!-- Mobile Column Switcher for Reservations (Visible on mobile only) -->
         <div class="wto-mobile-col-switcher" id="wto-res-col-switcher">
           <button type="button" class="wto-mcol-btn active" data-col="new">
@@ -404,7 +421,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
           </button>
         </div>
 
-        <div id="wto-res-list" class="wto-res-scroll" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
+        <div id="wto-res-list" class="wto-res-scroll" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:auto;">
           <p class="wto-empty-col">Lade Reservierungen …</p>
         </div>
         <nav id="wto-res-pagination" class="wto-pagination" aria-label="Reservierungsseiten"></nav>
@@ -475,7 +492,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
           </div>
         </div>
         <p id="wto-daily-totals" class="wto-data-status"></p>
-        <p class="wto-data-status">Zuordnung nach Erstellungsdatum der Bestellung in Europe/Vienna. Storniert / fehlgeschlagen: im Detail sichtbar, nicht im Bestellwert. Erstattungen: bisher für diese Bestellungen erfasst, auch an anderen Tagen. Zahlungsangaben aus WooCommerce sind kein Kassenabschluss und kein Nachweis tatsächlich kassierter Beträge.</p>
+        <p class="wto-data-status wto-daily-note">Bestellwerte · kein Kassenabschluss. Details unter Hilfe.</p>
         <p id="wto-daily-backlog" class="wto-data-status"></p>
         <div id="wto-daily-orders" class="wto-daily-orders"></div>
         <nav id="wto-daily-pagination" class="wto-pagination" aria-label="Tagesbestellseiten"></nav>
@@ -488,7 +505,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
     <dialog id="wto-dialog-new-res" class="wto-modal">
       <div class="wto-modal-head">
         <h3>+ Telefonische Reservierung aufnehmen</h3>
-        <button type="button" class="wto-btn-close" onclick="document.getElementById('wto-dialog-new-res').close()">×</button>
+        <button type="button" class="wto-btn-close" aria-label="Reservierung schließen" onclick="document.getElementById('wto-dialog-new-res').close()">×</button>
       </div>
       <form class="wto-modal-form">
         <div class="wto-form-row">
