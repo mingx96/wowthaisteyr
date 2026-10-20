@@ -15,6 +15,11 @@ require_once __DIR__ . '/hours.php';
  */
 function wowthai_get_restaurant_data() {
     $hd = wowthai_hours_display();
+    $opening_hours = [];
+    foreach ($hd['rows'] as $row) {
+        $opening_hours[$row['days']] = $row['hours'];
+    }
+    $opening_hours['Hinweis'] = $hd['sushi_note'];
     $data = [
         'name'               => 'WOW Thai Steyr',
         'legal_name'         => 'WOW Thai Steyr Gastronomie GmbH',
@@ -42,11 +47,7 @@ function wowthai_get_restaurant_data() {
             'longitude'      => '14.4178',
         ],
         'google_maps_url'    => 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr',
-        'opening_hours_text' => [
-            'Mo–Sa'   => $hd['mosa_hours_uhr'],
-            'So'      => $hd['sun_hours_uhr'],
-            'Hinweis' => $hd['sushi_note'],
-        ],
+        'opening_hours_text' => $opening_hours,
     ];
     return apply_filters('wowthai_restaurant_data', $data);
 }

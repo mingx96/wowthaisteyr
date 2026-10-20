@@ -305,6 +305,15 @@ function initPortal(cfg) {
   // Native disclosure keeps one tab stop for all navigation/options.
   const commandMenu = document.getElementById('wto-command-menu');
   const commandTrigger = commandMenu.querySelector('summary');
+  const commandHeader = commandMenu.closest('header');
+  function positionMenu() {
+    const panel = commandMenu.querySelector('.wto-command-panel');
+    const top = commandHeader.getBoundingClientRect().bottom + 4;
+    panel.style.top = top + 'px'; panel.style.maxHeight = 'max(44px, calc(100dvh - ' + (top + 8) + 'px))';
+  }
+  commandMenu.addEventListener('toggle', positionMenu);
+  window.addEventListener('resize', positionMenu);
+  new ResizeObserver(positionMenu).observe(commandHeader);
   function closeCommandMenu(restoreFocus = false) {
     commandMenu.open = false;
     if (restoreFocus) commandTrigger.focus({preventScroll: true});
@@ -324,7 +333,7 @@ function initPortal(cfg) {
     button.addEventListener('click', () => closeCommandMenu(true));
   });
   function updateCommandLabel() {
-    const titles = {orders: 'Bestellungen', reservations: 'Reservierungen', customers: 'Kunden & CRM', stats: 'Tagesübersicht'};
+    const titles = {orders: 'Bestellungen', reservations: 'Reservierungen', customers: 'Kunden & CRM', stats: 'Tagesübersicht', hours: 'Öffnungszeiten'};
     document.getElementById('wto-current-section').textContent = titles[state.activeTab] + (state.activeTab === 'orders' && state.orderView === 'archive' ? ' · Archiv' : '');
     commandMenu.querySelectorAll('[data-menu-section]').forEach(section => { section.hidden = section.dataset.menuSection !== state.activeTab; });
   }
@@ -383,6 +392,7 @@ function initPortal(cfg) {
     });
     updateCommandLabel(); closeCommandMenu(true);
     loadTabData();
+    document.dispatchEvent(new CustomEvent('wowthai:portal-view', {detail:{view:tabId}}));
   }
 
   // --- Toast Notification ---
@@ -975,21 +985,31 @@ function initPortal(cfg) {
 
     // Load available slots
     async function updateSlots() {
+      const current = dialog.wtoSlotsRequest = (dialog.wtoSlotsRequest || 0) + 1;
+      const selectedTime = timeSelect.value;
+      timeSelect.disabled = true; form.querySelector('[type="submit"]').disabled = true;
       timeSelect.innerHTML = '<option value="">Lade verfügbare Zeiten …</option>';
       try {
-        const slotsData = await api(`reservation-slots?date=${encodeURIComponent(dateInput.value)}`);
-        const slots = slotsData.slots || [];
+        const response = await fetch(cfg.hours_api + 'availability?date=' + encodeURIComponent(dateInput.value), {cache:'no-store',signal:AbortSignal.timeout(20000)});
+        const slotsData = await response.json();
+        if (current !== dialog.wtoSlotsRequest) return;
+        if (!response.ok) throw new Error('Zeiten nicht verfügbar');
+        const slots = slotsData.reservation_slots || [];
         if (slots.length === 0) {
           timeSelect.innerHTML = '<option value="">Keine Termine (Ruhetag / Geschlossen)</option>';
         } else {
           timeSelect.innerHTML = slots.map(s => `<option value="${esc(s)}">${esc(s)} Uhr</option>`).join('');
+          if (slots.includes(selectedTime)) timeSelect.value = selectedTime;
+          timeSelect.disabled = false; form.querySelector('[type="submit"]').disabled = false;
         }
       } catch (e) {
+        if (current !== dialog.wtoSlotsRequest) return;
         timeSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
       }
     }
 
-    dateInput.addEventListener('change', updateSlots);
+    dateInput.onchange = updateSlots;
+    dialog.wtoRefreshSlots = updateSlots;
     await updateSlots();
 
     dialog.showModal();
@@ -1095,13 +1115,12 @@ function initPortal(cfg) {
       for (const [id, count] of [['wto-badge-res', stats.pending_reservations], ['wto-badge-orders', stats.new_orders]]) {
         const badge = document.getElementById(id);
         badge.textContent = count;
-        badge.style.display = count > 0 ? 'inline-flex' : 'none';
+        badge.style.display = 'inline-flex';
         badge.classList.toggle('urgent', count > 0);
         badge.title = 'Offen · alle Tage';
-        const queue = badge.closest('.wto-queue-badge');
-        queue.hidden = !(count > 0);
-        queue.setAttribute('aria-label', `${count} ${id === 'wto-badge-res' ? 'offene Reservierungen' : 'neue Bestellungen'} · alle Tage`);
+        badge.closest('button').setAttribute('aria-label', `${id === 'wto-badge-res' ? 'Reservierungen' : 'Bestellungen'}: ${count} ${id === 'wto-badge-res' ? 'offen' : 'neu'} · alle Tage`);
       }
+      document.getElementById('wto-queue-status').textContent = `${stats.new_orders} neue Bestellungen, ${stats.pending_reservations} offene Reservierungen · alle Tage`;
       feedback('wto-daily-backlog', `${stats.backlog_orders} aktive Bestellungen aus früheren Tagen · ${stats.active_orders} aktive Bestellungen insgesamt. Im Küchenboard prüfen.`);
     } catch (err) {
       if (request !== requestIds.summary) return;
@@ -1154,8 +1173,15 @@ function initPortal(cfg) {
     else if (state.activeTab === 'stats') loadDaily();
   }
 
-  // Initial load
-  loadTabData();
+  document.addEventListener('wowthai:hours-saved', () => {
+    loadStats();
+    const dialog = document.getElementById('wto-dialog-new-res');
+    if (dialog?.open) dialog.wtoRefreshSlots?.();
+    if (state.activeTab === 'reservations') loadReservations();
+  });
+  // Initial load; legacy links only navigate/prefill, never preview or save.
+  if (new URLSearchParams(location.search).get('view') === 'hours') switchTab('hours');
+  else loadTabData();
   loadStats();
 
   // Poller every 12 seconds

@@ -4,9 +4,11 @@ function nocache_headers() {}
 // Local browser fixture only. No WordPress, credentials, or real restaurant data.
 define('ABSPATH', __DIR__);
 $_SERVER['REQUEST_METHOD'] = 'GET';
+// Optional anonymous rendering verifies that staff assets do not initialize on login.
+$fixture_anonymous = ($argv[1] ?? '') === 'anonymous';
 function get_template_directory_uri() { return ''; }
 function get_template_directory() { return dirname(__DIR__, 2); }
-function is_user_logged_in() { return true; }
+function is_user_logged_in() { return !$GLOBALS['fixture_anonymous']; }
 function wp_get_current_user() { return (object)['display_name'=>'Test staff','user_login'=>'fixture','roles'=>['administrator']]; }
 function current_user_can($cap) { return true; }
 function wowthai_get_kitchen_prep_time() { return '15–20 Min.'; }
@@ -20,6 +22,7 @@ function esc_js($s) { return $s; }
 function home_url($s) { return $s; }
 function admin_url($s) { return '/admin/'.$s; }
 function wp_logout_url($s) { return '#logout'; }
+function wp_login_url($s) { return '#login'; }
 function wp_create_nonce($s) { return 'fixture-only'; }
 function rest_url($s) { return '/api/'.$s; }
 function selected($a,$b) { if ($a===$b) echo 'selected'; }

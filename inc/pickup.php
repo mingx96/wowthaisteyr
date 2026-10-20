@@ -107,7 +107,7 @@ function wowthai_cart_has_mittagsmenu_m4() {
     return false;
 }
 
-function wowthai_pickup_slots_for_date($date, $now = null, $has_mittagsmenu = null, $has_m4 = null) {
+function wowthai_pickup_slots_for_date($date, $now = null, $has_mittagsmenu = null, $has_m4 = null, $hours_config = null) {
     $now = $now ?: wowthai_pickup_now();
     if ($has_mittagsmenu === null) {
         $has_mittagsmenu = wowthai_cart_has_mittagsmenu();
@@ -116,7 +116,7 @@ function wowthai_pickup_slots_for_date($date, $now = null, $has_mittagsmenu = nu
         $has_m4 = wowthai_cart_has_mittagsmenu_m4();
     }
     $minimum = $now->modify('+' . wowthai_pickup_prep_minutes() . ' minutes');
-    $windows = wowthai_pickup_windows($date);
+    $windows = $hours_config === null ? wowthai_pickup_windows($date) : wowthai_hours_ranges_for_config($date, $hours_config['weekly'], $hours_config['exceptions']);
     $slots   = [];
 
     foreach ($windows as $idx => [$start, $end]) {

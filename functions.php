@@ -26,7 +26,7 @@ add_action('after_setup_theme', 'wowthai_theme_setup');
 // 2. Enqueue Styles & Scripts
 function wowthai_enqueue_scripts() {
     $theme_uri = get_template_directory_uri();
-    $version = '1.4.5';
+    $version = '1.5.0';
 
     // Fonts & Base Styles
     wp_enqueue_style('wowthai-fonts', $theme_uri . '/assets/css/fonts.css', [], $version);
@@ -34,7 +34,13 @@ function wowthai_enqueue_scripts() {
     wp_enqueue_style('wowthai-checkout', $theme_uri . '/assets/css/checkout.css', ['wowthai-main'], $version);
 
     // Front-end interactive app
-    wp_enqueue_script('wowthai-app', $theme_uri . '/assets/js/wowthai.js', ['jquery'], $version, true);
+    wp_enqueue_script('wowthai-app', $theme_uri . '/assets/js/wowthai.js', ['jquery'], $version . '.' . substr(hash_file('sha256', get_template_directory() . '/assets/js/wowthai.js'), 0, 16), true);
+
+    $hours_asset = '/assets/js/hours-public.js';
+    wp_enqueue_script('wowthai-hours-public', $theme_uri . $hours_asset, ['wowthai-app'], substr(hash_file('sha256', get_template_directory() . $hours_asset), 0, 16), true);
+    wp_localize_script('wowthai-hours-public', 'wowthaiHoursConfig', [
+        'availability_url' => rest_url('wowthai-hours/v1/availability'),
+    ]);
 
     $prep_time = function_exists('wowthai_get_kitchen_prep_time') ? wowthai_get_kitchen_prep_time() : '25–35 Min.';
     $upsell_items = function_exists('wowthai_get_upsell_suggestions') ? wowthai_get_upsell_suggestions() : [];
@@ -694,6 +700,7 @@ function wowthai_get_products_in_cat($term_id) {
 
 require_once get_template_directory() . '/inc/hours.php';
 require_once get_template_directory() . '/inc/pickup.php';
+require_once get_template_directory() . '/inc/hours-api.php';
 require_once get_template_directory() . '/inc/menu-normalizer.php';
 
 // 14. Restaurant Stammdaten, Öffnungszeiten & Google Schema.org

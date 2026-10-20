@@ -31,8 +31,6 @@ if (empty($initial_slots)) {
     $initial_slots    = wowthai_reservation_slots($default_date_obj, $now_vienna);
 }
 $default_date_ymd = $default_date_obj->format('Y-m-d');
-$slots_by_weekday = wowthai_reservation_slots_by_weekday();
-$today_slots      = wowthai_reservation_slots($now_vienna, $now_vienna);
 
 $res_ok        = isset($_GET['res']) && sanitize_text_field(wp_unslash($_GET['res'])) === 'ok';
 $res_bot       = isset($_GET['bot']) && sanitize_text_field(wp_unslash($_GET['bot'])) === '1';
@@ -90,9 +88,11 @@ if ($res_ok && $res_bot) {
 
       <div class="aside-hours-hint" style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:var(--muted);line-height:1.6;">
         <strong style="color:var(--ink);display:block;margin-bottom:4px;">🕒 Öffnungszeiten Küche:</strong>
-        <?php foreach (($wow_hd['rows'] ?? []) as $row): ?>
-          <?php echo esc_html($row['days'] . ': ' . $row['hours']); ?><br>
-        <?php endforeach; ?>
+        <div data-wowthai-hours-rows>
+          <?php foreach (($wow_hd['rows'] ?? []) as $row): ?>
+            <span data-wowthai-hours-row><?php echo esc_html($row['days'] . ': ' . $row['hours']); ?><br></span>
+          <?php endforeach; ?>
+        </div>
         <span style="color:#d4a359;font-weight:600;">🍣 <?php echo esc_html($wow_hd['sushi_note'] ?? 'Montags Sushi-Ruhetag (warme Küche regulär)'); ?></span>
       </div>
 
@@ -193,6 +193,7 @@ if ($res_ok && $res_bot) {
                 <option value="<?php echo esc_attr($slot_hm); ?>"<?php selected($idx === 0); ?>><?php echo esc_html($slot_hm); ?> Uhr</option>
               <?php endforeach; ?>
             </select>
+            <p id="res_availability_status" role="status" aria-live="polite"></p>
             <div id="res_sushi_monday_hint" style="display:none;margin-top:6px;font-size:12px;color:#d4a359;font-weight:600;">🍣 Hinweis: Montags hat die Sushi-Bar Ruhetag. Warme Speisen &amp; Currys bereiten wir sehr gerne für Sie zu!</div>
           </div>
 
@@ -246,52 +247,5 @@ if ($res_ok && $res_bot) {
     </div>
   </section>
 </main>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const dateInput = document.getElementById('res_date');
-  const timeSelect = document.getElementById('res_time');
-  const sushiHint = document.getElementById('res_sushi_monday_hint');
-  const slotsByDow = <?php echo wp_json_encode($slots_by_weekday); ?>;
-  const todayYmd = <?php echo wp_json_encode($today_ymd); ?>;
-  const todaySlots = <?php echo wp_json_encode($today_slots); ?>;
-
-  if (!dateInput || !timeSelect) return;
-
-  function updateSlots() {
-    if (!dateInput.value) return;
-    const parts = dateInput.value.split('-');
-    if (parts.length < 3) return;
-    const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-    const jsDay = d.getDay(); // 0 = So, 1 = Mo .. 6 = Sa
-    const isoDow = jsDay === 0 ? 7 : jsDay;
-
-    if (sushiHint) {
-      sushiHint.style.display = (isoDow === 1) ? 'block' : 'none';
-    }
-
-    const available = (dateInput.value === todayYmd && todaySlots.length > 0)
-      ? todaySlots
-      : (slotsByDow[isoDow] || []);
-
-    const prevVal = timeSelect.value;
-    timeSelect.innerHTML = '';
-    available.forEach(function(hm) {
-      const opt = document.createElement('option');
-      opt.value = hm;
-      opt.textContent = hm + ' Uhr';
-      timeSelect.appendChild(opt);
-    });
-    if (available.includes(prevVal)) {
-      timeSelect.value = prevVal;
-    } else if (available.length > 0) {
-      timeSelect.value = available[0];
-    }
-  }
-
-  dateInput.addEventListener('change', updateSlots);
-  updateSlots();
-});
-</script>
 
 <?php get_footer(); ?>

@@ -643,37 +643,96 @@ document.addEventListener('DOMContentLoaded', () => {
   initCheckoutTiming();
   document.body.addEventListener('updated_checkout', initCheckoutTiming);
 
+  let pickupRequestGeneration = 0;
+  const pickupSelection = { date: '', time: '', mode: '' };
+
+  function pickupAvailabilityState(state, message) {
+    const mode = document.getElementById('pickup_mode');
+    if (!mode) return;
+    mode.dataset.availabilityState = state;
+    const dates = document.getElementById('pickup_date_select');
+    const times = document.getElementById('pickup_time_select');
+    if (state !== 'ready') {
+      mode.value = '';
+      dates?.replaceChildren();
+      times?.replaceChildren();
+      const asap = document.getElementById('btn-asap');
+      if (asap) asap.disabled = true;
+      const ready = document.querySelector('#asap-box strong');
+      if (ready) ready.textContent = '';
+      const asapBox = document.getElementById('asap-box');
+      if (asapBox) asapBox.style.display = 'none';
+    }
+    if (dates) dates.disabled = state !== 'ready' || dates.options.length === 0;
+    if (times) times.disabled = state !== 'ready' || times.options.length === 0;
+    let status = document.getElementById('pickup_availability_status');
+    if (!status) {
+      status = document.createElement('p');
+      status.id = 'pickup_availability_status';
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite');
+      mode.parentElement.appendChild(status);
+    }
+    status.textContent = message;
+  }
+
   async function refreshPickupAvailability() {
     if (document.hidden || (!document.getElementById('pickup_mode') && !document.getElementById('cart-overlay'))) return;
+    const generation = ++pickupRequestGeneration;
+    const mode = document.getElementById('pickup_mode');
+    const dates = document.getElementById('pickup_date_select');
+    const times = document.getElementById('pickup_time_select');
+    // Keep a valid user's choice privately while pending/error controls hold no stale submitted values.
+    if (dates?.value) pickupSelection.date = dates.value;
+    if (times?.value) pickupSelection.time = times.value;
+    if (mode?.value) pickupSelection.mode = mode.value;
+    pickupAvailabilityState('pending', 'Abholzeiten werden geladen …');
+    document.querySelectorAll('.badge-asap').forEach(el => { el.textContent = 'Zeiten werden geprüft …'; });
     try {
       const response = await fetch(`${ajaxUrl}?action=wowthai_pickup_availability`, { cache: 'no-store' });
+      if (!response.ok) throw new Error('availability');
       const result = await response.json();
-      if (!result.success) return;
+      // Polling, focus and a schedule change may overlap. Only the newest request owns every mutation.
+      if (generation !== pickupRequestGeneration) return;
+      if (!result.success || !Array.isArray(result.data?.dates) || result.data.dates.some(date => !Array.isArray(date.slots))) throw new Error('availability');
       const data = result.data;
       if (window.wowthaiConfig) window.wowthaiConfig.prep_time = data.prep_time;
       document.querySelectorAll('.badge-asap').forEach(el => { el.textContent = data.asap ? data.prep_time : 'Vorbestellung'; });
-      const mode = document.getElementById('pickup_mode');
-      const dates = document.getElementById('pickup_date_select');
-      const times = document.getElementById('pickup_time_select');
-      if (!mode || !dates || !times) return;
-      const previousDate = dates.value, previousTime = times.value;
-      dates.replaceChildren(...data.dates.map(date => {
+      const currentMode = document.getElementById('pickup_mode');
+      const currentDates = document.getElementById('pickup_date_select');
+      const currentTimes = document.getElementById('pickup_time_select');
+      if (!currentMode || !currentDates || !currentTimes) return;
+      currentDates.replaceChildren(...data.dates.map(date => {
         const option = document.createElement('option');
         option.value = date.value; option.textContent = date.label;
         option.dataset.slots = JSON.stringify(date.slots);
         return option;
       }));
-      if (data.dates.some(date => date.value === previousDate)) dates.value = previousDate;
-      dates.dispatchEvent(new Event('change'));
-      if ([...times.options].some(option => option.value === previousTime)) times.value = previousTime;
+      if (data.dates.some(date => date.value === pickupSelection.date)) currentDates.value = pickupSelection.date;
+      currentDates.dispatchEvent(new Event('change'));
+      if ([...currentTimes.options].some(option => option.value === pickupSelection.time)) currentTimes.value = pickupSelection.time;
       const asap = document.getElementById('btn-asap');
-      asap.disabled = !data.asap;
-      asap.querySelector('.seg-pill').textContent = data.asap ? data.prep_time : 'Nicht verfügbar';
+      if (asap) {
+        asap.disabled = !data.asap;
+        const pill = asap.querySelector('.seg-pill');
+        if (pill) pill.textContent = data.asap ? data.prep_time : 'Nicht verfügbar';
+      }
       const ready = document.querySelector('#asap-box strong');
       if (ready) ready.textContent = data.asap ? `${data.asap} Uhr` : '';
-      if (!data.asap && mode.value === 'asap') document.getElementById('btn-later').click();
-    } catch (error) { console.warn('Abholzeiten konnten nicht aktualisiert werden.'); }
+      currentMode.value = pickupSelection.mode === 'asap' && data.asap ? 'asap' : 'later';
+      const selectedButton = document.getElementById(currentMode.value === 'asap' ? 'btn-asap' : 'btn-later');
+      selectedButton?.click();
+      pickupAvailabilityState('ready', !data.asap && !data.dates.length ? 'Keine Abholzeiten verfügbar.' : '');
+    } catch (error) {
+      if (generation !== pickupRequestGeneration) return;
+      pickupAvailabilityState('error', 'Abholzeiten konnten nicht geladen werden. Bitte erneut versuchen.');
+      document.querySelectorAll('.badge-asap').forEach(el => { el.textContent = 'Zeiten derzeit nicht verfügbar'; });
+      console.warn('Abholzeiten konnten nicht aktualisiert werden.');
+    }
   }
+
+  document.addEventListener('wowthai:hours-changed', refreshPickupAvailability);
+  window.addEventListener('focus', refreshPickupAvailability);
 
   // Visibility-aware pickup availability polling (pauses when tab is hidden)
   let pickupPollTimer = null;

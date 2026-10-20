@@ -84,3 +84,64 @@ viewport-bounded scrolling, visible mobile logout/network state, mobile column
 selection, reservation dialog access, and the relocated CRM filter. The suite
 includes 320px phones as well as 390/768/1440px and the short-phone history case.
 These tests intercept APIs; they do not authenticate to production.
+
+## Schedule editor and fixed navigation (1.5)
+
+The same `portal.browser.py` suite renders the actual staff template and its
+content-fingerprinted `portal-hours.js`. It intercepts every API request locally;
+only synthetic hours preview/PUT requests are permitted. Order, booking, prep
+and contact mutations remain forbidden by a separate request counter.
+
+At 320/390/768/1440px, plus the 390×667 short viewport, it checks the real logo,
+always-visible labeled queue buttons/counts, fixed Menü label, right-aligned
+viewport-bounded popup, keyboard Enter/Tab/Escape and outside dismissal,
+orders-only board/archive toolbar, retained counts on failed polling and
+contextual atomic count announcements. On the 320×667 screen the persistent
+navigation leaves at least 66% of the viewport for the reservation list; other
+sizes retain the 70% minimum. Screenshot artifacts include the hours view.
+
+Schedule checks cover lazy load, nonce headers, closed days and multiple weekly
+windows, slots/conflict/unknown-time preview, explicit conflict acknowledgement,
+preview invalidation and a held earlier preview after a draft edit, stale409
+reload without draft loss, server500 draft retention, a held PUT double-submit
+guard, successful revision/event/header refresh, existing exception prefill,
+367-day validation, remove-exception payloads, read-only capability, published
+date preview, failed initial load and navigation-only legacy URL prefill. The
+CLI fixture also renders an anonymous login variant: it must not initialize
+staff API reads or writes. These are browser/API fakes, not authenticated
+production staff acceptance or database persistence evidence.
+
+The schedule/API standalone suites also run in G5:
+
+```sh
+php dev/tests/hours-schedule.test.php
+php dev/tests/hours-api.test.php
+python dev/tests/hours-public.browser.py
+```
+
+The schedule suite covers normalization, effective weekly/exception ranges,
+DST and resolver behavior. The API suite covers draft validation, permissions,
+revision/token binding, impact checks, service labels and Operations version
+changes with in-memory WordPress boundaries. These do not prove persistence.
+
+The public browser suite runs in CI with actual home/footer/reservation/checkout
+templates and assets. Synthetic no-store availability responses cover pending,
+closed/error/recovery states, older-response races, retained guest inputs,
+empty unavailable checkout FormData, preserved WooCommerce disabled state,
+hours rows/closure notices, Restaurant JSON-LD and revision refresh events.
+It never submits an order or reservation.
+
+`wp eval-file wp-content/themes/wowthai/dev/tests/hours-api.integration.php`
+is an opt-in **disposable-database** test with the same exact fixture URL,
+`WOWTHAI_PORTAL_TEST`, WP-CLI and outbound HTTP/mail protections described above.
+Its 59 REST/database assertions cover actual nonce/capability denial, no-store
+and public privacy, no option seeding, competing writers/lock contention,
+no-op/storage failure and lock release, more than 100 orders/bookings,
+service-date conflicts/unknown times, changed commitments, tampered/expired
+preview tokens, explicit acknowledgement, resource separation and immediate
+public read-after-save. Run separately in legacy and HPOS storage in a fresh
+PHP process with the full inspected Operations plugin. It cleans its synthetic
+records and restores schedule options. Never run it against production or
+import/synchronize the restaurant database. Fixture evidence does not verify
+production advisory-lock support, platform CDN invalidation or authenticated
+staff runtime behavior.
