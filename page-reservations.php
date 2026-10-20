@@ -72,44 +72,21 @@ if ($res_ok && $res_bot) {
     <div class="page-intro-row">
       <div>
         <h1>Ein Tisch für <em>Sie.</em></h1>
-        <p>Planen Sie Ihren Besuch bei uns. Wählen Sie Datum, Uhrzeit und Personenzahl – wir freuen uns auf Ihren Besuch im City Point in Steyr.</p>
+        <p class="reservation-intro-copy">Planen Sie Ihren Besuch bei uns. Wählen Sie Datum, Uhrzeit und Personenzahl – wir freuen uns auf Ihren Besuch im City Point in Steyr.</p>
       </div>
-      <a class="button button-quiet" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte ansehen <span aria-hidden="true">↗</span></a>
+      <a class="button button-quiet reservation-menu-link--desktop" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte ansehen <?php echo wowthai_action_icon(); ?></a>
     </div>
   </section>
 
   <section class="wrap reservation-layout">
-    <div class="reservation-aside">
-      <span class="aside-mark" aria-hidden="true">W</span>
-      <p class="eyebrow">PERSÖNLICH FÜR SIE DA</p>
-      <h2>Wir freuen uns<br>auf Ihren Besuch.</h2>
-      <p>Fragen zu Ihrer Reservierung oder besondere Wünsche? Rufen Sie uns gern direkt an – wir beraten Sie persönlich.</p>
-      <a class="phone-large" href="tel:<?php echo esc_attr($wow_tel); ?>"><?php echo esc_html($wow_ph); ?></a>
-
-      <div class="aside-hours-hint" style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:var(--muted);line-height:1.6;">
-        <strong style="color:var(--ink);display:block;margin-bottom:4px;">🕒 Öffnungszeiten Küche:</strong>
-        <div data-wowthai-hours-rows>
-          <?php foreach (($wow_hd['rows'] ?? []) as $row): ?>
-            <span data-wowthai-hours-row><?php echo esc_html($row['days'] . ': ' . $row['hours']); ?><br></span>
-          <?php endforeach; ?>
-        </div>
-        <span style="color:#d4a359;font-weight:600;">🍣 <?php echo esc_html($wow_hd['sushi_note'] ?? 'Montags Sushi-Ruhetag (warme Küche regulär)'); ?></span>
-      </div>
-
-      <div class="aside-parking-hint" style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:var(--muted);line-height:1.6;">
-        <strong style="color:var(--ink);display:block;margin-bottom:4px;">🚗 Parken &amp; Barrierefreiheit:</strong>
-        Tiefgarage City Point direkt im Haus verfügbar. Bequem mit dem Lift ins 1. Obergeschoss zu unserem Restaurant.
-      </div>
-    </div>
-
     <div class="reservation-panel" id="reservation-root">
       <?php if ($is_cancelled_ok): ?>
         <div class="booking-success" role="status">
           <h2>Ihre Reservierung wurde storniert.</h2>
           <p>Vielen Dank für Ihre Mitteilung. Wir haben Ihren Tisch wieder freigegeben und hoffen, Sie bald zu einem anderen Zeitpunkt bei uns begrüßen zu dürfen!</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
-            <a class="button button-dark" href="<?php echo esc_url(home_url('/reservations/')); ?>">Neue Reservierung anfragen →</a>
-            <a class="button button-quiet" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte ansehen ↗</a>
+            <a class="button button-dark" href="<?php echo esc_url(home_url('/reservations/')); ?>">Neue Reservierung anfragen <?php echo wowthai_action_icon(); ?></a>
+            <a class="button button-quiet" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte ansehen <?php echo wowthai_action_icon(); ?></a>
           </div>
         </div>
 
@@ -155,8 +132,8 @@ if ($res_ok && $res_bot) {
           <p>Wir haben Ihre Anfrage für den <strong><?php echo esc_html($disp_date); ?> um <?php echo esc_html($c_time); ?> Uhr</strong> für <strong><?php echo esc_html((string) $c_party); ?> Personen</strong> erhalten.</p>
           <p>Wir freuen uns darauf, Sie bald im Restaurant begrüßen zu dürfen!</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
-            <a class="button button-dark" href="<?php echo esc_url(home_url('/menu/')); ?>">Schon jetzt Speisekarte ansehen ↗</a>
-            <a class="button button-quiet" href="<?php echo esc_url($cal_url); ?>" target="_blank" rel="noopener">📅 Google Kalender ↗</a>
+            <a class="button button-dark" href="<?php echo esc_url(home_url('/menu/')); ?>">Schon jetzt Speisekarte ansehen <?php echo wowthai_action_icon(); ?></a>
+            <a class="button button-quiet" href="<?php echo esc_url($cal_url); ?>" target="_blank" rel="noopener">📅 Google Kalender <?php echo wowthai_action_icon(); ?></a>
             <?php if ($ics_url !== ''): ?>
               <a class="button button-quiet" href="<?php echo esc_url($ics_url); ?>">📲 Apple / Outlook Kalender (.ics)</a>
             <?php endif; ?>
@@ -240,10 +217,35 @@ if ($res_ok && $res_bot) {
           </div>
 
           <div class="booking-submit">
-            <button type="submit" class="button button-dark">Reservierungsanfrage senden →</button>
+            <button type="submit" class="button button-dark">Reservierungsanfrage senden <?php echo wowthai_action_icon(); ?></button>
           </div>
         </form>
       <?php endif; ?>
+    </div>
+
+    <a class="button button-quiet reservation-menu-link--mobile" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte ansehen <?php echo wowthai_action_icon(); ?></a>
+
+    <div class="reservation-aside">
+      <span class="aside-mark" aria-hidden="true">W</span>
+      <p class="eyebrow">PERSÖNLICH FÜR SIE DA</p>
+      <h2>Wir freuen uns<br>auf Ihren Besuch.</h2>
+      <p>Fragen zu Ihrer Reservierung oder besondere Wünsche? Rufen Sie uns gern direkt an – wir beraten Sie persönlich.</p>
+      <a class="phone-large" href="tel:<?php echo esc_attr($wow_tel); ?>"><?php echo esc_html($wow_ph); ?></a>
+
+      <div class="aside-hours-hint" style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:var(--muted);line-height:1.6;">
+        <strong style="color:var(--ink);display:block;margin-bottom:4px;">🕒 Öffnungszeiten Küche:</strong>
+        <div data-wowthai-hours-rows>
+          <?php foreach (($wow_hd['rows'] ?? []) as $row): ?>
+            <span data-wowthai-hours-row><?php echo esc_html($row['days'] . ': ' . $row['hours']); ?><br></span>
+          <?php endforeach; ?>
+        </div>
+        <span style="color:#d4a359;font-weight:600;">🍣 <?php echo esc_html($wow_hd['sushi_note'] ?? 'Montags Sushi-Ruhetag (warme Küche regulär)'); ?></span>
+      </div>
+
+      <div class="aside-parking-hint" style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:var(--muted);line-height:1.6;">
+        <strong style="color:var(--ink);display:block;margin-bottom:4px;">🚗 Parken &amp; Barrierefreiheit:</strong>
+        Tiefgarage City Point direkt im Haus verfügbar. Bequem mit dem Lift ins 1. Obergeschoss zu unserem Restaurant.
+      </div>
     </div>
   </section>
 </main>

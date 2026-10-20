@@ -126,6 +126,11 @@ function recordGate(id, name, issues, warnOnly = false) {
             issues.push(`JS syntax error in ${rel}: ${err.message}`);
         }
     }
+    try {
+        execFileSync(process.execPath, [path.join(ROOT, 'dev', 'tests', 'public-design.test.mjs')], { stdio: 'pipe' });
+    } catch (err) {
+        issues.push(`Public design static contract failure: ${err.message}`);
+    }
     const localPhp = 'C:\\Users\\mnguy\\AppData\\Roaming\\Local\\lightning-services\\php-8.2.29+0\\bin\\win64\\php.exe';
     const phpBin = fs.existsSync(localPhp) ? localPhp : 'php';
     let phpAvailable = false;

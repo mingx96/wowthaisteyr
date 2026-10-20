@@ -14,10 +14,12 @@ function wowthai_cart_has_sushi(){return false;} function wowthai_get_kitchen_pr
 function wc_get_checkout_url(){return '/checkout';} function disabled($value){if($value)echo ' disabled';}
 function do_action($tag,...$a){if($tag==='woocommerce_checkout_order_review')echo '<button id=place_order type=submit>Bestellen</button>';}
 function wp_nonce_field(...$a){} function selected($v){if($v)echo ' selected';}
-function get_header(){echo '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/css/styles.css"><link rel="stylesheet" href="/assets/css/checkout.css"><script type="application/ld+json">'.json_encode(['@type'=>'Restaurant','name'=>'Synthetic fixture','openingHoursSpecification'=>wowthai_schema_opening_hours()]).'</script></head><body><div class="menu-status-banner status-open"><div class="status-content"><strong>Cached open</strong><span>Cached status</span></div></div>';}
+function sanitize_html_class($v){return preg_replace('/[^A-Za-z0-9_-]/','',(string)$v);}
+function get_header(){echo '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/css/fonts.css"><link rel="stylesheet" href="/assets/css/styles.css"><link rel="stylesheet" href="/assets/css/checkout.css"><script type="application/ld+json">'.json_encode(['@type'=>'Restaurant','name'=>'Synthetic fixture','openingHoursSpecification'=>wowthai_schema_opening_hours()]).'</script></head><body><div class="menu-status-banner status-open"><div class="status-content"><strong>Cached open</strong><span>Cached status</span></div></div>';}
 function get_footer(){require ABSPATH.'footer.php';}
 function wp_footer(){echo '<script>window.wowthaiHoursConfig={availability_url:"/api/availability"};window.wowthaiConfig={ajax_url:"/ajax",nonce:"fixture",upsell_items:[]};</script><script src="/assets/js/wowthai.js"></script>';if (($GLOBALS['argv'][1]??'')!=='checkout') echo '<script src="/assets/js/hours-public.js"></script>';}
 require ABSPATH.'inc/hours.php';
+require ABSPATH.'inc/ui.php';
 if (($argv[1]??'')==='home') require ABSPATH.'front-page.php';
 elseif (($argv[1]??'')==='checkout') {
     require ABSPATH.'inc/pickup.php';

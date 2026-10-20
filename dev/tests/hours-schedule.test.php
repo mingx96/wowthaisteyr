@@ -17,8 +17,10 @@ function get_template_directory_uri() { return 'https://fixture.invalid/theme'; 
 function esc_html($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
 function esc_attr($value) { return esc_html($value); }
 function esc_url($value) { return esc_html($value); }
+function sanitize_html_class($value) { return preg_replace('/[^A-Za-z0-9_-]/', '', (string) $value); }
 function is_wp_error($value) { return $value instanceof WP_Error; }
 require ABSPATH . 'inc/hours.php';
+require ABSPATH . 'inc/ui.php';
 $passed = 0;
 $failed = 0;
 function check($label, $actual, $expected) {

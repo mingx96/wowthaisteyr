@@ -1,5 +1,13 @@
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
+## Public mobile typography/CTA/reservation follow-up — 2026-10-20T16:17:00Z
+
+- Task ID `notion:3fe9ccae-c10f-81f4-b321-fb6e7839d67d`; owner Codex in this assigned chat. User approved the bounded public-theme implementation and Homepage proposal. Branch `feat/mobile-home-reservation-20261020` from current main `3bf4b3b`; worktree `/workspace/wowthai-mobile-refresh`; planned theme version 1.5.2. No overlapping open PR at start. The separate modified hours plan remains untouched in `/workspace/wowthai-compact`.
+- Scope: self-host Chonburi for public marketing headings while DM Sans stays functional UI; shared decorative circular SVG arrow; equal-weight transparent Hero CTAs; form-first reservation source order with mobile/tablet form→menu link→information and unchanged desktop visual columns. No API, slots, bookings, orders, payment, email, schedule or database behavior changes.
+- TDD evidence: new static/browser contracts first failed on Unicode arrows/missing icon/font/form order. The browser contract then exposed a four-line Chonburi desktop Hero and passed after a desktop-only size correction. Final local verification passes G1–G11 plus portal, public-hours and public-design browser suites at 320×667, 390×844, 768×1024 and 1440×900. Theme 1.5.2 builds successfully; diff and public-design self-review are clean. Exact-head CI/runtime observation remain pending.
+- Existing Notion audit task is now `Đang thực hiện` and contains the 390px before/after images plus a mobile Homepage wireframe and prioritized P1–P3 proposal. This Git branch carries implementation/tests only; Notion remains roadmap/lifecycle authority.
+- Next: commit and open a PR, verify exact-head CI, then observe the established GitHub→WordPress.com deployment and public GET-only runtime. No production mutation has occurred.
+
 ## Sondertage save UX and compact menu follow-up — 2026-10-20T12:37:29Z
 
 - Same Task ID `notion:3fe9ccae-c10f-811c-aa0f-f561d4c47a8f`; owner Codex in this assigned chat. User reported that a closed Sondertag could not be saved and the dropdown remained visually weak, then approved the bounded repair design. Branch `fix/betrieb-hours-menu-20261020` from merged main `e2e5bee`; theme version1.5.1. Existing post-release plan WIP remains preserved.

@@ -22,9 +22,9 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
         Schön, dass<br><em>Sie da sind.</em>
       </h1>
       <p class="hero-lead">Lust auf ein aromatisches Curry, frisch gebratenen Wok oder Sushi? Wir freuen uns, Sie im City Point in Steyr zu begrüßen – oder bereiten Ihre Lieblingsgerichte zur Abholung vor.</p>
-      <div class="button-row">
-        <a class="button button-dark" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte &amp; bestellen <span aria-hidden="true">↗</span></a>
-        <a class="button button-quiet" href="<?php echo esc_url(home_url('/reservations/')); ?>">Tisch reservieren <span aria-hidden="true">→</span></a>
+      <div class="button-row hero-actions">
+        <a class="button button-dark" href="<?php echo esc_url(home_url('/menu/')); ?>">Speisekarte &amp; bestellen <?php echo wowthai_action_icon(); ?></a>
+        <a class="button button-quiet" href="<?php echo esc_url(home_url('/reservations/')); ?>">Tisch reservieren <?php echo wowthai_action_icon(); ?></a>
       </div>
     </div>
     <div class="hero-location">
@@ -45,7 +45,7 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
         <strong>Speisen entdecken</strong>
         <small>In Ruhe auswählen und online bestellen</small>
       </span>
-      <span class="quick-arrow" aria-hidden="true">↗</span>
+      <?php echo wowthai_action_icon('quick-arrow'); ?>
     </a>
 
     <a class="quick-card" href="<?php echo esc_url(home_url('/reservations/')); ?>">
@@ -56,7 +56,7 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
         <strong>Tisch reservieren</strong>
         <small>Wir freuen uns auf Ihren Besuch</small>
       </span>
-      <span class="quick-arrow" aria-hidden="true">↗</span>
+      <?php echo wowthai_action_icon('quick-arrow'); ?>
     </a>
 
     <a class="quick-card" href="tel:<?php echo esc_attr($wow_tel); ?>">
@@ -67,7 +67,7 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
         <strong>Lieber persönlich?</strong>
         <small>Rufen Sie uns an: <?php echo esc_html($wow_ph); ?></small>
       </span>
-      <span class="quick-arrow" aria-hidden="true">↗</span>
+      <?php echo wowthai_action_icon('quick-arrow'); ?>
     </a>
   </section>
 

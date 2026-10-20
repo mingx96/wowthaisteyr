@@ -35,8 +35,8 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
         E-Mail: <a href="mailto:<?php echo esc_attr($wow_mail); ?>" style="color:var(--muted);text-decoration:none;"><?php echo esc_html($wow_mail); ?></a>
       </p>
       <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
-        <a href="<?php echo esc_url(home_url('/menu/')); ?>" class="button button-quiet" style="padding:8px 14px;font-size:12px;">Speisekarte ↗</a>
-        <a href="<?php echo esc_url(home_url('/reservations/')); ?>" class="button button-quiet" style="padding:8px 14px;font-size:12px;">Tisch reservieren ↗</a>
+        <a href="<?php echo esc_url(home_url('/menu/')); ?>" class="button button-quiet" style="padding:8px 14px;font-size:12px;">Speisekarte <?php echo wowthai_action_icon('action-icon--compact'); ?></a>
+        <a href="<?php echo esc_url(home_url('/reservations/')); ?>" class="button button-quiet" style="padding:8px 14px;font-size:12px;">Tisch reservieren <?php echo wowthai_action_icon('action-icon--compact'); ?></a>
       </div>
     </div>
   </div>
