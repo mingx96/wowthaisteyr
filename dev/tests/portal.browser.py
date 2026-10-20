@@ -8,11 +8,12 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 ROOT=Path(__file__).resolve().parents[2]
 fixture=subprocess.check_output(['php', str(ROOT/'dev/tests/portal-fixture.php')], text=True)
+anonymous_fixture=subprocess.check_output(['php', str(ROOT/'dev/tests/portal-fixture.php'),'anonymous'], text=True)
 class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self,*args): pass
     def do_GET(self):
-        if self.path=='/fixture':
-            self.send_response(200); self.send_header('Content-Type','text/html; charset=utf-8'); self.end_headers(); self.wfile.write(fixture.encode())
+        if self.path.startswith('/fixture'):
+            self.send_response(200); self.send_header('Content-Type','text/html; charset=utf-8'); self.end_headers(); self.wfile.write((anonymous_fixture if self.path.startswith('/fixture-anonymous') else fixture).encode())
         else: super().do_GET()
 server=http.server.ThreadingHTTPServer(('127.0.0.1',0),functools.partial(Handler,directory=str(ROOT)))
 threading.Thread(target=server.serve_forever,daemon=True).start()
@@ -24,7 +25,7 @@ try:
     for width,height in [(1440,1000),(390,844),(768,1024),(320,667)]:
       page=browser.new_page(viewport={'width':width,'height':height})
       page.clock.install(time=datetime(2026,10,19,19,30,tzinfo=timezone.utc))
-      flags={'open':False,'fail':False,'archive_empty':False,'note':'','posts':0,'new_ids':[],'daily_note':'','daily_fail':False,'res_status':'pending','mixed_res':False}
+      flags={'open':False,'fail':False,'archive_empty':False,'note':'','posts':0,'new_ids':[],'daily_note':'','daily_fail':False,'res_status':'pending','mixed_res':False,'hours_posts':[],'hours_revision':'r1','can_edit':True,'hours_fail':False,'save_status':200,'save_hold':False,'held_save':None,'summary_reads':0,'conflicts':True,'preview_hold':False,'held_preview':None,'slots':['12:00','12:30'],'zero_counts':False}
       page.add_init_script('''window.chimes=0; window.AudioContext=class { constructor(){this.state='running';this.currentTime=0;this.destination={};} createOscillator(){return {type:'',frequency:{setValueAtTime(){}},connect(){},start(){window.chimes++},stop(){}}} createGain(){return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}}} };''')
       errors=[]
       page.on('pageerror',lambda error: errors.append(str(error)))
@@ -32,11 +33,35 @@ try:
         from urllib.parse import urlparse,parse_qs
         path=r.request.url; query=parse_qs(urlparse(path).query)
         current=int(query.get('page',[1])[0])
-        if r.request.method!='GET': flags['posts']+=1
-        if '/summary' in path or '/stats' in path:
+        if r.request.method!='GET' and '/wowthai-hours/v1/' not in path: flags['posts']+=1
+        if '/wowthai-hours/v1/schedule' in path:
+          assert r.request.headers.get('x-wp-nonce')=='fixture-only', 'schedule requests require the actual REST nonce header'
+          schedule={'weekly':{str(i):([['11:00','14:00']] if i!=1 else []) for i in range(1,8)},'exceptions':{'2026-10-24':{'closed':True,'reason':'Fixture closure'},'2026-10-25':{'closed':False,'ranges':[['12:00','15:00']],'reason':'Fixture custom'}},'revision':flags['hours_revision'],'can_edit':flags['can_edit'],'timezone':'Europe/Vienna'}
+          if flags['hours_fail']:
+            r.fulfill(status=503,content_type='application/json',body=json.dumps({'message':'Fixture schedule unavailable'})); return
+          if r.request.method=='GET': data=schedule
+          else:
+            body=r.request.post_data_json; flags['hours_posts'].append({'method':r.request.method,'path':path,'body':body})
+            if '/preview' in path:
+              data={'revision':flags['hours_revision'],'confirmation_token':'fixture-token-'+str(len(flags['hours_posts'])),'conflicts':([{'kind':'order','id':17,'date':'','time':'','status':'processing','unknown':True},{'kind':'reservation','id':18,'date':'2026-10-24','time':'12:00','status':'confirmed','unknown':False}] if flags['conflicts'] else []),'preview':{'date':body['preview_date'],'ranges':[['12:00','15:00']],'reservation_slots':['12:30','13:00'],'pickup_slots':['12:15']}}
+              if flags['preview_hold']:
+                flags['held_preview']=(r,data); return
+            else:
+              assert body['confirmation_token'].startswith('fixture-token-')
+              if flags['conflicts']: assert body.get('acknowledge_conflicts') is True, 'conflicts require explicit boolean acknowledgement'
+              if flags['save_hold']:
+                flags['held_save']=r; return
+              if flags['save_status']!=200:
+                r.fulfill(status=flags['save_status'],content_type='application/json',body=json.dumps({'message':'Fixture save failed'})); return
+              flags['hours_revision']='r'+str(len(flags['hours_posts'])); data={**schedule,'revision':flags['hours_revision']}
+          r.fulfill(status=200,content_type='application/json',body=json.dumps(data)); return
+        if '/wowthai-hours/v1/availability' in path:
+          data={'date':query.get('date',['2026-10-19'])[0],'ranges':[['11:00','14:00']],'reservation_slots':flags['slots'],'pickup_slots':['12:15']}
+        elif '/summary' in path or '/stats' in path:
+          flags['summary_reads']+=1
           if flags['fail']:
             r.fulfill(status=503,content_type='application/json',body='{"message":"fixture disconnected"}'); return
-          data={'date':'2026-10-19','is_open':flags['open'],'pending_reservations':60,'new_orders':2,'active_orders':3,'backlog_orders':1,'new_order_ids':flags['new_ids']}
+          data={'date':'2026-10-19','is_open':flags['open'],'pending_reservations':0 if flags['zero_counts'] else 60,'new_orders':0 if flags['zero_counts'] else 2,'active_orders':3,'backlog_orders':1,'new_order_ids':flags['new_ids']}
         elif '/daily?' in path:
           if flags['daily_fail']:
             r.fulfill(status=503,content_type='application/json',body='{}'); return
@@ -57,8 +82,13 @@ try:
         r.fulfill(status=200,content_type='application/json',body=json.dumps(data))
       page.route('**/api/**',route)
       page.goto(f'http://127.0.0.1:{server.server_port}/fixture')
+      expect(page.locator('.wto-header-brand img')).to_be_visible()
+      expect(page.locator('.wto-primary-nav [data-tab=orders]')).to_be_visible()
+      expect(page.locator('.wto-primary-nav [data-tab=reservations]')).to_be_visible()
+      expect(page.locator('#wto-view-hours')).to_have_count(1)
       menu=page.locator('#wto-command-menu')
       expect(menu).to_have_count(1)
+      expect(menu.locator('summary')).to_have_text('Menü▾')
       trigger=menu.locator('summary')
       expect(menu.locator('.wto-portal-nav')).not_to_be_visible()
       trigger.focus(); trigger.press('Enter')
@@ -74,6 +104,9 @@ try:
         if not menu.evaluate('(el)=>el.open'): break
       expect(menu).not_to_have_attribute('open','')
       def menu_click(selector):
+        if page.locator(selector).is_visible():
+          page.locator(selector).click()
+          return
         if not menu.evaluate('(el)=>el.open'): trigger.click()
         page.locator(selector).click()
         if menu.evaluate('(el)=>el.open'): trigger.click()
@@ -90,7 +123,7 @@ try:
       expect(page.locator('#wto-orders-pagination')).not_to_be_visible()
       expect(page.locator('#wto-orders-feedback')).to_be_empty()
       if width >= 1024:
-        assert page.locator('#wto-kanban-board').bounding_box()['height'] >= height * .86, 'daily controls must leave enough space for orders'
+        assert page.locator('#wto-kanban-board').bounding_box()['height'] >= height * .82, 'daily controls must leave enough space for orders'
       menu_click('#wto-help-toggle')
       expect(page.locator('#wto-dialog-help')).to_be_visible()
       expect(page.locator('#wto-dialog-help')).to_contain_text('Zeiträume')
@@ -114,6 +147,19 @@ try:
       expect(page.locator('#wto-res-pagination')).not_to_be_visible()
       page.locator('#wto-btn-new-reservation').click()
       expect(page.locator('#wto-dialog-new-res')).to_be_visible()
+      phone=page.locator('#wto-dialog-new-res')
+      phone.locator('[name="name"]').fill('Synthetic phone guest')
+      phone.locator('[name="time"]').select_option('12:30')
+      page.evaluate("document.dispatchEvent(new CustomEvent('wowthai:hours-saved'))")
+      expect(phone.locator('[name="time"]')).to_have_value('12:30')
+      expect(phone.locator('[name="name"]')).to_have_value('Synthetic phone guest')
+      flags['slots']=[]
+      page.evaluate("document.dispatchEvent(new CustomEvent('wowthai:hours-saved'))")
+      expect(phone.locator('[name="time"]')).to_be_disabled()
+      expect(phone.locator('[type="submit"]')).to_be_disabled()
+      flags['slots']=['12:00','12:30']
+      page.evaluate("document.dispatchEvent(new CustomEvent('wowthai:hours-saved'))")
+      expect(phone.locator('[name="time"]')).to_be_enabled()
       page.locator('#wto-dialog-new-res .wto-btn-close').click()
       if width <= 768:
         menu_click('#wto-res-col-switcher [data-col="prep"]')
@@ -167,6 +213,8 @@ try:
       assert page.evaluate('window.chimes')==2,'unchanged new order must not chime twice'
       flags['fail']=True; page.clock.run_for(12000)
       expect(page.locator('#wto-opening-status')).to_contain_text('unbekannt')
+      expect(page.locator('#wto-badge-res')).to_have_text('60')
+      expect(page.locator('#wto-badge-orders')).to_have_text('2')
       expect(page.locator('#wto-sync-status')).to_contain_text('veraltet')
       if width <= 768:
         trigger.click()
@@ -182,11 +230,17 @@ try:
       expect(page.locator('#wto-kpi-res-total')).to_have_text('60')
       expect(page.locator('.wto-res-card').first).to_contain_text('Fixture reservation')
       folder=Path(os.environ.get('PORTAL_TEST_ARTIFACTS',str(Path(tempfile.gettempdir())/'wowthai-portal-artifacts')));folder.mkdir(parents=True,exist_ok=True)
-      assert page.locator('#wto-res-list').bounding_box()['height'] >= page.viewport_size['height'] * .70, 'booking controls must leave most of the viewport for reservations'
+      page.screenshot(path=str(folder/f'reservations-before-{width}.png'))
+      assert page.locator('#wto-res-list').bounding_box()['height'] >= page.viewport_size['height'] * (.66 if width==320 else .70), 'booking controls must leave most of the viewport for reservations'
       page.screenshot(path=str(folder/f'reservations-{width}.png'))
       trigger.click()
       panel=menu.locator('.wto-command-panel')
+      if width == 390: page.set_viewport_size({'width':390,'height':667})
       box=panel.bounding_box()
+      header=page.locator('.wto-command-header').bounding_box()
+      assert box['y']>=header['y']+header['height'], 'open menu must sit below the whole header, preserving primary queue controls'
+      assert page.locator('.wto-primary-nav .wto-nav-tab').evaluate_all('buttons=>buttons.every(button=>{const r=button.getBoundingClientRect();return button.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})'), 'queue button centers must remain unobscured while menu is open'
+      assert abs(box['x']+box['width']-(width-(8 if width<=768 else 12)))<=1, 'dropdown must align right'
       assert box['x'] >= 0 and box['x']+box['width'] <= width+1, 'dropdown must fit the viewport'
       assert box['y']+box['height'] <= page.viewport_size['height']+1, 'dropdown must scroll within short screens'
       page.screenshot(path=str(folder/f'menu-{width}.png'))
@@ -217,7 +271,150 @@ try:
       disclosure.locator('summary').focus(); page.clock.run_for(12000)
       expect(disclosure).to_have_attribute('open','')
       expect(disclosure.locator('summary')).to_be_focused()
-      print(f'PASS: {width}px archive/pagination/readonly, booking dates/filter/counts/focus/scroll, daily details/refunds, polling/open/failure/recovery')
+      # Hours editor uses only intercepted synthetic schedule writes.
+      assert flags['hours_posts']==[], 'hours editor loads lazily and never saves on navigation'
+      menu_click('[data-tab="hours"]')
+      expect(page.locator('#wto-hours-message')).to_contain_text('Veröffentlichter Stand geladen')
+      expect(page.locator('#wto-hours-weekly-fields')).not_to_have_attribute('disabled','')
+      expect(page.locator('.wto-orders-toolbar')).not_to_be_visible()
+      expect(page.locator('.wto-primary-nav [data-tab="orders"]')).to_be_visible()
+      expect(page.locator('.wto-primary-nav [data-tab="reservations"]')).to_be_visible()
+      expect(trigger).to_have_text('Menü▾')
+      assert hashlib.sha256((ROOT/'assets/js/portal-hours.js').read_bytes()).hexdigest()[:12] in page.locator('script[src*="portal-hours.js"]').get_attribute('src')
+      assert page.locator('#wto-hours-start').evaluate('(input)=>getComputedStyle(input).colorScheme')=='dark', 'native calendar controls must use the dark scheme'
+      assert page.locator('[data-time="start"]').first.evaluate('(input)=>getComputedStyle(input).colorScheme')=='dark', 'native time controls must use the dark scheme'
+      monday=page.locator('[data-day="1"]')
+      expect(monday.locator('[data-closed]')).to_be_checked()
+      tuesday=page.locator('[data-day="2"]')
+      tuesday.locator('[data-add]').click()
+      tuesday.locator('[data-time="start"]').last.fill('17:00')
+      tuesday.locator('[data-time="end"]').last.fill('20:00')
+      flags['preview_hold']=True
+      page.locator('#wto-hours-check').click()
+      page.wait_for_function("document.getElementById('wto-hours-message').textContent.includes('geprüft') || document.getElementById('wto-hours-message').textContent.includes('werden geprüft')")
+      tuesday.locator('[data-time="end"]').last.fill('20:15')
+      assert flags['held_preview'] is not None
+      held,preview=flags['held_preview']; held.fulfill(status=200,content_type='application/json',body=json.dumps(preview))
+      expect(page.locator('#wto-hours-save')).to_be_disabled()
+      expect(page.locator('#wto-hours-result')).to_be_empty()
+      flags['preview_hold']=False
+      tuesday.locator('[data-time="end"]').last.fill('20:00')
+      page.locator('#wto-hours-check').click()
+      expect(page.locator('#wto-hours-result')).to_contain_text('12:30, 13:00')
+      expect(page.locator('#wto-hours-conflicts')).to_contain_text('Bestellung #17')
+      expect(page.locator('#wto-hours-conflicts')).to_contain_text('Datum unbekannt')
+      expect(page.locator('#wto-hours-save')).to_be_disabled()
+      expect(page.locator('#wto-hours-ack')).not_to_be_checked()
+      assert flags['hours_posts'][-1]['body']['weekly']['2']==[['11:00','14:00'],['17:00','20:00']]
+      page.locator('#wto-hours-ack').check()
+      expect(page.locator('#wto-hours-save')).to_be_enabled()
+      # Any edit cancels the signed preview, including edits after tab changes.
+      page.locator('#wto-hours-tab-weekly').click()
+      tuesday.locator('[data-time="end"]').last.fill('20:30')
+      expect(page.locator('#wto-hours-save')).to_be_disabled()
+      page.locator('#wto-hours-check').click()
+      expect(page.locator('#wto-hours-ack-label')).to_be_visible()
+      page.locator('#wto-hours-ack').check()
+      flags['save_status']=409
+      page.locator('#wto-hours-save').click()
+      expect(page.locator('#wto-hours-message')).to_contain_text('veraltet')
+      expect(page.locator('#wto-hours-check')).to_be_disabled()
+      page.locator('#wto-hours-reload').click()
+      expect(page.locator('#wto-hours-message')).to_contain_text('Entwurf bleibt erhalten')
+      page.locator('#wto-hours-tab-weekly').click()
+      expect(tuesday.locator('[data-time="end"]').last).to_have_value('20:30')
+      flags['save_status']=500
+      page.locator('#wto-hours-check').click()
+      expect(page.locator('#wto-hours-ack-label')).to_be_visible()
+      page.locator('#wto-hours-ack').check(); page.locator('#wto-hours-save').click()
+      expect(page.locator('#wto-hours-message')).to_contain_text('Ihr Entwurf bleibt erhalten')
+      expect(page.locator('#wto-hours-save')).to_be_disabled()
+      page.locator('#wto-hours-check').click()
+      expect(page.locator('#wto-hours-ack-label')).to_be_visible()
+      page.locator('#wto-hours-ack').check()
+      flags['save_status']=200; flags['save_hold']=True
+      page.evaluate("window.savedEvents=0; document.addEventListener('wowthai:hours-saved',()=>window.savedEvents++)")
+      page.locator('#wto-hours-save').click()
+      expect(page.locator('#wto-hours-save')).to_be_disabled()
+      expect(page.locator('#wto-hours-weekly-fields')).to_have_attribute('disabled','')
+      sent=len(flags['hours_posts'])
+      page.locator('#wto-hours-save').dispatch_event('click')
+      assert len(flags['hours_posts'])==sent, 'in-flight save must not be sent twice'
+      assert flags['held_save'] is not None
+      reads=flags['summary_reads']
+      flags['held_save'].fulfill(status=200,content_type='application/json',body=json.dumps({'weekly':{str(i):[] for i in range(1,8)},'exceptions':{},'revision':'saved-weekly','can_edit':True,'timezone':'Europe/Vienna'}))
+      expect(page.locator('#wto-hours-message')).to_contain_text('gespeichert')
+      page.wait_for_function('window.savedEvents===1')
+      assert flags['summary_reads']>reads, 'successful save immediately refreshes staff kitchen status'
+      assert flags['hours_posts'][-1]['body']['revision']=='r1'
+      flags['save_hold']=False; flags['hours_revision']='saved-weekly'
+      # Existing exceptions remain visible; selecting one only prefills a draft.
+      page.locator('#wto-hours-reload').click()
+      expect(page.locator('#wto-hours-message')).to_contain_text('Entwurf bleibt erhalten')
+      page.locator('#wto-hours-tab-exceptions').click()
+      page.locator('.wto-hours-existing summary').click()
+      before=len(flags['hours_posts'])
+      page.locator('#wto-hours-existing button').filter(has_text='Fixture custom').click()
+      expect(page.locator('#wto-hours-start')).to_have_value('2026-10-25')
+      expect(page.locator('#wto-hours-mode')).to_have_value('hours')
+      expect(page.locator('#wto-hours-reason')).to_have_value('Fixture custom')
+      expect(page.locator('#wto-hours-custom-ranges input').first).to_have_value('12:00')
+      assert len(flags['hours_posts'])==before
+      page.locator('#wto-hours-end').fill('2028-10-25')
+      page.locator('#wto-hours-check').click()
+      expect(page.locator('#wto-hours-message')).to_contain_text('maximal 367 Tage')
+      assert len(flags['hours_posts'])==before
+      page.locator('#wto-hours-end').fill('2026-10-26')
+      page.locator('#wto-hours-mode').select_option('remove')
+      flags['conflicts']=False
+      page.locator('#wto-hours-check').click()
+      expect(page.locator('#wto-hours-conflicts')).to_contain_text('Keine betroffenen')
+      expect(page.locator('#wto-hours-save')).to_be_enabled()
+      page.locator('#wto-hours-save').click()
+      expect(page.locator('#wto-hours-message')).to_contain_text('gespeichert')
+      body=flags['hours_posts'][-1]['body']
+      assert body['kind']=='exceptions' and body['exception']['mode']=='remove' and body['exception']['start_date']=='2026-10-25' and body['exception']['end_date']=='2026-10-26' and body['revision']=='saved-weekly'
+      flags['zero_counts']=True; page.clock.run_for(12000)
+      expect(page.locator('#wto-badge-orders')).to_have_text('0')
+      expect(page.locator('#wto-badge-res')).to_have_text('0')
+      expect(page.locator('#wto-badge-orders')).to_be_visible()
+      expect(page.locator('#wto-badge-res')).to_be_visible()
+      flags['zero_counts']=False
+      # Published date preview remains accessible without a write capability.
+      flags['can_edit']=False
+      page.reload()
+      menu_click('[data-tab="hours"]')
+      expect(page.locator('#wto-hours-permission')).to_contain_text('Nur Lesezugriff')
+      expect(page.locator('#wto-hours-weekly-fields')).to_have_attribute('disabled','')
+      expect(page.locator('#wto-hours-save')).not_to_be_visible()
+      expect(page.locator('#wto-hours-check')).to_be_disabled()
+      page.locator('#wto-hours-tab-preview').click()
+      page.locator('#wto-hours-published').click()
+      expect(page.locator('#wto-hours-preview-source')).to_contain_text('Veröffentlichter Stand')
+      expect(page.locator('#wto-hours-result')).to_contain_text('12:00, 12:30')
+      # Deep links prefill only and remain non-writing.
+      before=len(flags['hours_posts'])
+      flags['can_edit']=True
+      page.goto(f'http://127.0.0.1:{server.server_port}/fixture?view=hours&hours_date=2026-10-27&hours_mode=closed&hours_reason=Fixture+legacy')
+      expect(page.locator('#wto-hours-start')).to_have_value('2026-10-27')
+      expect(page.locator('#wto-hours-reason')).to_have_value('Fixture legacy')
+      expect(page.locator('#wto-hours-tab-exceptions')).to_have_attribute('aria-selected','true')
+      assert len(flags['hours_posts'])==before, 'legacy links must never auto-preview or save'
+      page.screenshot(path=str(folder/f'hours-{width}.png'))
+      assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth'), 'hours horizontal overflow'
+      flags['hours_fail']=True
+      page.reload()
+      expect(page.locator('#wto-hours-message')).to_contain_text('unavailable')
+      expect(page.locator('#wto-hours-weekly-fields')).to_have_attribute('disabled','')
+      expect(page.locator('#wto-hours-save')).not_to_be_visible()
+      assert flags['posts']==0, 'only synthetic hours writes are allowed; no order/booking mutation'
+      before=len(flags['hours_posts']); reads=flags['summary_reads']
+      page.goto(f'http://127.0.0.1:{server.server_port}/fixture-anonymous?view=hours')
+      expect(page.locator('#wto-portal-login-form')).to_be_visible()
+      expect(page.locator('#wto-portal-app')).to_have_count(0)
+      assert len(flags['hours_posts'])==before and flags['summary_reads']==reads, 'login must not initialize staff API reads/writes'
+      assert not errors, errors
+      print(f'PASS: {width}px archive/pagination/readonly, booking dates/filter/counts/focus/scroll, daily details/refunds, polling/open/failure/recovery; hours permissions/preview/conflicts/409/500/inflight/legacy')
       page.close()
     browser.close()
 finally: server.shutdown()

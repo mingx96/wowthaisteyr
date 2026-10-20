@@ -10,9 +10,10 @@ if (!defined('ABSPATH')) {
 }
 
 $theme_uri = get_template_directory_uri();
-$version = '1.4.5';
+$version = '1.5.0';
 // A release number can already be cached before an asynchronous deployment finishes.
 $portal_js_version = $version . '-' . substr(hash_file('sha256', get_template_directory() . '/assets/js/portal.js'), 0, 12);
+$portal_hours_version = $version . '-' . substr(hash_file('sha256', get_template_directory() . '/assets/js/portal-hours.js'), 0, 12);
 $portal_css_version = $version . '-' . substr(hash_file('sha256', get_template_directory() . '/assets/css/portal.css'), 0, 12);
 
 // Fallback direct POST login handler
@@ -170,20 +171,18 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
     <!-- One dropdown for navigation, filters and staff options. -->
     <header class="wto-portal-header wto-command-header">
       <div class="wto-header-brand" title="WoW Thai Steyr">
-        <div class="wto-brand-mini" aria-label="WoW Thai Steyr">W</div>
+        <img src="<?php echo esc_url($theme_uri . '/assets/img/logo-sm.png'); ?>" width="48" height="40" alt="WoW Thai Steyr">
       </div>
+      <nav class="wto-primary-nav" aria-label="Bestellungen und Reservierungen">
+        <button type="button" class="wto-nav-tab active" data-tab="orders"><span>Bestellungen</span><span id="wto-badge-orders" class="wto-nav-badge" title="Neu · alle Tage">—</span></button>
+        <button type="button" class="wto-nav-tab" data-tab="reservations"><span>Reservierungen</span><span id="wto-badge-res" class="wto-nav-badge" title="Offen · alle Tage">—</span></button>
+      </nav>
+      <span id="wto-current-section" class="wto-sr-only">Bestellungen</span>
       <details id="wto-command-menu" class="wto-command-menu">
-        <summary aria-labelledby="wto-current-section wto-menu-label"><span id="wto-current-section">Bestellungen</span><span id="wto-menu-label" class="wto-sr-only">Menü und Optionen</span><span aria-hidden="true">▾</span></summary>
+        <summary><span>Menü</span><span aria-hidden="true">▾</span></summary>
         <div class="wto-command-panel">
           <nav class="wto-portal-nav" aria-label="Betriebsbereiche">
-      <button type="button" class="wto-nav-tab active" data-tab="orders">
-        <span>🍲 Bestellungen</span>
-      </button>
-
-      <button type="button" class="wto-nav-tab" data-tab="reservations">
-        <span>📅 Reservierungen</span>
-      </button>
-
+      <button type="button" class="wto-nav-tab" data-tab="hours"><span>Öffnungszeiten</span></button>
       <button type="button" class="wto-nav-tab" data-tab="customers">
         <span>👥 Kunden &amp; CRM</span>
       </button>
@@ -192,10 +191,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
         <span>📊 Tagesübersicht</span>
       </button>
     </nav>
-          <div data-menu-section="orders"><h3>Ansicht</h3><div class="wto-orders-switch">
-            <button type="button" class="active" data-view="kanban">Küchenboard</button>
-            <button type="button" data-view="archive">Archiv</button>
-          </div> <div class="wto-mobile-col-switcher" id="wto-orders-col-switcher">
+          <div data-menu-section="orders"><h3>Küchenspalte</h3> <div class="wto-mobile-col-switcher" id="wto-orders-col-switcher">
           <button type="button" class="wto-mcol-btn active" data-col="new">
             🔔 Neu <span class="wto-mcol-badge" id="wto-m-count-new">0</span>
           </button>
@@ -249,8 +245,9 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
       </details>
       <div id="wto-opening-status" class="wto-status-pill <?php echo $is_open === null ? 'unknown' : ($is_open ? 'open' : 'closed'); ?>" role="status"><?php echo $is_open === null ? 'Küche unbekannt' : ($is_open ? 'Küche geöffnet' : 'Küche geschlossen'); ?></div>
       <div class="wto-network-pill"><span id="wto-network-dot" class="wto-network-dot"></span><span data-network-text>Verbunden</span></div>
-      <div class="wto-global-alerts" aria-label="Offene Aufgaben"><span class="wto-queue-badge" hidden><span aria-hidden="true">🍲</span><span id="wto-badge-orders" class="wto-nav-badge">0</span></span><span class="wto-queue-badge" hidden><span aria-hidden="true">📅</span><span id="wto-badge-res" class="wto-nav-badge">0</span></span></div>
+
     </header>
+    <p id="wto-queue-status" class="wto-sr-only" role="status" aria-atomic="true"></p>
 
     <dialog id="wto-dialog-help" class="wto-modal wto-help-dialog" aria-labelledby="wto-help-title">
       <div class="wto-modal-head">
@@ -279,6 +276,10 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
            VIEW 1: BESTELLUNGEN (WIX-STYLE 3-COLUMN KANBAN)
            =================================================================== -->
       <section id="wto-view-orders" class="wto-view active" aria-label="Bestellungs-Management">
+        <div class="wto-orders-toolbar"><div class="wto-orders-switch">
+            <button type="button" class="active" data-view="kanban">Küchenboard</button>
+            <button type="button" data-view="archive">Archiv</button>
+          </div></div>
 
 
 
@@ -422,6 +423,41 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
         <p id="wto-daily-feedback" class="wto-data-status" role="status"></p>
       </section>
 
+
+      <section id="wto-view-hours" class="wto-view" aria-labelledby="wto-hours-title">
+        <div class="wto-hours-shell">
+          <div class="wto-hours-heading"><div><h1 id="wto-hours-title">Öffnungszeiten</h1><p>Europe/Vienna · Sondertage ersetzen den Wochenplan.</p></div><button type="button" id="wto-hours-reload" class="wto-btn btn-secondary">Stand neu laden</button></div>
+          <p id="wto-hours-message" role="status" aria-atomic="true" tabindex="-1">Öffnungszeiten werden beim Öffnen geladen.</p>
+          <p id="wto-hours-permission"></p>
+          <div class="wto-hours-tabs" role="tablist" aria-label="Öffnungszeiten bearbeiten">
+            <button type="button" id="wto-hours-tab-weekly" role="tab" aria-controls="wto-hours-weekly" aria-selected="true" data-hours-tab="weekly">Wochenplan</button>
+            <button type="button" id="wto-hours-tab-exceptions" role="tab" aria-controls="wto-hours-exceptions" aria-selected="false" tabindex="-1" data-hours-tab="exceptions">Sondertage</button>
+            <button type="button" id="wto-hours-tab-preview" role="tab" aria-controls="wto-hours-preview" aria-selected="false" tabindex="-1" data-hours-tab="preview">Vorschau</button>
+          </div>
+          <div id="wto-hours-weekly" role="tabpanel" aria-labelledby="wto-hours-tab-weekly">
+            <p>Mehrere Zeitfenster pro Tag möglich. Keine Überschneidungen oder Zeiten über Mitternacht.</p>
+            <fieldset id="wto-hours-weekly-fields" disabled><legend class="wto-sr-only">Wochenplan</legend><div id="wto-hours-days"></div></fieldset>
+          </div>
+          <div id="wto-hours-exceptions" role="tabpanel" aria-labelledby="wto-hours-tab-exceptions" hidden>
+            <fieldset id="wto-hours-exception-fields" disabled><legend>Sondertag oder Zeitraum</legend>
+              <div class="wto-hours-fields"><label>Von<input id="wto-hours-start" type="date" required></label><label>Bis einschließlich<input id="wto-hours-end" type="date" required></label>
+              <label>Regel<select id="wto-hours-mode"><option value="closed">Geschlossen</option><option value="hours">Eigene Zeiten</option><option value="remove">Ausnahme entfernen (Wochenplan)</option></select></label></div>
+              <p>Maximal 367 Tage. Entfernen stellt den Wochenplan wieder her.</p>
+              <label class="wto-hours-reason">Öffentlicher Hinweis für Gäste<input id="wto-hours-reason" type="text" maxlength="500"></label>
+              <div id="wto-hours-exception-ranges" hidden><div id="wto-hours-custom-ranges"></div><button type="button" id="wto-hours-add-custom" class="wto-btn btn-secondary">Zeitfenster hinzufügen</button></div>
+            </fieldset>
+            <details class="wto-hours-existing"><summary>Gespeicherte Sondertage · alle Daten</summary><ul id="wto-hours-existing"></ul></details>
+          </div>
+          <div id="wto-hours-preview" role="tabpanel" aria-labelledby="wto-hours-tab-preview" hidden>
+            <div class="wto-hours-fields"><label>Datum (Wien)<input id="wto-hours-preview-date" type="date" required></label><button type="button" id="wto-hours-published" class="wto-btn btn-secondary">Veröffentlichte Zeiten anzeigen</button></div>
+            <p id="wto-hours-preview-source">Noch keine Vorschau geladen.</p>
+            <div id="wto-hours-result"></div>
+            <div id="wto-hours-conflicts"></div>
+            <label id="wto-hours-ack-label" class="wto-hours-ack" hidden><input id="wto-hours-ack" type="checkbox">Ich habe die betroffenen Vorgänge geprüft und bestätige die Änderung. Reservierungen und Bestellungen bleiben bestehen.</label>
+          </div>
+          <div class="wto-hours-actions"><button type="button" id="wto-hours-check" class="wto-btn btn-secondary" disabled>Entwurf prüfen</button><button type="button" id="wto-hours-save" class="wto-btn btn-primary" disabled hidden>Geprüfte Änderung speichern</button></div>
+        </div>
+      </section>
     </main>
 
     <!-- Modal for New Phone Reservation -->
@@ -480,6 +516,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
 <script>
 window.wtoPortalConfig = {
   api: '<?php echo esc_url_raw(rest_url("wowthai-operations/v1/")); ?>',
+  hours_api: '<?php echo esc_url_raw(rest_url("wowthai-hours/v1/")); ?>',
   read_api: '<?php echo esc_url_raw(rest_url("wowthai-portal/v1/")); ?>',
   read_revision: '<?php echo esc_js($portal_js_version); ?>',
   nonce: '<?php echo esc_js(wp_create_nonce("wp_rest")); ?>',
@@ -489,6 +526,8 @@ window.wtoPortalConfig = {
 };
 </script>
 <script src="<?php echo esc_url($theme_uri . '/assets/js/portal.js?v=' . $portal_js_version); ?>"></script>
+
+<script src="<?php echo esc_url($theme_uri . '/assets/js/portal-hours.js?v=' . $portal_hours_version); ?>"></script>
 
 </body>
 </html>

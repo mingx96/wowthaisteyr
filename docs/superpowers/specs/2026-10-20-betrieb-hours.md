@@ -1,0 +1,15 @@
+# Betrieb navigation and opening-hours management — approved specification
+
+Task ID: `notion:3fe9ccae-c10f-811c-aa0f-f561d4c47a8f`.
+Approved by the user's explicit request to implement this plan on 2026-10-20.
+
+- Actual existing WoW logo left; Bestellungen and Reservierungen always-visible buttons with active state and counts; fixed-label Menü right with left-opening dropdown. Orders count only new/unaccepted orders; bookings count pending across all dates. Preserve counts on failure with stale feedback. Küchenboard/Archiv controls only in the orders view.
+- Dropdown retains CRM, daily view, new Öffnungszeiten view, prep, sound, help and account. Context filters belong to their view. Compact/touch44px/keyboard/Escape/outside dismissal remain supported.
+- Öffnungszeiten has Wochenplan (ISO weekdays1..7, multiple same-day time ranges or closed), Sondertage (single/range closed/custom hours/remove exception) and Vorschau (effective hours and generic pickup/booking slots by date).
+- Europe/Vienna; date exceptions replace weekly hours, closed returns no slots. Strict valid dates/times, start<end, no overlapping ranges, same-day only. Keep existing default schedule until explicitly saved, preserve existing special days. Existing Sushi Monday/lunch/M4 constraints still intersect actual kitchen availability.
+- Admin/manage_woocommerce may save; remaining portal staff read only. Same restriction applies to old admin special-day actions.
+- Canonical weekly option wowthai_weekly_hours; exceptions wowthai_special_days extends existing closed/reason with optional ranges. Keep inc/hours.php as resolver and derive all public/admin/checkout/SEO displays from it; group equal weekdays only. Next-opening skips closures; public booking slots fetched by date with server final validation.
+- Staff API read/preview/write with nonce, revision and concurrency protection. Save weekly and exception resource separately. Preview all active orders and pending/confirmed bookings today onward by service date/time, never created date. Ambiguous active orders shown for manual checking. No write to customer/order/booking/email/payment data when changing hours.
+- A save is preceded by preview; any conflicts require explicit manager confirmation. On save recheck schedule revision and conflict set; changed inputs mean409/re-preview. Legacy admin links go to the shared editor, not a bypass write route.
+- After a save refresh schedule/status/slots, invalidate affected public-page caches through supported hooks, and rehydrate public hours from a no-store availability endpoint to handle old open pages/cached HTML.
+- Verify native PHP/JS, real template browser at320/390/768/1440/short viewport and disposable WP/Woo REST/database with HTTP/mail blocked. Review before GitHub→WordPress.com release; observe actual asset/runtime, no DB sync. Production authenticated writes are not available in this cloud; report this separately. UI rollback must retain the schedule resolver once customized hours exist.

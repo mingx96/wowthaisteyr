@@ -745,13 +745,7 @@ function wowthai_render_reservations_top_box() {
             $special_days = [];
         }
         $today_closed = ! empty( $special_days[ $today ]['closed'] );
-        $sd_nonce     = wp_create_nonce( 'wowthai_special_day_action' );
-        $toggle_today_url = admin_url(
-            'admin-post.php?action=wowthai_save_special_day&sd_date=' . rawurlencode( $today ) .
-            '&sd_mode=' . ( $today_closed ? 'remove' : 'add' ) .
-            '&sd_reason=' . rawurlencode( 'Heute Sondertag / Ruhetag' ) .
-            '&_wpnonce=' . $sd_nonce
-        );
+        $toggle_today_url = add_query_arg(['view' => 'hours', 'hours_date' => $today, 'hours_mode' => $today_closed ? 'remove' : 'closed', 'hours_reason' => 'Heute Sondertag / Ruhetag'], home_url('/betrieb/'));
         ?>
         <div class="wowthai-special-day-control" style="margin-top:12px; padding-top:12px; border-top:1px solid #f0f0f1; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <div style="display:flex; align-items:center; gap:8px;">
@@ -763,15 +757,15 @@ function wowthai_render_reservations_top_box() {
             </div>
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                 <a href="<?php echo esc_url( $toggle_today_url ); ?>" class="button button-small" style="font-weight:700; <?php echo $today_closed ? 'background:#107a38;color:#fff;border-color:#107a38;' : 'background:#fbeae8;color:#c22213;border-color:#f5b5b0;'; ?>">
-                    <?php echo $today_closed ? '✓ Heute wieder öffnen' : '🔒 Heute als Ruhetag schließen'; ?>
+                    <?php echo $today_closed ? 'Heute im Kalender bearbeiten' : 'Ruhetag im Kalender planen'; ?>
                 </a>
                 <?php foreach ( $special_days as $sd_ymd => $sd_info ) :
                     if ( $sd_ymd < $today || empty( $sd_info['closed'] ) ) continue;
-                    $rm_url = admin_url( 'admin-post.php?action=wowthai_save_special_day&sd_date=' . rawurlencode( $sd_ymd ) . '&sd_mode=remove&_wpnonce=' . $sd_nonce );
+                    $rm_url = add_query_arg(['view' => 'hours', 'hours_date' => $sd_ymd, 'hours_mode' => 'remove'], home_url('/betrieb/'));
                 ?>
                     <span style="background:#fff4e5;border:1px solid #ffd599;color:#8c5b00;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
                         📅 <?php echo esc_html( $sd_ymd ); ?> (<?php echo esc_html( $sd_info['reason'] ?? 'Geschlossen' ); ?>)
-                        <a href="<?php echo esc_url( $rm_url ); ?>" style="color:#c22213;text-decoration:none;font-weight:800;" title="Eintrag löschen">✕</a>
+                        <a href="<?php echo esc_url( $rm_url ); ?>" style="color:#c22213;text-decoration:none;font-weight:800;" title="Eintrag im Kalender bearbeiten">✕</a>
                     </span>
                 <?php endforeach; ?>
             </div>

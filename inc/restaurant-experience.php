@@ -114,37 +114,19 @@ function wowthai_get_upsell_suggestions() {
 /**
  * 5. Admin-Handler: Sondertage / Betriebsurlaub / Feiertags-Ruhetage verwalten
  */
+/** Legacy admin links can prefill the shared editor but never save options. */
 function wowthai_handle_save_special_day() {
-    check_admin_referer( 'wowthai_special_day_action' );
-
-    if ( ! current_user_can( 'edit_shop_orders' ) && ! current_user_can( 'manage_woocommerce' ) && ! current_user_can( 'manage_options' ) ) {
-        wp_die( 'Keine Berechtigung.' );
+    if (!wowthai_hours_api_can_edit()) wp_die('Keine Berechtigung.', '', ['response' => 403]);
+    $date = isset($_REQUEST['sd_date']) ? sanitize_text_field(wp_unslash($_REQUEST['sd_date'])) : '';
+    $mode = isset($_REQUEST['sd_mode']) ? sanitize_text_field(wp_unslash($_REQUEST['sd_mode'])) : '';
+    $reason = isset($_REQUEST['sd_reason']) ? sanitize_text_field(wp_unslash($_REQUEST['sd_reason'])) : '';
+    $params = ['view' => 'hours'];
+    if (!is_wp_error(wowthai_hours_api_date($date))) {
+        $params['hours_date'] = $date;
+        $params['hours_mode'] = $mode === 'remove' ? 'remove' : 'closed';
+        $params['hours_reason'] = substr($reason, 0, 500);
     }
-
-    $mode   = isset( $_REQUEST['sd_mode'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['sd_mode'] ) ) : 'add';
-    $date   = isset( $_REQUEST['sd_date'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['sd_date'] ) ) : '';
-    $reason = isset( $_REQUEST['sd_reason'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['sd_reason'] ) ) : 'Sondertag / Betriebsurlaub';
-
-    $special_days = get_option( 'wowthai_special_days', [] );
-    if ( ! is_array( $special_days ) ) {
-        $special_days = [];
-    }
-
-    if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ) {
-        if ( $mode === 'remove' ) {
-            unset( $special_days[ $date ] );
-        } else {
-            $special_days[ $date ] = [
-                'closed' => true,
-                'reason' => $reason !== '' ? $reason : 'Sondertag / Betriebsurlaub',
-            ];
-        }
-        ksort( $special_days );
-        update_option( 'wowthai_special_days', $special_days );
-    }
-
-    $redirect_url = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=wc-orders' );
-    wp_safe_redirect( $redirect_url );
+    wp_safe_redirect(add_query_arg($params, home_url('/betrieb/')));
     exit;
 }
 add_action( 'admin_post_wowthai_save_special_day', 'wowthai_handle_save_special_day' );

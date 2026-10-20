@@ -1848,3 +1848,79 @@ dialog.wto-modal::backdrop {
 }
 
 .wto-cust-toolbar { height: 48px; min-height: 48px; padding: 4px 12px; }
+
+/* Fixed queue navigation and compact hours editor (1.5). */
+.wto-command-header { min-height: 56px; height: auto; gap: 12px; }
+.wto-header-brand img { display: block; width: 48px; height: 40px; object-fit: contain; }
+.wto-primary-nav { display: flex; align-items: center; gap: 8px; }
+.wto-primary-nav .wto-nav-tab { min-height: 44px; padding: 6px 10px; border: 1px solid var(--wto-line-light); border-radius: 6px; gap: 8px; font-size: 14px; }
+.wto-primary-nav .wto-nav-tab.active { border-color: var(--wto-gold); background: var(--wto-bg); }
+.wto-command-header .wto-command-menu { order: 5; margin-left: auto; }
+.wto-command-menu > summary { min-height: 44px; }
+.wto-command-header .wto-network-pill { margin-left: 0; }
+.wto-command-panel { left: auto; right: 12px; }
+.wto-orders-toolbar { padding: 4px 12px; }
+.wto-orders-toolbar .wto-orders-switch { width: fit-content; }
+.wto-orders-toolbar button { min-height: 36px; }
+#wto-view-hours { overflow-y: auto; }
+.wto-hours-shell { width: 100%; max-width: 1040px; margin: 0 auto; padding: 16px; }
+.wto-hours-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.wto-hours-heading h1 { margin: 0; font-size: 20px; }
+.wto-hours-shell p { margin: 8px 0 12px; color: var(--wto-ink-muted); font-size: 13px; }
+.wto-hours-shell .is-error { color: var(--wto-red); }
+.wto-hours-shell fieldset { min-width: 0; padding: 0; border: 0; margin: 0; }
+.wto-hours-shell legend { margin-bottom: 12px; }
+.wto-hours-tabs { display: flex; gap: 8px; margin: 12px 0; border-bottom: 1px solid var(--wto-line); padding-bottom: 8px; }
+.wto-hours-tabs button { flex: 1; min-width: 0; min-height: 44px; padding: 6px 8px; border: 1px solid var(--wto-line-light); border-radius: 6px; background: var(--wto-surface); color: var(--wto-ink); font: inherit; font-size: 14px; cursor: pointer; }
+.wto-hours-tabs button[aria-selected=true] { border-color: var(--wto-gold); color: var(--wto-gold); }
+.wto-hours-shell label { display: flex; gap: 6px; font-size: 13px; }
+.wto-hours-day { display: grid; grid-template-columns: 175px minmax(0, 1fr) auto; align-items: start; gap: 8px; border-bottom: 1px solid var(--wto-line); padding: 10px 0; }
+.wto-hours-day-title { display: grid; gap: 8px; padding-top: 6px; }
+.wto-hours-shell input:not([type=checkbox]), .wto-hours-shell select { min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--wto-line-light); border-radius: 6px; padding: 6px 8px; background: var(--wto-bg); color: var(--wto-ink); font: inherit; }
+.wto-hours-range { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 8px; }
+.wto-hours-range label { flex: 1; min-width: 0; flex-direction: column; }
+.wto-hours-shell button { min-height: 44px; white-space: normal; }
+.wto-hours-shell input[type=checkbox] { width: 24px; height: 24px; flex-shrink: 0; accent-color: var(--wto-gold); }
+.wto-hours-day-title label { min-height: 44px; align-items: center; }
+.wto-hours-fields { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.wto-hours-fields label { flex: 1; min-width: 150px; flex-direction: column; }
+.wto-hours-reason { flex-direction: column; margin: 12px 0; }
+.wto-hours-existing { border-top: 1px solid var(--wto-line); margin-top: 16px; padding-top: 8px; }
+.wto-hours-existing summary { cursor: pointer; min-height: 44px; padding: 10px 0; }
+.wto-hours-existing ul { list-style: none; padding: 0; }
+.wto-hours-existing li { margin: 6px 0; }
+.wto-hours-existing button { text-align: left; overflow-wrap: anywhere; }
+.wto-hours-actions { display: flex; gap: 12px; padding: 16px 0; flex-wrap: wrap; }
+.wto-hours-ack { align-items: flex-start; padding: 12px; border: 1px solid var(--wto-gold); border-radius: 6px; }
+#wto-hours-result dd { margin: 4px 0 12px; overflow-wrap: anywhere; color: var(--wto-gold); }
+#wto-hours-conflicts li { margin-block: 8px; overflow-wrap: anywhere; }
+#wto-hours-conflicts h2 { font-size: 17px; }
+.wto-hours-shell button:disabled, .wto-hours-shell input:disabled { opacity: .55; cursor: default; }
+#wto-portal-app :is(button, input, select, summary):focus-visible { outline: 2px solid var(--wto-gold); outline-offset: 2px; scroll-margin: 8px; }
+@media (max-width: 768px) {
+  .wto-command-header { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; grid-template-areas: "brand status menu" "primary primary primary"; padding: 4px 8px; gap: 4px 8px; }
+  .wto-command-header .wto-header-brand { grid-area: brand; }
+  .wto-command-header .wto-status-pill { grid-area: status; font-size: 11px; white-space: normal; padding-right: 18px; }
+  .wto-command-header .wto-command-menu { grid-area: menu; margin: 0; }
+  .wto-command-header .wto-network-pill { grid-area: status; justify-self: end; align-self: center; position: static; width: 10px; min-width: 10px; }
+  .wto-command-header .wto-primary-nav { grid-area: primary; width: 100%; }
+  .wto-primary-nav .wto-nav-tab { flex: 1; justify-content: center; font-size: 13px; padding: 6px; }
+  .wto-command-panel { right: 8px; left: auto; width: calc(100vw - 16px); }
+  .wto-orders-toolbar { padding: 4px 8px; }
+  .wto-orders-toolbar button { min-height: 44px; }
+  .wto-hours-shell { padding: 12px 8px; }
+  .wto-hours-heading { flex-wrap: wrap; }
+  .wto-hours-day { grid-template-columns: minmax(0, 1fr); }
+  .wto-hours-day-title { display: flex; align-items: center; justify-content: space-between; padding: 0; }
+  .wto-hours-day > button { justify-self: start; }
+  .wto-hours-range { gap: 6px; }
+  .wto-hours-range button { padding: 6px; font-size: 12px; }
+  .wto-hours-fields label { min-width: 130px; }
+  .wto-hours-tabs { gap: 4px; }
+  .wto-hours-tabs button { font-size: 12px; padding-inline: 4px; }
+}
+
+.wto-hours-conflict-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.wto-hours-conflict-table th, .wto-hours-conflict-table td { text-align: left; vertical-align: top; padding: 10px 6px; border-bottom: 1px solid var(--wto-line); overflow-wrap: anywhere; }
+
+.wto-hours-shell input:is([type=date], [type=time]) { color-scheme: dark; }

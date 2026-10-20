@@ -82,11 +82,12 @@ $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
         <a href="mailto:<?php echo esc_attr($wow_mail); ?>"><?php echo esc_html($wow_mail); ?></a>
       </div>
     </div>
-    <div class="hours-row">
-      <span>Öffnungszeiten</span>
-      <span>Mo–Sa&nbsp; <?php echo esc_html($wow_hd['mosa_hours'] ?? ''); ?></span>
-      <span>So&nbsp; <?php echo esc_html($wow_hd['sun_hours'] ?? ''); ?></span>
-      <span style="color:#d4a359;font-size:12px;font-weight:600;">🍣 Montags Sushi-Ruhetag</span>
+    <div class="hours-row" data-wowthai-hours-rows>
+      <span data-wowthai-hours-static>Öffnungszeiten</span>
+      <?php foreach (($wow_hd['rows'] ?? []) as $row): ?>
+        <span data-wowthai-hours-row><?php echo esc_html($row['days'] . ' ' . $row['hours']); ?></span>
+      <?php endforeach; ?>
+      <span data-wowthai-hours-static style="color:#d4a359;font-size:12px;font-weight:600;">🍣 Montags Sushi-Ruhetag</span>
     </div>
   </section>
 </main>

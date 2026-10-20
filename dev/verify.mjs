@@ -143,7 +143,7 @@ function recordGate(id, name, issues, warnOnly = false) {
                 issues.push(`PHP syntax error in ${rel}: ${err.message}`);
             }
         }
-        for (const testName of ['hours.test.php', 'menu-description.test.php', 'portal-read-model.test.php']) {
+        for (const testName of ['hours.test.php', 'hours-schedule.test.php', 'hours-api.test.php', 'menu-description.test.php', 'portal-read-model.test.php']) {
             const testFile = path.join(ROOT, 'dev', 'tests', testName);
             if (!fs.existsSync(testFile)) continue;
             try {
