@@ -311,7 +311,14 @@ function initPortal(cfg) {
     const top = commandHeader.getBoundingClientRect().bottom + 4;
     panel.style.top = top + 'px'; panel.style.maxHeight = 'max(44px, calc(100dvh - ' + (top + 8) + 'px))';
   }
-  commandMenu.addEventListener('toggle', positionMenu);
+  commandMenu.addEventListener('toggle', () => {
+    positionMenu();
+    if (commandMenu.open) {
+      const panel = commandMenu.querySelector('.wto-command-panel');
+      panel.scrollTop = 0;
+      requestAnimationFrame(() => { if (commandMenu.open) panel.scrollTop = 0; });
+    }
+  });
   window.addEventListener('resize', positionMenu);
   new ResizeObserver(positionMenu).observe(commandHeader);
   function closeCommandMenu(restoreFocus = false) {
@@ -336,6 +343,10 @@ function initPortal(cfg) {
     const titles = {orders: 'Bestellungen', reservations: 'Reservierungen', customers: 'Kunden & CRM', stats: 'Tagesübersicht', hours: 'Öffnungszeiten'};
     document.getElementById('wto-current-section').textContent = titles[state.activeTab] + (state.activeTab === 'orders' && state.orderView === 'archive' ? ' · Archiv' : '');
     commandMenu.querySelectorAll('[data-menu-section]').forEach(section => { section.hidden = section.dataset.menuSection !== state.activeTab; });
+    commandMenu.querySelectorAll('.wto-portal-nav [data-tab]').forEach(button => {
+      if (button.dataset.tab === state.activeTab) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    });
   }
   document.getElementById('wto-help-toggle')?.addEventListener('click', () => {
     closeCommandMenu(true); document.getElementById('wto-dialog-help').showModal();
@@ -352,11 +363,12 @@ function initPortal(cfg) {
   if (soundBtn) soundBtn.addEventListener('click', toggleSound);
 
   function updateSoundBtn() {
-    const text = state.soundOn ? '🔔 Signal: AN' : '🔕 Signal: AUS';
+    const text = state.soundOn ? 'Signalton an' : 'Signalton aus';
     const cls = 'wto-btn-sound' + (state.soundOn ? '' : ' sound-off');
     if (soundBtn) {
       soundBtn.className = cls;
-      soundBtn.innerHTML = text;
+      soundBtn.textContent = text;
+      soundBtn.setAttribute('aria-pressed', String(state.soundOn));
     }
   }
   updateSoundBtn();

@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 $theme_uri = get_template_directory_uri();
-$version = '1.5.0';
+$version = '1.5.1';
 // A release number can already be cached before an asynchronous deployment finishes.
 $portal_js_version = $version . '-' . substr(hash_file('sha256', get_template_directory() . '/assets/js/portal.js'), 0, 12);
 $portal_hours_version = $version . '-' . substr(hash_file('sha256', get_template_directory() . '/assets/js/portal-hours.js'), 0, 12);
@@ -181,66 +181,63 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
       <details id="wto-command-menu" class="wto-command-menu">
         <summary><span>Menü</span><span aria-hidden="true">▾</span></summary>
         <div class="wto-command-panel">
-          <nav class="wto-portal-nav" aria-label="Betriebsbereiche">
-      <button type="button" class="wto-nav-tab" data-tab="hours"><span>Öffnungszeiten</span></button>
-      <button type="button" class="wto-nav-tab" data-tab="customers">
-        <span>👥 Kunden &amp; CRM</span>
-      </button>
-
-      <button type="button" class="wto-nav-tab" data-tab="stats">
-        <span>📊 Tagesübersicht</span>
-      </button>
-    </nav>
-          <div data-menu-section="orders"><h3>Küchenspalte</h3> <div class="wto-mobile-col-switcher" id="wto-orders-col-switcher">
+          <div class="wto-command-group wto-command-areas">
+            <p class="wto-command-group-title">Bereiche</p>
+            <nav class="wto-portal-nav" aria-label="Betriebsbereiche">
+              <button type="button" class="wto-nav-tab" data-tab="hours"><span class="wto-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="M12 8v4l3 2"></path></svg></span><span>Öffnungszeiten</span><span class="wto-menu-chevron" aria-hidden="true">›</span></button>
+              <button type="button" class="wto-nav-tab" data-tab="customers"><span class="wto-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3"></circle><circle cx="16.5" cy="10" r="2.5"></circle><path d="M4 18c.7-3 2.4-4.5 5-4.5s4.3 1.5 5 4.5M14 14c2.8-.3 4.7 1 5.5 4"></path></svg></span><span>Kunden &amp; CRM</span><span class="wto-menu-chevron" aria-hidden="true">›</span></button>
+              <button type="button" class="wto-nav-tab" data-tab="stats"><span class="wto-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V9m7 10V5m7 14v-7"></path></svg></span><span>Tagesübersicht</span><span class="wto-menu-chevron" aria-hidden="true">›</span></button>
+            </nav>
+          </div>
+          <div class="wto-command-group wto-command-context" data-menu-section="orders"><p class="wto-command-group-title">Küchenspalte</p><div class="wto-mobile-col-switcher" id="wto-orders-col-switcher">
           <button type="button" class="wto-mcol-btn active" data-col="new">
-            🔔 Neu <span class="wto-mcol-badge" id="wto-m-count-new">0</span>
+            Neu <span class="wto-mcol-badge" id="wto-m-count-new">0</span>
           </button>
           <button type="button" class="wto-mcol-btn" data-col="prep">
-            🍳 In Zubereitung <span class="wto-mcol-badge" id="wto-m-count-prep">0</span>
+            In Zubereitung <span class="wto-mcol-badge" id="wto-m-count-prep">0</span>
           </button>
           <button type="button" class="wto-mcol-btn" data-col="ready">
-            🥡 Abholbereit <span class="wto-mcol-badge" id="wto-m-count-ready">0</span>
+            Abholbereit <span class="wto-mcol-badge" id="wto-m-count-ready">0</span>
           </button>
         </div></div>
-          <div data-menu-section="reservations" hidden><h3>Reservierungen</h3><div class="wto-res-filters">
+          <div class="wto-command-group wto-command-context" data-menu-section="reservations" hidden><p class="wto-command-group-title">Reservierungen</p><div class="wto-res-filters">
               <button type="button" class="active" data-view="daily">Tag</button>
               <button type="button" data-view="pending">Offen</button>
               <button type="button" data-view="all">Alle</button>
-            </div><h3>Zeitraum</h3><div class="wto-res-shift-filters" style="display:flex;gap:6px;margin-left:8px;">
+            </div><p class="wto-command-group-title">Zeitraum</p><div class="wto-res-shift-filters">
               <button type="button" class="wto-shift-btn active" data-shift="all">Alle</button>
-              <button type="button" class="wto-shift-btn" data-shift="lunch">☀️ Mittag</button>
-              <button type="button" class="wto-shift-btn" data-shift="dinner">🌙 Abend</button>
+              <button type="button" class="wto-shift-btn" data-shift="lunch">Mittag</button>
+              <button type="button" class="wto-shift-btn" data-shift="dinner">Abend</button>
             </div> <div class="wto-mobile-col-switcher" id="wto-res-col-switcher">
           <button type="button" class="wto-mcol-btn active" data-col="new">
-            📩 Neu <span class="wto-mcol-badge" id="wto-m-res-new">0</span>
+            Neu <span class="wto-mcol-badge" id="wto-m-res-new">0</span>
           </button>
           <button type="button" class="wto-mcol-btn" data-col="prep">
-            📅 Erwartet <span class="wto-mcol-badge" id="wto-m-res-prep">0</span>
+            Erwartet <span class="wto-mcol-badge" id="wto-m-res-prep">0</span>
           </button>
           <button type="button" class="wto-mcol-btn" data-col="ready">
-            🍽️ Im Haus <span class="wto-mcol-badge" id="wto-m-res-ready">0</span>
+            Im Haus <span class="wto-mcol-badge" id="wto-m-res-ready">0</span>
           </button>
         </div></div>
-          <div data-menu-section="customers" hidden><h3>Kundenfilter</h3><div class="wto-command-option">
-            <label for="wto-cust-consent" style="font-size:12px;color:var(--wto-ink-muted);">Marketing-Einwilligung:</label>
-            <select id="wto-cust-consent" style="height:38px;background:var(--wto-surface);border:1px solid var(--wto-line);color:var(--wto-ink);border-radius:6px;padding:0 10px;">
+          <div class="wto-command-group wto-command-context" data-menu-section="customers" hidden><p class="wto-command-group-title">Kundenfilter</p><div class="wto-command-option">
+            <label for="wto-cust-consent">Marketing-Einwilligung</label>
+            <select id="wto-cust-consent">
               <option value="">Alle Kunden</option>
               <option value="eligible">Angemeldet (Subscribed)</option>
               <option value="unsubscribed">Abgemeldet</option>
               <option value="unknown">Nicht festgelegt</option>
             </select>
           </div></div>
-          <div class="wto-command-options">
-            <h3>Betrieb</h3>
+          <div class="wto-command-group wto-command-options">
+            <p class="wto-command-group-title">Betrieb</p>
             <div class="wto-command-option"><label for="wto-kitchen-prep-select">Küchenzeit</label><select id="wto-kitchen-prep-select">
               <?php $prep_opts = ['15–20 Min.', '25–35 Min.', '40–50 Min.', '60+ Min.']; foreach ($prep_opts as $p): ?>
               <option value="<?php echo esc_attr($p); ?>" <?php selected($prep_time, $p); ?>><?php echo esc_html($p); ?></option>
               <?php endforeach; ?>
             </select></div>
-            <div class="wto-command-option"><button type="button" id="wto-sound-toggle" class="wto-btn-sound">🔔 Signal: AN</button><button type="button" id="wto-help-toggle" class="wto-help-toggle" aria-haspopup="dialog">Hilfe</button></div>
-            <div class="wto-command-option wto-command-meta"><span>Wien <span id="wto-live-clock">--:--:--</span></span><span data-network-text>Verbunden</span></div>
-            <div class="wto-command-option wto-command-meta"><span><?php echo esc_html($current_user->display_name); ?></span><a href="<?php echo esc_url(wp_logout_url(home_url('/betrieb/'))); ?>" class="wto-btn-logout">Abmelden ⎋</a></div>
+            <div class="wto-command-option wto-command-actions"><button type="button" id="wto-sound-toggle" class="wto-btn-sound" aria-pressed="true">Signalton an</button><button type="button" id="wto-help-toggle" class="wto-help-toggle" aria-haspopup="dialog">Hilfe</button></div>
           </div>
+          <div class="wto-command-footer"><span class="wto-command-user"><?php echo esc_html($current_user->display_name); ?></span><a href="<?php echo esc_url(wp_logout_url(home_url('/betrieb/'))); ?>" class="wto-btn-logout">Abmelden ⎋</a></div>
         </div>
       </details>
       <div id="wto-opening-status" class="wto-status-pill <?php echo $is_open === null ? 'unknown' : ($is_open ? 'open' : 'closed'); ?>" role="status"><?php echo $is_open === null ? 'Küche unbekannt' : ($is_open ? 'Küche geöffnet' : 'Küche geschlossen'); ?></div>
@@ -440,8 +437,9 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
           </div>
           <div id="wto-hours-exceptions" role="tabpanel" aria-labelledby="wto-hours-tab-exceptions" hidden>
             <fieldset id="wto-hours-exception-fields" disabled><legend>Sondertag oder Zeitraum</legend>
-              <div class="wto-hours-fields"><label>Von<input id="wto-hours-start" type="date" required></label><label>Bis einschließlich<input id="wto-hours-end" type="date" required></label>
+              <div class="wto-hours-fields"><label>Von<input id="wto-hours-start" type="date" required aria-describedby="wto-hours-date-error"></label><label>Bis einschließlich<input id="wto-hours-end" type="date" required aria-describedby="wto-hours-date-error"></label>
               <label>Regel<select id="wto-hours-mode"><option value="closed">Geschlossen</option><option value="hours">Eigene Zeiten</option><option value="remove">Ausnahme entfernen (Wochenplan)</option></select></label></div>
+              <p id="wto-hours-date-error" class="wto-hours-field-error" role="alert" hidden></p>
               <p>Maximal 367 Tage. Entfernen stellt den Wochenplan wieder her.</p>
               <label class="wto-hours-reason">Öffentlicher Hinweis für Gäste<input id="wto-hours-reason" type="text" maxlength="500"></label>
               <div id="wto-hours-exception-ranges" hidden><div id="wto-hours-custom-ranges"></div><button type="button" id="wto-hours-add-custom" class="wto-btn btn-secondary">Zeitfenster hinzufügen</button></div>
@@ -455,7 +453,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
             <div id="wto-hours-conflicts"></div>
             <label id="wto-hours-ack-label" class="wto-hours-ack" hidden><input id="wto-hours-ack" type="checkbox">Ich habe die betroffenen Vorgänge geprüft und bestätige die Änderung. Reservierungen und Bestellungen bleiben bestehen.</label>
           </div>
-          <div class="wto-hours-actions"><button type="button" id="wto-hours-check" class="wto-btn btn-secondary" disabled>Entwurf prüfen</button><button type="button" id="wto-hours-save" class="wto-btn btn-primary" disabled hidden>Geprüfte Änderung speichern</button></div>
+          <div class="wto-hours-actions"><button type="button" id="wto-hours-check" class="wto-btn btn-primary" disabled>Änderung prüfen</button><button type="button" id="wto-hours-save" class="wto-btn btn-primary" disabled hidden>Änderung speichern</button></div>
         </div>
       </section>
     </main>

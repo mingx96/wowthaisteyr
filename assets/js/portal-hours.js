@@ -10,6 +10,33 @@ document.addEventListener('DOMContentLoaded', () => {
   let schedule = null, loaded = false, loading = false, saving = false, editable = false;
   let kind = 'weekly', token = null, conflicts = [], generation = 0, stale = false;
   const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value + 'T12:00:00Z')) && new Date(value + 'T12:00:00Z').toISOString().slice(0,10) === value;
+  function exceptionDateIssue(focus = false) {
+    const start = $('start'), end = $('end'), error = $('date-error');
+    start.removeAttribute('aria-invalid'); end.removeAttribute('aria-invalid');
+    let field = null, text = '';
+    if (!validDate(start.value)) { field = start; text = 'Bitte ein gültiges Startdatum wählen.'; }
+    else if (!validDate(end.value)) { field = end; text = 'Bitte ein gültiges Enddatum wählen.'; }
+    else if (end.value < start.value) { field = end; text = 'Das Enddatum darf nicht vor dem Startdatum liegen.'; }
+    else if ((Date.parse(end.value) - Date.parse(start.value)) / 86400000 > 366) { field = end; text = 'Ein Zeitraum darf maximal 367 Tage umfassen.'; }
+    error.textContent = text; error.hidden = !text;
+    if (field) {
+      field.setAttribute('aria-invalid', 'true');
+      if (focus) {
+        tab('exceptions');
+        field.focus({preventScroll:false});
+      }
+    }
+    return text;
+  }
+  function syncExceptionStart() {
+    const start = $('start'), end = $('end');
+    end.min = validDate(start.value) ? start.value : '';
+    if (validDate(start.value)) {
+      if (!validDate(end.value) || end.value < start.value) end.value = start.value;
+      $('preview-date').value = start.value;
+    }
+    exceptionDateIssue();
+  }
   function message(text, error = false, focus = false) {
     $('message').textContent = text;
     $('message').classList.toggle('is-error', error);
@@ -29,13 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const closed = row.querySelector('[data-closed]').checked;
       row.querySelectorAll('[data-ranges] input, [data-remove], [data-add]').forEach(el => { el.disabled = !editable || saving || closed; });
     });
-    $('save').hidden = !editable;
+    $('save').hidden = !editable || !token;
     $('save').disabled = saving || loading || !token || (conflicts.length > 0 && !$('ack').checked);
     $('check').disabled = !editable || !loaded || loading || saving || stale;
     $('reload').disabled = loading || saving;
     $('published').disabled = saving;
     $('ack').disabled = saving;
-    $('save').textContent = saving ? 'Wird gespeichert …' : 'Geprüfte Änderung speichern';
+    $('save').textContent = saving ? 'Wird gespeichert …' : 'Änderung speichern';
   }
   function invalidate() {
     generation++; token = null; conflicts = []; $('ack').checked = false;
@@ -76,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
       button.addEventListener('click', () => {
         if (saving) return;
         $('start').value = $('end').value = date; $('mode').value = value.closed ? 'closed' : 'hours'; $('reason').value = value.reason || '';
+        syncExceptionStart();
         $('custom-ranges').innerHTML = (value.ranges || [['','']]).map(r => rangeHTML(r, 'Sondertag')).join('');
         $('exception-ranges').hidden = $('mode').value !== 'hours'; tab('exceptions'); invalidate();
         message('Gespeicherten Sondertag übernommen. Änderungen erst prüfen und speichern.');
@@ -97,10 +125,12 @@ document.addEventListener('DOMContentLoaded', () => {
           return `<div class="wto-hours-day" data-day="${i+1}"><div class="wto-hours-day-title"><strong>${day}</strong><label><input type="checkbox" data-closed ${ranges.length ? '' : 'checked'}> Geschlossen</label></div><div data-ranges>${(ranges.length ? ranges : [['','']]).map(r => rangeHTML(r, day)).join('')}</div><button type="button" data-add class="wto-btn btn-secondary">Zeitfenster hinzufügen<span class="wto-sr-only"> ${day}</span></button></div>`;
         }).join('');
         $('start').value = $('end').value = $('preview-date').value = today;
+        syncExceptionStart();
         $('custom-ranges').innerHTML = rangeHTML(['',''], 'Sondertag');
         const query = new URLSearchParams(location.search), date = query.get('hours_date');
         if (validDate(date) && ['closed','remove'].includes(query.get('hours_mode'))) {
           $('start').value = $('end').value = date; $('mode').value = query.get('hours_mode'); $('reason').value = (query.get('hours_reason') || '').slice(0,500); tab('exceptions');
+          syncExceptionStart();
         }
       }
       const retained = loaded; loaded = true; existing(); invalidate();
@@ -125,8 +155,8 @@ document.addEventListener('DOMContentLoaded', () => {
       root.querySelectorAll('[data-day]').forEach(row => { body.weekly[row.dataset.day] = row.querySelector('[data-closed]').checked ? [] : ranges(row.querySelector('[data-ranges]')); });
     } else {
       const start = $('start').value, end = $('end').value;
-      if (!validDate(start) || !validDate(end) || end < start) throw new Error('Bitte einen gültigen Zeitraum von/bis eingeben.');
-      if ((Date.parse(end) - Date.parse(start)) / 86400000 > 366) throw new Error('Ein Zeitraum darf maximal 367 Tage umfassen.');
+      const dateIssue = exceptionDateIssue(true);
+      if (dateIssue) { const error = new Error(dateIssue); error.validation = true; throw error; }
       body.exception = {start_date:start, end_date:end, mode:$('mode').value, reason:$('reason').value};
       if (body.exception.mode === 'hours') body.exception.ranges = ranges($('custom-ranges'));
     }
@@ -148,7 +178,11 @@ document.addEventListener('DOMContentLoaded', () => {
       result(data.preview, kind === 'weekly' ? 'Entwurf Wochenplan' : 'Entwurf Sondertage');
       $('conflicts').innerHTML = conflicts.length ? `<h2>Betroffene Vorgänge (${conflicts.length})</h2><p>Unbekannte Zeiten manuell prüfen. Es wird kein Vorgang storniert.</p><table class="wto-hours-conflict-table"><thead><tr><th scope="col">Vorgang</th><th scope="col">Datum / Zeit</th><th scope="col">Status</th></tr></thead><tbody>${conflicts.map(c => `<tr><td>${c.kind === 'order' ? 'Bestellung' : 'Reservierung'} #${esc(c.id)}</td><td>${esc(c.date || 'Datum unbekannt')} · ${esc(c.time || 'Zeit unbekannt')}</td><td>${esc(c.status)}${c.unknown ? ' · Manuell prüfen' : ''}</td></tr>`).join('')}</tbody></table>` : '<p>Keine betroffenen Vorgänge gefunden.</p>';
       $('ack-label').hidden = !conflicts.length; tab('preview'); controls(); message('Entwurf geprüft. Vorschau gilt 10 Minuten; vor dem Speichern Angaben prüfen.');
-    } catch (error) { if (current === generation) failure(error); }
+    } catch (error) {
+      if (current !== generation) return;
+      if (error.validation) { invalidate(); message(error.message, true); }
+      else failure(error);
+    }
   });
   function failure(error) {
     invalidate();
@@ -178,7 +212,12 @@ document.addEventListener('DOMContentLoaded', () => {
   $('reload').addEventListener('click',load);
   $('ack').addEventListener('change',controls);
   root.addEventListener('input', event => {
+    if (event.target.id === 'wto-hours-start') syncExceptionStart();
+    if (event.target.id === 'wto-hours-end') exceptionDateIssue();
     if (event.target.matches('input:not(#wto-hours-ack), select')) invalidate();
+  });
+  root.addEventListener('focusout', event => {
+    if (event.target.matches('#wto-hours-start, #wto-hours-end')) exceptionDateIssue();
   });
   root.addEventListener('change', event => {
     if (event.target.matches('[data-closed], #wto-hours-mode')) { $('exception-ranges').hidden = $('mode').value !== 'hours'; invalidate(); }
