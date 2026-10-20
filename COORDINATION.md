@@ -1,5 +1,12 @@
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
+## Public font rollback — 2026-10-20T20:18:00Z
+
+- Same Notion task `3fe9ccae-c10f-81f4-b321-fb6e7839d67d`; user found Chonburi visually unbalanced and explicitly requested the previous typography. Branch `fix/restore-public-fonts-20261020` from merged main `331c872`; theme version 1.5.3.
+- Scope is font-only: restore the prior self-hosted Playfair Display files/roles across public, checkout and portal typography; remove Chonburi assets. Keep the 1.5.2 SVG action icons, equal glass Hero CTAs, reservation source/display order, API, slots and all data behavior unchanged.
+- TDD: the revised static contract failed against Chonburi, then passed after the rollback. Final local G1–G11, portal, public-hours and public-design browser suites pass at 320/390/768/1440; theme build succeeds. Visual review of 390px and 1440px synthetic Homepage/Reservierung renders confirms the prior proportions and no layout regression.
+- Next: commit, PR, exact-head CI and established GitHub→WordPress.com release, followed by GET-only runtime font/version verification. No production form submission or data mutation.
+
 ## Public mobile typography/CTA/reservation follow-up — 2026-10-20T16:17:00Z
 
 - Task ID `notion:3fe9ccae-c10f-81f4-b321-fb6e7839d67d`; owner Codex in this assigned chat. User approved the bounded public-theme implementation and Homepage proposal. Branch `feat/mobile-home-reservation-20261020` from current main `3bf4b3b`; worktree `/workspace/wowthai-mobile-refresh`; planned theme version 1.5.2. No overlapping open PR at start. The separate modified hours plan remains untouched in `/workspace/wowthai-compact`.

@@ -74,8 +74,8 @@ try:
             assert page.locator('.action-icon:not([aria-hidden="true"])').count() == 0
             assert page.locator('body').inner_text().find('↗') == -1
             assert page.locator('body').inner_text().find('→') == -1
-            assert page.evaluate("document.fonts.check('16px Chonburi')")
-            assert 'Chonburi' in page.locator('#home-title').evaluate('el => getComputedStyle(el).fontFamily')
+            assert page.evaluate("document.fonts.check('16px Playfair Display')")
+            assert 'Playfair Display' in page.locator('#home-title').evaluate('el => getComputedStyle(el).fontFamily')
             if width > 768:
                 heading_metrics = page.locator('#home-title').evaluate(
                     'el => ({height:el.getBoundingClientRect().height,lineHeight:parseFloat(getComputedStyle(el).lineHeight)})'
@@ -106,8 +106,8 @@ try:
             page.goto(f'http://127.0.0.1:{server.server_port}/booking')
             page.wait_for_load_state('networkidle')
             expect(page.locator('#res_time')).to_have_value('12:30')
-            assert 'Chonburi' in page.locator('.reservation-intro h1').evaluate('el => getComputedStyle(el).fontFamily')
-            assert 'DM Sans' in page.locator('.booking-title').evaluate('el => getComputedStyle(el).fontFamily')
+            assert 'Playfair Display' in page.locator('.reservation-intro h1').evaluate('el => getComputedStyle(el).fontFamily')
+            assert 'Playfair Display' in page.locator('.booking-title').evaluate('el => getComputedStyle(el).fontFamily')
             panel = page.locator('.reservation-panel').bounding_box()
             aside = page.locator('.reservation-aside').bounding_box()
             if width <= 768:
@@ -125,6 +125,6 @@ try:
             assert not errors, errors
             page.close()
         browser.close()
-    print('PASS public design browser contract: SVG CTA, local Chonburi, equal glass actions, reservation form priority at 320/390/768 and desktop grid')
+    print('PASS public design browser contract: SVG CTA, restored local Playfair, equal glass actions, reservation form priority at 320/390/768 and desktop grid')
 finally:
     server.shutdown()
