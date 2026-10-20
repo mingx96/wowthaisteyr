@@ -22,7 +22,7 @@ RES={'id':1,'date':'2026-10-24','time':'12:00','party':2,'status':'pending','nam
 try:
   with sync_playwright() as p:
     browser=p.chromium.launch(headless=True)
-    for width,height in [(1440,1000),(390,844),(768,1024),(320,667)]:
+    for width,height in [(1440,1000),(390,844),(768,1024),(667,390),(320,667)]:
       page=browser.new_page(viewport={'width':width,'height':height})
       page.clock.install(time=datetime(2026,10,19,19,30,tzinfo=timezone.utc))
       flags={'open':False,'fail':False,'archive_empty':False,'note':'','posts':0,'new_ids':[],'daily_note':'','daily_fail':False,'res_status':'pending','mixed_res':False,'hours_posts':[],'hours_revision':'r1','can_edit':True,'hours_fail':False,'save_status':200,'save_hold':False,'held_save':None,'summary_reads':0,'conflicts':True,'preview_hold':False,'held_preview':None,'slots':['12:00','12:30'],'zero_counts':False}
@@ -93,6 +93,10 @@ try:
       expect(menu.locator('.wto-portal-nav')).not_to_be_visible()
       trigger.focus(); trigger.press('Enter')
       expect(menu.locator('.wto-portal-nav')).to_be_visible()
+      expect(menu.get_by_text('Bereiche',exact=True)).to_be_visible()
+      expect(menu.locator('#wto-live-clock')).to_have_count(0)
+      assert len(menu.locator('.wto-portal-nav').evaluate('(el)=>getComputedStyle(el).gridTemplateColumns.split(" ")'))==1, 'menu areas must use one compact scan column'
+      assert menu.locator('.wto-command-panel').bounding_box()['width'] <= 380, 'desktop command menu must stay compact'
       expect(menu.get_by_role('link',name='Abmelden ⎋')).to_be_visible()
       expect(page.locator('#wto-network-dot')).to_be_visible()
       page.keyboard.press('Escape')
@@ -217,9 +221,7 @@ try:
       expect(page.locator('#wto-badge-orders')).to_have_text('2')
       expect(page.locator('#wto-sync-status')).to_contain_text('veraltet')
       if width <= 768:
-        trigger.click()
-        expect(menu.locator('[data-network-text]')).to_contain_text('getrennt')
-        trigger.click()
+        expect(page.locator('#wto-network-dot')).to_have_class('wto-network-dot stale')
       flags['fail']=False; page.clock.run_for(12000)
       expect(page.locator('#wto-opening-status')).to_contain_text('geöffnet')
       assert flags['posts']==0,'read-only navigation/polling must not mutate anything'
@@ -231,11 +233,14 @@ try:
       expect(page.locator('.wto-res-card').first).to_contain_text('Fixture reservation')
       folder=Path(os.environ.get('PORTAL_TEST_ARTIFACTS',str(Path(tempfile.gettempdir())/'wowthai-portal-artifacts')));folder.mkdir(parents=True,exist_ok=True)
       page.screenshot(path=str(folder/f'reservations-before-{width}.png'))
-      assert page.locator('#wto-res-list').bounding_box()['height'] >= page.viewport_size['height'] * (.66 if width==320 else .70), 'booking controls must leave most of the viewport for reservations'
+      if height >= 600:
+        assert page.locator('#wto-res-list').bounding_box()['height'] >= page.viewport_size['height'] * (.66 if width==320 else .70), 'booking controls must leave most of the portrait viewport for reservations'
       page.screenshot(path=str(folder/f'reservations-{width}.png'))
       trigger.click()
       panel=menu.locator('.wto-command-panel')
       if width == 390: page.set_viewport_size({'width':390,'height':667})
+      page.wait_for_function("document.querySelector('.wto-command-panel').scrollTop===0")
+      assert panel.evaluate('(el)=>el.scrollTop')==0, 'reopened menu must start at the first area'
       box=panel.bounding_box()
       header=page.locator('.wto-command-header').bounding_box()
       assert box['y']>=header['y']+header['height'], 'open menu must sit below the whole header, preserving primary queue controls'
@@ -280,9 +285,38 @@ try:
       expect(page.locator('.wto-primary-nav [data-tab="orders"]')).to_be_visible()
       expect(page.locator('.wto-primary-nav [data-tab="reservations"]')).to_be_visible()
       expect(trigger).to_have_text('Menü▾')
+      expect(menu.locator('[data-tab="hours"]')).to_have_class('wto-nav-tab active')
+      expect(menu.locator('[data-tab="hours"]')).to_have_attribute('aria-current','page')
       assert hashlib.sha256((ROOT/'assets/js/portal-hours.js').read_bytes()).hexdigest()[:12] in page.locator('script[src*="portal-hours.js"]').get_attribute('src')
       assert page.locator('#wto-hours-start').evaluate('(input)=>getComputedStyle(input).colorScheme')=='dark', 'native calendar controls must use the dark scheme'
       assert page.locator('[data-time="start"]').first.evaluate('(input)=>getComputedStyle(input).colorScheme')=='dark', 'native time controls must use the dark scheme'
+      # Reproduce the live report: changing Von beyond the old Bis value must
+      # keep the date range valid and make the two-step save flow obvious.
+      expect(page.locator('#wto-hours-save')).not_to_be_visible()
+      expect(page.locator('#wto-hours-check')).to_have_class('wto-btn btn-primary')
+      page.locator('#wto-hours-tab-exceptions').click()
+      start=page.locator('#wto-hours-start'); end=page.locator('#wto-hours-end')
+      start.fill('2026-12-24'); start.press('Tab')
+      expect(end).to_have_attribute('min','2026-12-24')
+      expect(end).to_have_value('2026-12-24')
+      expect(page.locator('#wto-hours-preview-date')).to_have_value('2026-12-24')
+      end.fill('2026-10-24'); end.press('Tab')
+      expect(end).to_have_attribute('aria-invalid','true')
+      expect(page.locator('#wto-hours-date-error')).to_be_visible()
+      expect(page.locator('#wto-hours-date-error')).to_contain_text('Enddatum darf nicht vor dem Startdatum liegen')
+      before=len(flags['hours_posts']); page.locator('#wto-hours-check').click()
+      expect(end).to_be_focused()
+      assert len(flags['hours_posts'])==before, 'invalid date range must not reach the preview API'
+      end.fill('2026-12-25'); end.press('Tab')
+      expect(end).not_to_have_attribute('aria-invalid','true')
+      expect(page.locator('#wto-hours-date-error')).not_to_be_visible()
+      flags['conflicts']=False; page.locator('#wto-hours-check').click()
+      expect(page.locator('#wto-hours-save')).to_be_visible()
+      expect(page.locator('#wto-hours-save')).to_be_enabled()
+      body=flags['hours_posts'][-1]['body']
+      assert body['kind']=='exceptions' and body['exception']['mode']=='closed' and body['exception']['start_date']=='2026-12-24' and body['exception']['end_date']=='2026-12-25' and body['preview_date']=='2026-12-24'
+      flags['conflicts']=True
+      page.locator('#wto-hours-tab-weekly').click()
       monday=page.locator('[data-day="1"]')
       expect(monday.locator('[data-closed]')).to_be_checked()
       tuesday=page.locator('[data-day="2"]')
@@ -303,6 +337,7 @@ try:
       expect(page.locator('#wto-hours-result')).to_contain_text('12:30, 13:00')
       expect(page.locator('#wto-hours-conflicts')).to_contain_text('Bestellung #17')
       expect(page.locator('#wto-hours-conflicts')).to_contain_text('Datum unbekannt')
+      expect(page.locator('#wto-hours-save')).to_be_visible()
       expect(page.locator('#wto-hours-save')).to_be_disabled()
       expect(page.locator('#wto-hours-ack')).not_to_be_checked()
       assert flags['hours_posts'][-1]['body']['weekly']['2']==[['11:00','14:00'],['17:00','20:00']]
