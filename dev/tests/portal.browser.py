@@ -239,7 +239,16 @@ try:
       page.clock.run_for(12000)
       expect(detail).to_be_visible()
       assert detail.evaluate('(el)=>el.scrollWidth<=el.clientWidth'), 'details must fit narrow screens'
+      # Native close() hides the dialog and restores focus before its queued
+      # close handler runs. Finish that handler before the separate poll case.
+      page.evaluate("""() => {
+        window.__reservationDetailsClosed = false;
+        document.getElementById('wto-dialog-res-detail').addEventListener('close', () => {
+          window.__reservationDetailsClosed = true;
+        }, {once: true});
+      }""")
       detail.get_by_role('button',name='Schließen',exact=True).click()
+      page.wait_for_function('window.__reservationDetailsClosed === true', timeout=5000)
       expect(detail).not_to_be_visible()
       expect(card.get_by_role('button',name='Details',exact=True)).to_be_focused()
       assert flags['posts']==0, 'opening and closing reservation details must not write'
@@ -459,12 +468,18 @@ try:
       page.locator('#wto-hours-save').dispatch_event('click')
       assert len(flags['hours_posts'])==sent, 'in-flight save must not be sent twice'
       assert flags['held_save'] is not None
+      summary_response=lambda response: response.request.method=='GET' and response.url.split('?',1)[0].endswith('/api/wowthai-portal/v1/summary')
+      # Finish a poll and pause its clock so only the saved event can refresh.
+      with page.expect_response(summary_response):
+        page.clock.pause_at(page.evaluate('Date.now() + 12000') / 1000)
       reads=flags['summary_reads']
-      flags['held_save'].fulfill(status=200,content_type='application/json',body=json.dumps({'weekly':{str(i):[] for i in range(1,8)},'exceptions':{},'revision':'saved-weekly','can_edit':True,'timezone':'Europe/Vienna'}))
-      expect(page.locator('#wto-hours-message')).to_contain_text('gespeichert')
-      page.wait_for_function('window.savedEvents===1')
+      with page.expect_response(summary_response):
+        flags['held_save'].fulfill(status=200,content_type='application/json',body=json.dumps({'weekly':{str(i):[] for i in range(1,8)},'exceptions':{},'revision':'saved-weekly','can_edit':True,'timezone':'Europe/Vienna'}))
+        expect(page.locator('#wto-hours-message')).to_contain_text('gespeichert')
+        page.wait_for_function('window.savedEvents===1')
       assert flags['summary_reads']>reads, 'successful save immediately refreshes staff kitchen status'
       assert flags['hours_posts'][-1]['body']['revision']=='r1'
+      page.clock.resume()
       flags['save_hold']=False; flags['hours_revision']='saved-weekly'
       # Existing exceptions remain visible; selecting one only prefills a draft.
       page.locator('#wto-hours-reload').click()
