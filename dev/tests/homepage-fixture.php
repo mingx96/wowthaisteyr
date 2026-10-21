@@ -31,7 +31,6 @@ function wp_head() {
 function wp_footer() {
     echo '<script>window.wowthaiHoursConfig={availability_url:"/api/availability"};window.wowthaiConfig={ajax_url:"/ajax",nonce:"fixture",upsell_items:[]};</script>';
     echo '<script src="/assets/js/wowthai.js"></script><script src="/assets/js/hours-public.js"></script>';
-    if (is_front_page()) echo '<script src="/assets/js/homepage.js"></script>';
 }
 function get_header() { require ABSPATH . 'header.php'; }
 function get_footer() { require ABSPATH . 'footer.php'; }

@@ -1,4 +1,4 @@
-"""Actual public templates: manual media, safe dish discovery, fresh hours and layout.
+"""Actual public templates: safe dish discovery, fresh hours, responsive layout.
 
 All server/API/catalog data is synthetic. No production transactions or requests.
 """
@@ -62,14 +62,12 @@ try:
         browser = playwright.chromium.launch(headless=True)
         for width, height in [(320, 667), (390, 844), (768, 1024), (1440, 900)]:
             page = browser.new_page(viewport={'width': width, 'height': height}, reduced_motion='reduce')
-            errors, writes, outgoing, film_requests = [], [], [], []
+            errors, writes, outgoing = [], [], []
             state = {'mode': 'open'}
             page.on('pageerror', lambda error: errors.append(str(error)))
 
             def route(request_route):
                 request = request_route.request
-                if urlparse(request.url).path.endswith('.mp4'):
-                    film_requests.append(request.url)
                 if not request.url.startswith(origin):
                     outgoing.append(request.url)
                     request_route.abort()
@@ -105,99 +103,6 @@ try:
             assert page.locator('.hero-photo').evaluate('el => getComputedStyle(el).animationName') == 'none'
             assert page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')
             assert page.locator('h1').count() == 1
-
-            # The gallery must reach its last item without assuming equal slide widths.
-            gallery = page.locator('[data-home-gallery]')
-            track = gallery.locator('[data-home-gallery-track]')
-            slides = track.locator('[data-home-gallery-slide]')
-            controls = gallery.locator('[data-home-gallery-controls]')
-            previous = gallery.locator('[data-home-gallery-prev]')
-            following = gallery.locator('[data-home-gallery-next]')
-            status = gallery.locator('[data-home-gallery-status]')
-            expect(slides).to_have_count(3)
-            expect(controls).to_be_visible()
-            expect(previous).to_be_disabled()
-            expect(status).to_have_text('Moment 1 von 3')
-            film = gallery.locator('[data-home-film]')
-            expect(film).to_have_count(1)
-            assert film.get_attribute('controls') is not None
-            assert film.get_attribute('playsinline') is not None
-            assert film.get_attribute('preload') == 'none'
-            assert film.get_attribute('autoplay') is None and film.get_attribute('loop') is None
-            assert film.get_attribute('poster').startswith('/assets/img/homepage/')
-            assert film.evaluate('video => video.paused && video.readyState === 0')
-            assert not film_requests, film_requests
-            if width in (390, 1440):
-                page.evaluate('document.activeElement?.blur()')
-                gallery.screenshot(path=str(ARTIFACTS / f'homepage-gallery-initial-{width}.png'))
-            # Manual playback remains available even with reduced motion selected.
-            film.scroll_into_view_if_needed()
-            with page.expect_request(lambda request: urlparse(request.url).path.endswith('.mp4')):
-                film.evaluate('video => video.play()')
-            page.wait_for_function('video => !video.paused && video.currentTime > 0', arg=film.element_handle())
-            for _ in range(3):
-                if following.is_disabled():
-                    break
-                following.click()
-            expect(following).to_be_disabled()
-            expect(status).to_have_text('Moment 3 von 3')
-            assert film.evaluate('video => video.paused')
-            expect(track).to_be_focused()
-            assert slides.last.bounding_box()['x'] + slides.last.bounding_box()['width'] <= track.bounding_box()['x'] + track.bounding_box()['width'] + 1
-            previous.click()
-            expect(following).to_be_enabled()
-
-            # Real responsive assets load locally; decorative motion stays absent.
-            expect(slides.locator('img')).to_have_count(2)
-            for photo in slides.locator('img').all():
-                photo.scroll_into_view_if_needed()
-                page.wait_for_function('image => image.complete && image.naturalWidth > 0', arg=photo.element_handle())
-                assert photo.evaluate('image => image.currentSrc').startswith(origin + '/assets/img/homepage/')
-                assert photo.get_attribute('srcset') and photo.get_attribute('sizes')
-                assert photo.get_attribute('width') and photo.get_attribute('height')
-                assert photo.get_attribute('loading') == 'lazy'
-                assert photo.get_attribute('alt')
-            for reveal in page.locator('[data-home-reveal]').all():
-                reveal.scroll_into_view_if_needed()
-                assert reveal.evaluate('el => getComputedStyle(el).opacity') == '1'
-                assert reveal.evaluate('el => el.getAnimations().length') == 0
-
-            if width == 1440:
-                # A narrower container exposes the unequal desktop photo widths.
-                track.evaluate("el => { el.style.width = '520px'; el.scrollTo({left: 0, behavior: 'instant'}); }")
-                expect(previous).to_be_disabled()
-                following.click()
-                page.wait_for_function("""track => Math.abs(
-                    track.querySelectorAll('[data-home-gallery-slide]')[1].getBoundingClientRect().left
-                    - track.getBoundingClientRect().left) < 2""", arg=track.element_handle())
-                expect(status).to_have_text('Moment 2 von 3')
-                following.click()
-                expect(following).to_be_disabled()
-                previous.click()
-                page.wait_for_function("""track => Math.abs(
-                    track.querySelectorAll('[data-home-gallery-slide]')[1].getBoundingClientRect().left
-                    - track.getBoundingClientRect().left) < 2""", arg=track.element_handle())
-                # Controls follow container resizing, including when every photo fits.
-                track.evaluate("el => { el.style.width = '1400px'; }")
-                expect(controls).to_be_hidden()
-                track.evaluate("el => { el.style.width = ''; el.scrollTo({left: 0, behavior: 'instant'}); }")
-                expect(controls).to_be_visible()
-
-            # Native keyboard scrolling remains available alongside the buttons.
-            track.evaluate("el => el.scrollTo({left: 0, behavior: 'instant'})")
-            expect(previous).to_be_disabled()
-            track.focus()
-            track.press('ArrowRight')
-            page.wait_for_function('track => track.scrollLeft > 0', arg=track.element_handle())
-            expect(previous).to_be_enabled()
-            expect(track).to_be_focused()
-            if width == 390:
-                # Leaving a manually playing film stops playback without a restart.
-                film.scroll_into_view_if_needed()
-                film.evaluate('video => video.play()')
-                page.wait_for_function('video => !video.paused', arg=film.element_handle())
-                page.locator('#besuch').scroll_into_view_if_needed()
-                page.wait_for_function('video => video.paused', arg=film.element_handle())
             buttons = page.locator('.hero-actions .button').all()
             assert len(buttons) == 2
             for button in buttons:
@@ -264,23 +169,6 @@ try:
         page.goto(origin + '/home')
         expect(page.locator('[data-wowthai-home-status]')).to_have_attribute('data-state', 'open')
         assert requested_dates == ['2026-10-21']
-        # A changed preference takes effect on this page, including active motion.
-        track = page.locator('[data-home-gallery-track]')
-        following = page.locator('[data-home-gallery-next]')
-        page.locator('[data-home-reveal]').last.scroll_into_view_if_needed()
-        following.click()
-        page.wait_for_function('track => track.scrollLeft > 0', arg=track.element_handle())
-        page.emulate_media(reduced_motion='reduce')
-        for reveal in page.locator('[data-home-reveal]').all():
-            page.wait_for_function('el => getComputedStyle(el).opacity === "1" && el.getAnimations().length === 0', arg=reveal.element_handle())
-        track.evaluate("el => el.scrollTo({left: 0, behavior: 'instant'})")
-        expect(page.locator('[data-home-gallery-prev]')).to_be_disabled()
-        following.click()
-        second_slide = page.locator('[data-home-gallery-slide]').nth(1)
-        assert abs(second_slide.bounding_box()['x'] - track.bounding_box()['x']) < 2
-        following.click()
-        expect(following).to_be_disabled()
-        expect(track).to_be_focused()
         clock_state['closed'] = True
         page.clock.run_for(60_001)
         expect(page.locator('[data-wowthai-home-status]')).to_have_attribute('data-state', 'closed')
@@ -313,20 +201,10 @@ try:
         expect(page.locator('[data-wowthai-home-status]')).to_have_attribute('data-state', 'open')
         page.close()
 
-        # The weekly plan and native photo scrolling work without JavaScript.
+        # The weekly plan remains usable without JavaScript or a loading promise.
         page = browser.new_page(viewport={'width': 390, 'height': 844}, java_script_enabled=False)
         page.goto(origin + '/home')
         expect(page.locator('[data-wowthai-home-status]')).to_be_hidden()
-        expect(page.locator('[data-home-gallery-controls]')).to_be_hidden()
-        track = page.locator('[data-home-gallery-track]')
-        track.scroll_into_view_if_needed()
-        track.focus()
-        track.press('ArrowRight')
-        # JS-disabled documents do not run wait_for_function's rAF callbacks.
-        expect(track).not_to_have_js_property('scrollLeft', 0)
-        expect(track).to_be_focused()
-        for reveal in page.locator('[data-home-reveal]').all():
-            assert reveal.evaluate('el => getComputedStyle(el).opacity') == '1'
         page.locator('.home-weekly summary').click()
         expect(page.locator('.home-weekly [data-wowthai-hours-row]').first).to_be_visible()
         page.close()
@@ -338,8 +216,7 @@ try:
         expect(page.locator('[data-wowthai-home-status]')).to_have_attribute('data-state', 'error')
         expect(page.locator('.home-dish')).to_have_count(0)
         expect(page.locator('#besuch')).to_be_visible()
-        assert page.locator('.hero-scroll').get_attribute('href') == '#einblicke'
-        expect(page.locator('#einblicke [data-home-gallery-slide]')).to_have_count(3)
+        assert page.locator('.hero-scroll').get_attribute('href') == '#besuch'
         page.goto(origin + '/home-images')
         expect(page.locator('.home-dish img')).to_have_count(3)
         for photo in page.locator('.home-dish img').all():
@@ -347,6 +224,6 @@ try:
             assert photo.get_attribute('width') and photo.get_attribute('height')
         assert page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')
         browser.close()
-    print('PASS homepage browser: manual gallery and native film, responsive local media, unequal widths/endpoints/focus/resize, no-JS scrolling, changed reduced-motion preference, managed cards, safe read-only dish anchors, live/error/closed hours, foreground refresh/timeout/midnight recovery at 320/390/768/1440')
+    print('PASS homepage browser: managed cards, safe read-only dish anchors, live/error/closed hours, foreground refresh/timeout/midnight recovery, no-JS fallback, responsive and reduced motion at 320/390/768/1440')
 finally:
     server.shutdown()

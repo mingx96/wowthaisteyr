@@ -1,47 +1,14 @@
-/* Restaurant photography, discovery and visit planning; front page only. */
+/* Homepage discovery and visit planning; loaded on the front page only. */
 .hero-media picture { display: block; width: 100%; height: 100%; }
 .hero-media::after { z-index: 1; pointer-events: none; }
 .hero-photo { animation: home-photo-in 1s ease-out both; }
 .hero-scroll span { animation: none; }
 .hero-full .hero-lead { max-width: 445px; }
 .hero-full .hero-actions .button { height: 48px; }
-.hero-full::before { display: none; }
 @keyframes home-photo-in {
   from { transform: scale(1.05); }
   to { transform: scale(1.02); }
 }
-
-.home-atmosphere { padding-block: clamp(48px, 7vw, 100px) 34px; background: #eee6d6; color: #30271c; scroll-margin-top: 24px; }
-.home-atmosphere-heading { display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: end; margin-bottom: 42px; }
-.home-atmosphere .eyebrow { color: #72542f; margin: 0 0 22px; }
-.home-atmosphere h2 { margin: 0; font: 500 clamp(46px, 6.4vw, 82px)/1.01 var(--serif); letter-spacing: -.045em; text-wrap: balance; color: #30271c; }
-.home-atmosphere h2 em { color: #80613c; font-style: normal; }
-.home-atmosphere-intro { max-width: 360px; justify-self: end; padding-bottom: 4px; }
-.home-atmosphere-intro p { margin: 0 0 20px; color: #5a4e3e; font-size: 16px; line-height: 1.75; }
-.home-film-link, .home-instagram-link { display: inline-flex; align-items: center; gap: 12px; min-height: 48px; color: #403320; font-size: 13px; font-weight: 600; text-decoration: none; }
-.home-film-link { flex-wrap: wrap; }
-.home-film-link:hover, .home-instagram-link:hover { color: #72501f; text-decoration: underline; text-underline-offset: 5px; }
-.home-film-mark { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #ab9574; border-radius: 50%; }
-.home-gallery-track { display: flex; align-items: flex-start; gap: 28px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: #a68b65 #e1d7c4; list-style: none; margin: 0; padding: 0 0 16px; }
-.home-gallery-slide { flex: 0 0 min(450px, 40vw); min-width: 0; scroll-snap-align: start; }
-.home-gallery-slide figure { margin: 0; }
-.home-gallery-image { width: 100%; aspect-ratio: 4 / 5; overflow: hidden; background: #d8cbb5; }
-.home-gallery-image img, .home-gallery-image video { display: block; width: 100%; height: 100%; object-fit: cover; }
-.home-gallery-image video { background: #30271c; }
-.home-gallery-slide--wok-moment { flex-basis: min(360px, 32vw); padding-top: 52px; }
-.home-gallery-slide--wok-moment .home-gallery-image { aspect-ratio: 1; }
-.home-gallery-slide figcaption { display: flex; align-items: baseline; gap: 18px; padding-block: 17px 8px; color: #493b29; font-size: 13px; line-height: 1.5; }
-.home-gallery-slide figcaption > span { color: #7b674d; font-size: 10px; letter-spacing: .08em; font-variant-numeric: tabular-nums; }
-.home-gallery-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 12px; }
-.home-gallery-controls { display: flex; align-items: center; gap: 10px; }
-.home-gallery-controls[hidden] { display: none; }
-.home-gallery-status { min-width: 80px; margin-right: 10px; color: #6a5840; font-size: 12px; font-variant-numeric: tabular-nums; }
-.home-gallery-arrow { display: grid; place-items: center; flex: 0 0 48px; width: 48px; height: 48px; margin: 0; padding: 0; border: 1px solid #8f795b; border-radius: 50%; background: transparent; color: #493820; cursor: pointer; transition: background-color .18s ease, color .18s ease; }
-.home-gallery-arrow--prev .action-icon { transform: rotate(180deg); }
-.home-gallery-arrow:hover:not(:disabled) { background: #403320; border-color: #403320; color: #fff6e6; }
-.home-gallery-arrow:disabled { opacity: .36; cursor: default; }
-.home-film-link:focus-visible, .home-instagram-link:focus-visible, .home-gallery-arrow:focus-visible, .home-gallery-track:focus-visible, .home-gallery-image video:focus-visible { outline: 2px solid #60411f; outline-offset: 5px; }
-.home-gallery-image video:focus-visible { outline-offset: -3px; }
 
 .home-discovery, .home-visit { scroll-margin-top: 32px; }
 .home-discovery { padding-block: 88px 72px; }
@@ -97,10 +64,6 @@
 .home-dish:focus-visible, .home-text-link:focus-visible, .home-contact a:focus-visible, .home-weekly summary:focus-visible, .home-footer a:focus-visible { outline: 2px solid #f0d38b; outline-offset: 5px; }
 
 @media (max-width: 900px) {
-  .home-atmosphere-heading { grid-template-columns: 1fr 1fr; gap: 28px; }
-  .home-atmosphere h2 { font-size: 56px; }
-  .home-gallery-slide { flex-basis: 48vw; }
-  .home-gallery-slide--wok-moment { flex-basis: 40vw; padding-top: 32px; }
   .home-dishes { gap: 14px; }
   .home-dish-copy { padding: 24px 18px 18px; }
   .home-dish h3 { font-size: 19px; }
@@ -108,21 +71,6 @@
   .home-visit-hours { padding: 24px; }
 }
 @media (max-width: 640px) {
-  .home-atmosphere { padding-block: 48px 25px; }
-  .home-atmosphere-heading { grid-template-columns: 1fr; gap: 24px; margin-bottom: 28px; }
-  .home-atmosphere .eyebrow { margin-bottom: 16px; font-size: 10px; }
-  .home-atmosphere h2 { font-size: clamp(42px, 11.5vw, 64px); }
-  .home-atmosphere-intro { max-width: 370px; justify-self: start; }
-  .home-atmosphere-intro p { font-size: 15px; margin-bottom: 12px; }
-  .home-film-link { gap: 9px; font-size: 12px; }
-  .home-gallery-track { gap: 16px; }
-  .home-gallery-slide, .home-gallery-slide--wok-moment { flex-basis: 82vw; padding-top: 0; }
-  .home-gallery-slide--wok-moment .home-gallery-image { aspect-ratio: 4 / 5; }
-  .home-gallery-slide figcaption { font-size: 12px; gap: 12px; padding-top: 14px; }
-  .home-gallery-footer { flex-wrap: wrap; gap: 6px 16px; }
-  .home-instagram-link { font-size: 12px; }
-  .home-gallery-controls { margin-left: auto; }
-  .home-gallery-status { min-width: 72px; font-size: 11px; margin-right: 4px; }
   .home-discovery { padding-block: 44px 40px; }
   .home-section-heading { display: block; margin-bottom: 20px; }
   .home-section-heading h2 { font-size: 36px; }
@@ -145,6 +93,4 @@
   .hero-photo { animation: none !important; transform: none; }
   .home-dish { transition: none; }
   .home-dish:hover { transform: none; }
-  .home-gallery-arrow { transition: none; }
-  .home-gallery-track { scroll-behavior: auto; }
 }

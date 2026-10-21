@@ -1,6 +1,8 @@
 {
+  "status": "Withdrawn by owner on 2026-10-21. Historical provenance only; listed runtime derivatives and video were removed from the current branch.",
+  "current_ai_preview": "One AI-edited preview used the previously recorded wok-moment-600.webp as input. The generated preview is in the conversation only and is not a website asset.",
   "review_date": "2026-10-21",
-  "usage": "Restaurant owner requested reuse of WoW Thai public media for the website. Editorial gallery only; no menu-product association or claim of present availability.",
+  "usage": "Historical proposal: owner initially requested reuse, then rejected the raw clip/photos on 2026-10-21. Retained for provenance only; no active homepage usage or menu-product association.",
   "official_account_proof": "https://citypoint.at/shops/wow-thai-restaurant/",
   "processing": "Preserve source content; apply EXIF orientation, resize whole image without upscaling, encode WebP quality82. Display crops use CSS object-fit; the Facebook poster letterbox bands are outside its4:5 visible frame. No generative edits.",
   "video": {

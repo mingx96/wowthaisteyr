@@ -10,12 +10,6 @@ $wow_ph   = $wow_info['phone'] ?? '+43 7252 74973';
 $wow_mail = $wow_info['email'] ?? 'info@wow-thai-restaurant.at';
 $wow_dishes = function_exists('wowthai_get_homepage_dishes') ? wowthai_get_homepage_dishes() : [];
 $wow_maps = $wow_info['google_maps_url'] ?? 'https://maps.google.com/?q=Leopold-Werndl-Stra%C3%9Fe+2+4400+Steyr';
-$wow_media = get_template_directory_uri() . '/assets/img/homepage/';
-$wow_moments = [
-    ['file' => 'sushi-moment', 'width' => 720, 'height' => 1280, 'title' => 'Thai & Sushi · 11 Sekunden', 'alt' => 'Gelbe und helle Sushi-Rollen auf Bambusmatten, mit Blumen garniert.'],
-    ['file' => 'wok-moment', 'width' => 600, 'height' => 600, 'title' => 'Wok & Meeresfrüchte', 'alt' => 'Nudeln mit Garnelen, Muscheln und Gemüse auf einem blauen Teller.'],
-    ['file' => 'thai-moment', 'width' => 960, 'height' => 1280, 'title' => 'Aromen der Thai-Küche', 'alt' => 'Gebratener Fisch mit Reis, Gemüse und einer orangefarbenen Sauce.'],
-];
 ?>
 
 <main id="main" tabindex="-1">
@@ -44,62 +38,12 @@ $wow_moments = [
       <span class="hero-location-rule" aria-hidden="true"></span>
       <span>LEOPOLD-WERNDL-STRASSE 2</span>
     </div>
-    <a class="hero-scroll" href="#einblicke"><span></span> WEITER ENTDECKEN</a>
-  </section>
-
-  <section id="einblicke" class="home-atmosphere" aria-labelledby="home-atmosphere-title" data-home-gallery>
-    <div class="wrap">
-      <div class="home-atmosphere-heading" data-home-reveal>
-        <div>
-          <p class="eyebrow">MOMENTE AUS DEM WOW THAI</p>
-          <h2 id="home-atmosphere-title">Ein kleiner<br><em>Vorgeschmack.</em></h2>
-        </div>
-        <div class="home-atmosphere-intro">
-          <p>Zum Teilen, zum Entdecken, zum Wiederkommen. Machen Sie es sich bei uns gemütlich – mitten im City Point Steyr.</p>
-          <a class="home-film-link" href="https://www.facebook.com/wowthairestaurant/videos/wow-thai-restraurant-steyr-city-point/825142112695835/" target="_blank" rel="noopener noreferrer">
-            <span class="home-film-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
-            Original auf Facebook <span class="visually-hidden">(neuer Tab)</span><?php echo wowthai_action_icon('action-icon--compact'); ?>
-          </a>
-        </div>
-      </div>
-      <ul class="home-gallery-track" id="home-gallery-track" data-home-gallery-track tabindex="0" aria-label="Bilder aus unserer Küche – horizontal blättern">
-        <?php foreach ($wow_moments as $index => $moment): ?>
-          <li class="home-gallery-slide home-gallery-slide--<?php echo esc_attr($moment['file']); ?>" data-home-gallery-slide>
-            <figure>
-              <div class="home-gallery-image">
-                <?php if ($index === 0): ?>
-                <video id="home-film" data-home-film controls playsinline muted preload="none"
-                  poster="<?php echo esc_url($wow_media . 'sushi-moment-720.webp'); ?>" width="720" height="1280"
-                  aria-label="Thai-Gerichte und Sushi-Platten auf einem gedeckten Tisch im WOW Thai Steyr. Kurzer Film ohne Ton.">
-                  <source src="<?php echo esc_url($wow_media . 'sushi-moments.mp4'); ?>" type="video/mp4">
-                  <a href="https://www.facebook.com/wowthairestaurant/videos/wow-thai-restraurant-steyr-city-point/825142112695835/">Sushi-Film auf Facebook ansehen</a>
-                </video>
-                <?php else: ?>
-                <img src="<?php echo esc_url($wow_media . $moment['file'] . '-' . $moment['width'] . '.webp'); ?>"
-                  srcset="<?php echo esc_url($wow_media . $moment['file'] . '-480.webp'); ?> 480w, <?php echo esc_url($wow_media . $moment['file'] . '-' . $moment['width'] . '.webp'); ?> <?php echo esc_attr($moment['width']); ?>w"
-                  sizes="(max-width: 640px) 82vw, (max-width: 900px) 48vw, 450px"
-                  alt="<?php echo esc_attr($moment['alt']); ?>" width="<?php echo esc_attr($moment['width']); ?>" height="<?php echo esc_attr($moment['height']); ?>" loading="lazy" decoding="async">
-                <?php endif; ?>
-              </div>
-              <figcaption><span aria-hidden="true"><?php echo esc_html(sprintf('%02d', $index + 1)); ?></span><?php echo esc_html($moment['title']); ?></figcaption>
-            </figure>
-          </li>
-        <?php endforeach; ?>
-      </ul>
-      <div class="home-gallery-footer">
-        <a class="home-instagram-link" href="https://www.instagram.com/wowthairestaurant/" target="_blank" rel="noopener noreferrer">Mehr auf Instagram <span class="visually-hidden">(neuer Tab)</span><?php echo wowthai_action_icon('action-icon--compact'); ?></a>
-        <div class="home-gallery-controls" data-home-gallery-controls hidden>
-          <span class="home-gallery-status" data-home-gallery-status aria-live="polite" aria-atomic="true"></span>
-          <button type="button" class="home-gallery-arrow home-gallery-arrow--prev" data-home-gallery-prev aria-label="Vorheriges Foto" aria-controls="home-gallery-track" disabled><?php echo wowthai_action_icon(); ?></button>
-          <button type="button" class="home-gallery-arrow" data-home-gallery-next aria-label="Nächstes Foto" aria-controls="home-gallery-track"><?php echo wowthai_action_icon(); ?></button>
-        </div>
-      </div>
-    </div>
+    <a class="hero-scroll" href="<?php echo !empty($wow_dishes) ? '#aus-unserer-kueche' : '#besuch'; ?>"><span></span> WEITER ENTDECKEN</a>
   </section>
 
   <?php if (!empty($wow_dishes)): ?>
   <section id="aus-unserer-kueche" class="home-discovery wrap" aria-labelledby="home-discovery-title">
-    <div class="home-section-heading" data-home-reveal>
+    <div class="home-section-heading">
       <div>
         <p class="eyebrow">AUS UNSERER KÜCHE</p>
         <h2 id="home-discovery-title">Worauf haben Sie<br><em>heute Lust?</em></h2>

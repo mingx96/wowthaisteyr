@@ -1,5 +1,9 @@
 # Homepage atmosphere research — 21 October 2026
 
+## Current status — media proposal withdrawn
+
+On 21 October 2026, the owner asked to remove the proposed clip and photographs and see one AI-edited image harmonized with the theme. The gallery runtime and all newly added media binaries were removed from the proposal; accepted production files were restored byte-for-byte to `6b76152`. A single AI food-photo preview was produced in the conversation and is not integrated. The findings below are retained as research and historical proposal evidence, not an approved media direction.
+
 ## Brief and evidence boundary
 
 The owner likes the existing site but finds it old and dry, and explicitly wants richer media and motion. [Kei](https://restaurant-kei.fr/) and [NKORA](https://nkora.co.uk/) are the primary taste references. The chosen direction is a warm, alive, modern restaurant homepage led by images, retaining Playfair Display, DM Sans, equal 48px Hero actions, and the established reservation layout.
@@ -27,19 +31,15 @@ This is a relevance shortlist, not a new ranking. “Observed” means inspected
 
 The requested [Elias article](https://www.elias.studio/en/blog/post/les-30-meilleurs-site-internet-de-restaurant) is an agency-curated 2025 inspiration list, including the agency's Fuga work. It is useful for discovery, not measured evidence of mobile usability, sales, or conversion. Its displayed update date, “5/7/2026”, was not interpreted beyond that literal format.
 
-## Agreed implementation scope
+## Historical implementation scope — withdrawn
 
 Add one cream editorial section immediately after the existing Hero. Its oversized, short German headline is **“Ein kleiner Vorgeschmack.”** A three-slide gallery combines a verified WoW film and two food photographs, with manual swipe/arrow navigation and concise captions. The first slide plays a local, audio-free MP4 on visitor action, with native controls, `playsinline`, `preload="none"`, and the genuine poster. Playback pauses offscreen or when the page becomes hidden. Retain a link to the original Facebook post; do not autoplay the film or advance the gallery automatically.
 
 Finite reveals use at most 12px movement over 350ms and respect reduced motion. Content remains visible without JavaScript. The existing dark menu section, managed names/prices, canonical hours, Monday sushi distinction, and reservation layout remain the functional foundation. No business-data change or architecture migration is part of this visual work.
 
-## Selected media and provenance limits
+## Historical media selection and provenance limits
 
-The following preview is an actual desktop render of the new editorial
-section in the local test environment. The film is paused on its genuine
-poster; the screenshot is UI evidence, not evidence of a live deployment.
-
-![Local desktop preview of the WoW Thai media gallery](images/homepage-atmosphere-preview.webp)
+The withdrawn proposal and its earlier preview remain in [PR #17 history](https://github.com/mingx96/wowthaisteyr/pull/17). The screenshot and runtime media binaries are no longer included in the current branch. Source records remain in `assets/img/homepage/SOURCES.json` as historical provenance.
 
 The [City Point tenant page](https://citypoint.at/shops/wow-thai-restaurant/) links the restaurant's official social profiles. A shared brand account still requires branch-specific evidence for place photography.
 

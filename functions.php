@@ -28,14 +28,13 @@ require_once get_template_directory() . '/inc/ui.php';
 // 2. Enqueue Styles & Scripts
 function wowthai_enqueue_scripts() {
     $theme_uri = get_template_directory_uri();
-    $version = '1.5.5';
+    $version = '1.5.4';
 
     // Fonts & Base Styles
     wp_enqueue_style('wowthai-fonts', $theme_uri . '/assets/css/fonts.css', [], $version);
     wp_enqueue_style('wowthai-main', $theme_uri . '/assets/css/styles.css', ['wowthai-fonts'], $version);
     if (is_front_page()) {
         wp_enqueue_style('wowthai-homepage', $theme_uri . '/assets/css/homepage.css', ['wowthai-main'], $version);
-        wp_enqueue_script('wowthai-homepage', $theme_uri . '/assets/js/homepage.js', [], $version, true);
     }
     wp_enqueue_style('wowthai-checkout', $theme_uri . '/assets/css/checkout.css', ['wowthai-main'], $version);
 
