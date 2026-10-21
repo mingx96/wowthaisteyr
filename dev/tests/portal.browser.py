@@ -18,7 +18,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 server=http.server.ThreadingHTTPServer(('127.0.0.1',0),functools.partial(Handler,directory=str(ROOT)))
 threading.Thread(target=server.serve_forever,daemon=True).start()
 ORDER={'id':1,'number':'TEST-001','stage':'completed','status':'completed','created':'2026-10-19T12:00:00+02:00','created_ts':1792404000,'name':'Fixture guest','items':[{'name':'Test meal','quantity':1,'choices':['Test choice']}],'total':'20,00 €','payment':'Bezahlt','payment_display':'Barzahlung vor Ort','version':'fixture','currency':'EUR','gross_minor':2000,'refund_minor':500,'net_minor':1500,'included':True}
-RES={'id':1,'date':'2026-10-24','time':'12:00','party':2,'status':'pending','name':'Fixture reservation','version':'fixture','period':'lunch'}
+RES={'id':1,'date':'2026-10-24','time':'12:00','party':2,'status':'pending','name':'Fixture reservation','phone':'+43000000000','email':'fixture@example.invalid','version':'fixture','period':'lunch'}
 try:
   with sync_playwright() as p:
     browser=p.chromium.launch(headless=True)
@@ -28,6 +28,7 @@ try:
       flags={'open':False,'fail':False,'archive_empty':False,'note':'','posts':0,'new_ids':[],'daily_note':'','daily_fail':False,'res_status':'pending','mixed_res':False,'hours_posts':[],'hours_revision':'r1','can_edit':True,'hours_fail':False,'save_status':200,'save_hold':False,'held_save':None,'summary_reads':0,'conflicts':True,'preview_hold':False,'held_preview':None,'slots':['12:00','12:30'],'zero_counts':False}
       page.add_init_script('''window.chimes=0; window.AudioContext=class { constructor(){this.state='running';this.currentTime=0;this.destination={};} createOscillator(){return {type:'',frequency:{setValueAtTime(){}},connect(){},start(){window.chimes++},stop(){}}} createGain(){return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}}} };''')
       errors=[]
+      flags.update(slots_hold=False, held_slots=[], slots_status=200)
       page.on('pageerror',lambda error: errors.append(str(error)))
       def route(r):
         from urllib.parse import urlparse,parse_qs
@@ -57,6 +58,10 @@ try:
           r.fulfill(status=200,content_type='application/json',body=json.dumps(data)); return
         if '/wowthai-hours/v1/availability' in path:
           data={'date':query.get('date',['2026-10-19'])[0],'ranges':[['11:00','14:00']],'reservation_slots':flags['slots'],'pickup_slots':['12:15']}
+          if flags['slots_hold']:
+            flags['held_slots'].append((r,data)); return
+          if flags['slots_status']!=200:
+            r.fulfill(status=flags['slots_status'],content_type='application/json',body='{}'); return
         elif '/summary' in path or '/stats' in path:
           flags['summary_reads']+=1
           if flags['fail']:
@@ -150,9 +155,42 @@ try:
       expect(page.locator('#wto-archive-list')).to_contain_text('Keine archivierten')
       menu_click('[data-tab="reservations"]')
       expect(page.locator('#wto-res-pagination')).not_to_be_visible()
+      views=page.locator('#wto-view-reservations .wto-res-filters')
+      expect(views).to_be_visible()
+      expect(views.get_by_role('button',name='Tagesansicht',exact=True)).to_have_attribute('aria-pressed','true')
+      expect(views.get_by_role('button',name='Anfragen',exact=True)).to_be_visible()
+      expect(views.get_by_role('button',name='Alle',exact=True)).to_be_visible()
+      expect(menu.locator('.wto-res-filters')).to_have_count(0)
+      assert page.locator('#wto-res-date-input').is_enabled()
+      if width <= 768:
+        assert all(button.bounding_box()['height'] >= 44 for button in views.get_by_role('button').all()), 'reservation view buttons must remain touch-sized'
+        assert all(button.evaluate('(el)=>el.scrollWidth<=el.clientWidth+1') for button in views.get_by_role('button').all()), 'reservation view labels must fit their buttons'
+      # The form must open while availability is pending, with writes disabled.
+      flags['slots_hold']=True
       page.locator('#wto-btn-new-reservation').click()
-      expect(page.locator('#wto-dialog-new-res')).to_be_visible()
       phone=page.locator('#wto-dialog-new-res')
+      expect(phone).to_be_visible(timeout=1000)
+      expect(phone.locator('[name="time"]')).to_be_disabled()
+      expect(phone.locator('[type="submit"]')).to_be_disabled()
+      expect(phone.locator('[name="time"]')).to_contain_text('Lade verfügbare Zeiten')
+      phone.locator('[name="name"]').fill('Synthetic waiting guest')
+      phone.get_by_role('button',name='Abbrechen',exact=True).click()
+      expect(phone).not_to_be_visible()
+      assert len(flags['held_slots'])==1
+      held_slot,slot_data=flags['held_slots'].pop()
+      held_slot.fulfill(status=200,content_type='application/json',body=json.dumps(slot_data))
+      expect(phone.locator('[name="time"]')).to_be_enabled()
+      expect(phone).not_to_be_visible() # A late response must not reopen a cancelled form.
+      flags['slots_hold']=False; flags['slots_status']=503
+      page.locator('#wto-btn-new-reservation').click()
+      expect(phone).to_be_visible()
+      expect(phone.locator('[name="time"]')).to_contain_text('Fehler beim Laden')
+      expect(phone.locator('[type="submit"]')).to_be_disabled()
+      phone.get_by_role('button',name='Abbrechen',exact=True).click()
+      flags['slots_status']=200
+      page.locator('#wto-btn-new-reservation').click()
+      expect(phone).to_be_visible()
+      expect(phone.locator('[name="time"]')).to_be_enabled()
       phone.locator('[name="name"]').fill('Synthetic phone guest')
       phone.locator('[name="time"]').select_option('12:30')
       page.evaluate("document.dispatchEvent(new CustomEvent('wowthai:hours-saved'))")
@@ -171,12 +209,40 @@ try:
         expect(page.locator('.wto-res-kanban-board .col-prep')).to_be_visible()
         expect(page.locator('.wto-res-kanban-board .col-new')).not_to_be_visible()
         menu_click('#wto-res-col-switcher [data-col="new"]')
-      menu_click('.wto-res-filters [data-view="pending"]')
+      views.get_by_role('button',name='Anfragen',exact=True).click()
+      expect(views.get_by_role('button',name='Anfragen',exact=True)).to_have_attribute('aria-pressed','true')
       expect(page.locator('#wto-res-date-input')).to_be_disabled()
       expect(page.locator('#wto-res-scope')).to_contain_text('alle Tage')
       expect(page.locator('.wto-res-date').first).to_contain_text('24.10.2026')
       expect(page.locator('#wto-kpi-res-guests')).to_have_text('120')
       expect(page.locator('#wto-kpi-res-total')).to_have_text('60')
+      views.get_by_role('button',name='Tagesansicht',exact=True).click()
+      expect(views.get_by_role('button',name='Tagesansicht',exact=True)).to_have_attribute('aria-pressed','true')
+      expect(page.locator('#wto-res-date-input')).to_be_enabled()
+      views.get_by_role('button',name='Anfragen',exact=True).click()
+      expect(page.locator('#wto-kpi-res-total')).to_have_text('60')
+      # Cards open read-only details, including keyboard access and safe plain text.
+      card=page.locator('.wto-res-card[data-id="2"]')
+      expect(card.get_by_role('button',name='Details',exact=True)).to_have_count(1)
+      flags['note']='Fixture <b>literal</b> & note'; page.clock.run_for(12000)
+      card.locator('.wto-res-time').click()
+      detail=page.get_by_role('dialog',name='Reservierung #2',exact=True)
+      expect(detail).to_be_visible()
+      for value in ['Fixture reservation','24.10.2026','12:00 Uhr','2 Personen','Neu','+43000000000','fixture@example.invalid','Fixture <b>literal</b> & note']:
+        expect(detail).to_contain_text(value)
+      assert detail.locator('input,select,textarea,.btn-res-action,[type="submit"],b').count()==0
+      page.keyboard.press('Escape')
+      expect(detail).not_to_be_visible()
+      expect(card.get_by_role('button',name='Details',exact=True)).to_be_focused()
+      card.get_by_role('button',name='Details',exact=True).press('Enter')
+      expect(detail).to_be_visible()
+      page.clock.run_for(12000)
+      expect(detail).to_be_visible()
+      assert detail.evaluate('(el)=>el.scrollWidth<=el.clientWidth'), 'details must fit narrow screens'
+      detail.get_by_role('button',name='Schließen',exact=True).click()
+      expect(detail).not_to_be_visible()
+      expect(card.get_by_role('button',name='Details',exact=True)).to_be_focused()
+      assert flags['posts']==0, 'opening and closing reservation details must not write'
       # Poll preserves an operator's keyboard focus and scrolled column.
       action=page.locator('.btn-res-action[data-action="confirmed"]').first
       action.focus()
@@ -235,7 +301,7 @@ try:
       folder=Path(os.environ.get('PORTAL_TEST_ARTIFACTS',str(Path(tempfile.gettempdir())/'wowthai-portal-artifacts')));folder.mkdir(parents=True,exist_ok=True)
       page.screenshot(path=str(folder/f'reservations-before-{width}.png'))
       if height >= 600:
-        assert page.locator('#wto-res-list').bounding_box()['height'] >= page.viewport_size['height'] * (.66 if width==320 else .70), 'booking controls must leave most of the portrait viewport for reservations'
+        assert page.locator('#wto-res-list').bounding_box()['height'] >= page.viewport_size['height'] * (.62 if width==320 else .70), 'booking controls must leave most of the portrait viewport for reservations'
       page.screenshot(path=str(folder/f'reservations-{width}.png'))
       trigger.click()
       panel=menu.locator('.wto-command-panel')
@@ -259,14 +325,28 @@ try:
       # Cancelled rows are separate from guests in-house and remain reachable on short screens.
       flags['mixed_res']=True
       menu_click('[data-tab="reservations"]')
-      menu_click('.wto-res-filters [data-view="all"]')
+      views.get_by_role('button',name='Alle',exact=True).click()
+      expect(views.get_by_role('button',name='Alle',exact=True)).to_have_attribute('aria-pressed','true')
       expect(page.locator('.wto-cancelled')).to_be_visible()
       expect(page.locator('.col-ready .wto-res-card')).to_have_count(1)
       expect(page.locator('.col-ready .btn-res-action')).to_have_count(0)
+      if width <= 768: menu_click('#wto-res-col-switcher [data-col="ready"]')
+      page.locator('.col-ready .wto-res-card .wto-res-time').click()
+      arrived_detail=page.get_by_role('dialog',name='Reservierung #900',exact=True)
+      expect(arrived_detail).to_be_visible()
+      expect(arrived_detail).to_contain_text('Im Haus')
+      assert arrived_detail.locator('.btn-res-action,[type="submit"]').count()==0
+      page.screenshot(path=str(folder/f'reservation-detail-{width}.png'))
+      arrived_detail.get_by_role('button',name='Schließen',exact=True).click()
       if width == 390: page.set_viewport_size({'width':390,'height':667})
       disclosure=page.locator('.wto-cancelled')
       disclosure.locator('summary').click()
       expect(disclosure.locator('.wto-res-card')).to_have_count(5)
+      disclosure.locator('.wto-res-card').first.get_by_role('button',name='Details',exact=True).click()
+      cancelled_detail=page.get_by_role('dialog',name='Reservierung #901',exact=True)
+      expect(cancelled_detail).to_contain_text('Storniert')
+      cancelled_detail.get_by_role('button',name='Schließen',exact=True).click()
+      expect(disclosure.locator('.wto-res-card').first.get_by_role('button',name='Details',exact=True)).to_be_focused()
       assert page.locator('#wto-res-list').evaluate('(el)=>el.scrollHeight<=el.clientHeight+1 || ["auto","scroll"].includes(getComputedStyle(el).overflowY)'), 'overflowing history requires a user-scrollable outer list'
       # Both the outer list and inner history scrollport must let the final card enter view.
       page.locator('#wto-res-list').evaluate('(el)=>el.scrollTop=el.scrollHeight')

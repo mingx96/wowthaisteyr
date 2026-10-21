@@ -832,9 +832,8 @@ button, input, select, textarea {
 .wto-res-filters {
   display: flex;
   background: var(--wto-surface);
-  border: 1px solid var(--wto-line);
+  box-shadow: inset 0 0 0 1px var(--wto-line);
   border-radius: 8px;
-  padding: 3px;
   gap: 4px;
 }
 
@@ -850,8 +849,8 @@ button, input, select, textarea {
 }
 
 .wto-res-filters button.active {
-  background: var(--wto-surface-raised);
-  color: var(--wto-ink);
+  background: var(--wto-gold);
+  color: #141210;
 }
 
 .wto-res-date-picker {
@@ -1143,6 +1142,16 @@ dialog.wto-modal::backdrop {
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(4px);
 }
+
+.wto-res-card { cursor: pointer; }
+.wto-res-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wto-res-card-heading .wto-res-date { margin: 0; }
+#wto-dialog-res-detail { max-height: calc(100dvh - 24px); overflow: auto; }
+#wto-dialog-res-detail .wto-btn-close { min-width: 44px; min-height: 44px; }
+.wto-res-detail-list { margin: 0 0 20px; }
+.wto-res-detail-list > div { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--wto-line); }
+.wto-res-detail-list dt { color: var(--wto-ink-muted); }
+.wto-res-detail-list dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 
 .wto-modal-head {
   display: flex;
@@ -1834,6 +1843,7 @@ dialog.wto-modal::backdrop {
 .wto-command-header .wto-status-pill { padding: 4px 8px; white-space: nowrap; font-size: 12px; }
 .wto-command-header .wto-nav-badge { min-width: 20px; height: 20px; }
 .wto-res-toolbar { min-height: 44px; padding: 4px 12px; gap: 12px; }
+.wto-res-toolbar .wto-res-filters button { min-height: 44px; }
 .wto-res-nav { display: flex; flex: 0 0 auto; gap: 0; }
 .wto-res-kpis { margin-left: auto; padding: 0; gap: 12px; }
 #wto-res-scope { margin: 0; padding: 0; font-size: 12px; }
@@ -1853,12 +1863,13 @@ dialog.wto-modal::backdrop {
   .wto-command-panel { top: 54px; left: 8px; width: min(360px, calc(100vw - 16px)); max-height: calc(100dvh - 64px); padding: 10px; }
   .wto-command-panel .wto-mobile-col-switcher { padding: 8px 0 0; border: 0; gap: 8px; }
   .wto-command-panel .wto-mcol-btn { min-width: 0; flex: 1; padding-inline: 4px; white-space: normal; }
-  .wto-res-toolbar { flex-direction: row; align-items: center; flex-wrap: wrap; padding: 4px 8px; gap: 4px 8px; }
+  .wto-res-toolbar { flex-direction: row; align-items: center; flex-wrap: wrap; padding: 3px 8px; gap: 3px 8px; }
+  .wto-res-toolbar .wto-res-filters button { flex: 0 0 auto; padding-inline: 2px; white-space: nowrap; }
   .wto-res-nav { width: auto; flex-direction: row; }
   .wto-res-kpis { width: auto; gap: 6px; flex-wrap: nowrap; }
   .wto-res-date-picker { padding: 2px 4px; }
   .wto-res-date-picker input { width: 120px; min-height: 40px; }
-  #wto-res-scope { flex: 1; min-width: 0; font-size: 11px; }
+  #wto-res-scope { flex: 1 1 100px; min-width: 100px; font-size: 11px; }
   #wto-btn-new-reservation { width: 44px; height: 44px !important; min-height: 44px; }
 }
 

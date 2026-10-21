@@ -758,8 +758,12 @@ function initPortal(cfg) {
 
   document.querySelectorAll('.wto-res-filters button').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.wto-res-filters button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.wto-res-filters button').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-pressed', 'false');
+      });
       btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
       state.resFilter = btn.dataset.view;
       state.resPage = 1; state.reservations = []; state.resData = null;
       resDatePicker.disabled = state.resFilter !== 'daily';
@@ -927,7 +931,10 @@ function initPortal(cfg) {
 
     return `
       <article class="wto-res-card status-${esc(r.status)}" data-id="${esc(r.id)}" data-version="${esc(r.version)}">
-        <p class="wto-res-date">${esc(formatDate(r.date))}</p>
+        <div class="wto-res-card-heading">
+          <p class="wto-res-date">${esc(formatDate(r.date))}</p>
+          <button type="button" class="wto-btn btn-secondary btn-res-details" data-id="${esc(r.id)}" aria-haspopup="dialog" aria-controls="wto-dialog-res-detail">Details</button>
+        </div>
         <div class="wto-res-top">
           <span class="wto-res-time" style="display:inline-flex;align-items:center;gap:6px;">
             🕒 <strong>${esc(r.time)} Uhr</strong> ${shiftBadge}
@@ -962,6 +969,15 @@ function initPortal(cfg) {
   }
 
   function attachReservationEvents(container) {
+    container.querySelectorAll('.btn-res-details').forEach(btn => {
+      btn.onclick = () => openReservationDetails(btn.dataset.id);
+    });
+    container.querySelectorAll('.wto-res-card').forEach(card => {
+      card.onclick = event => {
+        if (event.target.closest('button, a, input, select, textarea') || window.getSelection()?.toString()) return;
+        openReservationDetails(card.dataset.id);
+      };
+    });
     container.querySelectorAll('.btn-res-action').forEach(btn => {
       btn.onclick = async () => {
         const id = btn.dataset.id;
@@ -984,8 +1000,32 @@ function initPortal(cfg) {
     });
   }
 
+  function openReservationDetails(id) {
+    const reservation = state.reservations.find(item => String(item.id) === String(id));
+    const dialog = document.getElementById('wto-dialog-res-detail');
+    if (!reservation || !dialog || dialog.open) return;
+    const statusLabels = {pending: 'Neu', confirmed: 'Bestätigt', arrived: 'Im Haus', cancelled: 'Storniert'};
+    const rows = [
+      ['Gast', reservation.name],
+      ['Datum', formatDate(reservation.date)],
+      ['Uhrzeit', `${reservation.time} Uhr`],
+      ['Gruppe', `${reservation.party} Personen`],
+      ['Status', statusLabels[reservation.status] || reservation.status],
+      ['Telefon', reservation.phone || '—'],
+      ['E-Mail', reservation.email || '—'],
+      ['Anmerkung', reservation.notes || 'Keine Anmerkung.']
+    ];
+    document.getElementById('wto-res-detail-title').textContent = `Reservierung #${reservation.id}`;
+    document.getElementById('wto-res-detail-body').innerHTML = rows.map(([label, value]) =>
+      `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('');
+    // Resolve the trigger again on close, since polling can replace the card.
+    dialog.onclose = () => Array.from(document.querySelectorAll('.btn-res-details'))
+      .find(button => button.dataset.id === String(id))?.focus({preventScroll: true});
+    dialog.showModal();
+  }
+
   // --- Modal for New Phone/Walk-in Reservation ---
-  async function openNewReservationModal() {
+  function openNewReservationModal() {
     const dialog = document.getElementById('wto-dialog-new-res');
     if (!dialog) return;
     const form = dialog.querySelector('form');
@@ -1022,9 +1062,6 @@ function initPortal(cfg) {
 
     dateInput.onchange = updateSlots;
     dialog.wtoRefreshSlots = updateSlots;
-    await updateSlots();
-
-    dialog.showModal();
 
     form.onsubmit = async (e) => {
       e.preventDefault();
@@ -1043,6 +1080,11 @@ function initPortal(cfg) {
         submitBtn.disabled = false;
       }
     };
+
+    // Show loading feedback immediately, even on a slow availability request.
+    // Completing that request must never reopen a form the user has closed.
+    dialog.showModal();
+    updateSlots();
   }
 
   // =========================================================================

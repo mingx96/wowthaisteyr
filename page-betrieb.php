@@ -200,11 +200,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
             Abholbereit <span class="wto-mcol-badge" id="wto-m-count-ready">0</span>
           </button>
         </div></div>
-          <div class="wto-command-group wto-command-context" data-menu-section="reservations" hidden><p class="wto-command-group-title">Reservierungen</p><div class="wto-res-filters">
-              <button type="button" class="active" data-view="daily">Tag</button>
-              <button type="button" data-view="pending">Offen</button>
-              <button type="button" data-view="all">Alle</button>
-            </div><p class="wto-command-group-title">Zeitraum</p><div class="wto-res-shift-filters">
+          <div class="wto-command-group wto-command-context" data-menu-section="reservations" hidden><p class="wto-command-group-title">Zeitraum</p><div class="wto-res-shift-filters">
               <button type="button" class="wto-shift-btn active" data-shift="all">Alle</button>
               <button type="button" class="wto-shift-btn" data-shift="lunch">Mittag</button>
               <button type="button" class="wto-shift-btn" data-shift="dinner">Abend</button>
@@ -255,7 +251,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
         <h3>Bestellungen</h3>
         <p>Das Küchenboard enthält aktive Bestellungen aller Tage. Im Archiv sind abgeschlossene, stornierte, fehlgeschlagene und erstattete Bestellungen nur lesbar.</p>
         <h3>Reservierungen · Zeiträume</h3>
-        <p>Tag: gewähltes Datum. Offen / Alle: alle Tage; das Datumsfeld ist dann deaktiviert. Mittag vor 16 Uhr, Abend ab 16 Uhr sind Filter, keine Öffnungszeiten. Stornos stehen separat und zählen nicht zu Reservierungen oder Gästen.</p>
+        <p>Tagesansicht: gewähltes Datum. Anfragen: offene Anfragen aller Tage. Alle: Reservierungen aller Tage; das Datumsfeld ist dann deaktiviert. Mittag vor 16 Uhr, Abend ab 16 Uhr sind Filter, keine Öffnungszeiten. Stornos stehen separat und zählen nicht zu Reservierungen oder Gästen.</p>
         <h3>Seiten und Kennzahlen</h3>
         <p>Die Kennzahlen gelten für den gesamten Filter. Bei mehreren Seiten zeigen die Karten die gewählte Seite. Weitere Seiten sind unten erreichbar.</p>
         <h3>Tagesübersicht</h3>
@@ -327,6 +323,11 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
            =================================================================== -->
       <section id="wto-view-reservations" class="wto-view" aria-label="Reservierungs-Management">
         <div class="wto-res-toolbar">
+          <div class="wto-res-filters" role="group" aria-label="Reservierungsansicht">
+            <button type="button" class="active" data-view="daily" aria-pressed="true">Tagesansicht</button>
+            <button type="button" data-view="pending" aria-pressed="false">Anfragen</button>
+            <button type="button" data-view="all" aria-pressed="false">Alle</button>
+          </div>
           <div class="wto-res-nav">
 
 
@@ -502,6 +503,15 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
           <button type="submit" class="wto-btn btn-primary">Reservierung speichern</button>
         </div>
       </form>
+    </dialog>
+
+    <dialog id="wto-dialog-res-detail" class="wto-modal" aria-labelledby="wto-res-detail-title">
+      <div class="wto-modal-head">
+        <h3 id="wto-res-detail-title">Reservierungsdetails</h3>
+        <button type="button" class="wto-btn-close" aria-label="Details schließen" onclick="document.getElementById('wto-dialog-res-detail').close()">×</button>
+      </div>
+      <dl id="wto-res-detail-body" class="wto-res-detail-list"></dl>
+      <button type="button" class="wto-btn btn-secondary" onclick="document.getElementById('wto-dialog-res-detail').close()">Schließen</button>
     </dialog>
 
   </div>
