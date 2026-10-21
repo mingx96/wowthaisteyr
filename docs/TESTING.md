@@ -23,7 +23,7 @@ standalone bootstrap supplies a minimal WordPress tag-stripping shim; it is not
 a full WordPress/WooCommerce integration test. Cards, modal text, search, and
 menu schema consume the same description produced by the menu data builder.
 
-## Homepage discovery and visit planning (1.5.4)
+## Homepage photography, discovery and visit planning (1.5.5)
 
 `php dev/tests/homepage.test.php` exercises the real shared menu mapper,
 homepage selector and conditional stylesheet enqueue with WordPress/WooCommerce
@@ -49,13 +49,23 @@ request. These links are separate from the existing `?dish=` ordering entry.
 Set `HOMEPAGE_TEST_ARTIFACTS` to choose the screenshot folder (default:
 `/tmp/wowthai-homepage-artifacts`). CI runs this suite and uploads its images.
 
+The separate editorial gallery uses genuine restaurant media with provenance
+in `assets/img/homepage/SOURCES.json`. It does not assign these photographs to
+catalog products. Its browser checks cover manual previous/next navigation,
+native horizontal scrolling, keyboard focus, no-JavaScript access, responsive
+image loading and reduced motion. The first slide contains the restaurant's
+11-second film, with native controls, a local poster and `preload="none"`.
+It must request no MP4 before manual playback and pause when it leaves view.
+The local H.264 export has no audio track. No autoplay or social embed runs;
+the optional Facebook link leads to the original public post.
+
 All availability and catalog responses in these browser checks are fixtures.
-The image-bearing variant uses a synthetic image association solely to test
-layout; it is not a proposed product photo. The normal fixture represents the
-no-photo fallback. Screenshots, local asset sizes and synthetic timing are not
-production Core Web Vitals, real restaurant photographs or end-to-end checkout
-evidence. No live form submission, database synchronization or theme deployment
-is part of these commands.
+The product-image variant uses a synthetic image association solely to test
+layout; it is not a proposed product photo. The normal product cards represent
+the no-photo fallback. Screenshots, local asset sizes and synthetic timing are
+not production Core Web Vitals or end-to-end checkout evidence. No live form
+submission, database synchronization or theme deployment is part of these
+commands.
 
 ## Reporting
 

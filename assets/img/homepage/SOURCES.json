@@ -1,0 +1,166 @@
+{
+  "review_date": "2026-10-21",
+  "usage": "Restaurant owner requested reuse of WoW Thai public media for the website. Editorial gallery only; no menu-product association or claim of present availability.",
+  "official_account_proof": "https://citypoint.at/shops/wow-thai-restaurant/",
+  "processing": "Preserve source content; apply EXIF orientation, resize whole image without upscaling, encode WebP quality82. Display crops use CSS object-fit; the Facebook poster letterbox bands are outside its4:5 visible frame. No generative edits.",
+  "video": {
+    "source_page": "https://www.facebook.com/wowthairestaurant/videos/wow-thai-restraurant-steyr-city-point/825142112695835/",
+    "publication_date": "2023-11-08",
+    "access_evidence": "Verified playing in a logged-out public Facebook browser page; downloaded with the supported video-element downloadMedia action. Ordinary public HTML had exposed only the poster; direct browser inspection resolved that limitation.",
+    "original_bytes": 1804401,
+    "original_sha256": "4991171f1b9de4de4ef2a2a68b5303c9268af848ffaf97128ae24494b2149353",
+    "original_codec": "VP9 with AAC audio",
+    "original_duration_seconds": 10.755,
+    "file": "sushi-moments.mp4",
+    "bytes": 706193,
+    "sha256": "58251c3f208544d9c70d61db104ba29f8b57dd432a90ed86911085e0878e592b",
+    "width": 720,
+    "height": 1280,
+    "duration_seconds": 10.75,
+    "codec": "H.264",
+    "pixel_format": "yuv420p",
+    "audio_tracks": 0,
+    "processing": "ffmpeg -map 0:v:0 -an -c:v libx264 -preset medium -crf25 -pix_fmt yuv420p -movflags +faststart -map_metadata -1; preserve the complete frame and sequence.",
+    "presentation": "Native controls, playsinline, muted, preload=none, local poster; no autoplay/loop or social embed. Pause when offscreen/hidden.",
+    "top_level_atoms": [
+      {
+        "type": "ftyp",
+        "offset": 0,
+        "bytes": 32
+      },
+      {
+        "type": "moov",
+        "offset": 32,
+        "bytes": 4698
+      },
+      {
+        "type": "free",
+        "offset": 4730,
+        "bytes": 8
+      },
+      {
+        "type": "mdat",
+        "offset": 4738,
+        "bytes": 701455
+      }
+    ]
+  },
+  "excluded": "Pre-relocation2021 interior photos and a STA interior with unverified original publisher were not used.",
+  "assets": [
+    {
+      "source_page": "https://www.facebook.com/wowthairestaurant/videos/wow-thai-restraurant-steyr-city-point/825142112695835/",
+      "owner_evidence": "Public og:image from official restaurant Facebook post, official profile linked by City Point tenant page.",
+      "identity_evidence": "Official caption explicitly says Steyr - City Point.",
+      "publication_date": "2023-11-08",
+      "publication_date_note": "Displayed on the verified public Facebook post; capture date unknown.",
+      "exif_capture_time": null,
+      "exif_time_note": null,
+      "sha256": "7e0425b96df374187b5c20a9cc592698e47a782af057c922cdc58e1b9aa2be70",
+      "raw_pixels": [
+        720,
+        1280
+      ],
+      "display_pixels": [
+        720,
+        1280
+      ],
+      "visible_content": "Bright yellow and pale sushi-style rolls on bamboo mats, a second platter behind, on a restaurant table; plant/flower decoration.",
+      "status": "eligible_general_food_media",
+      "quality_note": "720 x 1280 public poster with letterbox bands; adequate for a moderate portrait display, not a wide full-screen hero.",
+      "id": "sushi-moment",
+      "original_filename": "facebook-steyr-video-poster.jpg",
+      "product_id": null,
+      "named_menu_dish": null,
+      "derivatives": [
+        {
+          "file": "sushi-moment-720.webp",
+          "width": 720,
+          "height": 1280,
+          "bytes": 86254,
+          "sha256": "7fbc222661a70beff7b9c05beb1a43ec64abf4fd7d2d21690a879a6288cf7030"
+        }
+      ]
+    },
+    {
+      "source_page": "https://www.facebook.com/wowthairestaurant/posts/city-point-steyr-steyr-restaurant/358323823376422/",
+      "owner_evidence": "Public og:image from official restaurant Facebook post.",
+      "identity_evidence": "Caption City Point Steyr - Steyr restaurant; official profile cross-link.",
+      "publication_date": "2023-11-08",
+      "publication_date_note": "Date displayed by indexed original Facebook post; image capture date unknown.",
+      "exif_capture_time": null,
+      "exif_time_note": null,
+      "sha256": "3505db3f123c15fd001b4b947015163026a9ef7ceb1077c3e005d7f49523e6cf",
+      "raw_pixels": [
+        600,
+        600
+      ],
+      "display_pixels": [
+        600,
+        600
+      ],
+      "visible_content": "Noodles with visible prawns, mussels and vegetables in a blue bowl.",
+      "status": "eligible_general_food_media",
+      "quality_note": "600 x 600 public preview; full-resolution original was not exposed. Avoid stretching it into a large desktop hero.",
+      "id": "wok-moment",
+      "original_filename": "facebook-steyr-2023-11-08.jpg",
+      "product_id": null,
+      "named_menu_dish": null,
+      "derivatives": [
+        {
+          "file": "wok-moment-480.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 53314,
+          "sha256": "ae6ce7895722c0b0f183e994fdf94175bc44ae837ac7d1f95e62133121ceb095"
+        },
+        {
+          "file": "wok-moment-600.webp",
+          "width": 600,
+          "height": 600,
+          "bytes": 73584,
+          "sha256": "72760d396dad26c6def3dae94a5a90168664026212c99800eff339d2aeb59481"
+        }
+      ]
+    },
+    {
+      "source_page": "https://www.360alpenland.com/oesterreich-gastronomie/detail/430008762/wow-thai-restaurant.html",
+      "owner_evidence": "Tourism gallery items1-5 explicitly credited © WoW Thai Restaurant.",
+      "identity_evidence": "Restaurant-owned historical food photo associated with its Steyr listing. Captured before the City Point relocation according to EXIF.",
+      "publication_date": null,
+      "exif_capture_time": "2021:10:25 19:10:30",
+      "exif_time_note": "Embedded camera metadata, not independently verified.",
+      "sha256": "568deb905032e3087eaaf392849ebe94b114d07fe6b3f7d24178a157ec4f7ec6",
+      "raw_pixels": [
+        4032,
+        3024
+      ],
+      "display_pixels": [
+        3024,
+        4032
+      ],
+      "visible_content": "Fish fillets in an orange sauce with rice and vegetables.",
+      "status": "eligible_historical_general_food_media",
+      "quality_note": "High-resolution original JPEG; embedded capture date is25October2021. Portrait display3024 x4032 after orientation. No edited or generated substitute.",
+      "id": "thai-moment",
+      "original_filename": "steyr-owner-193370-original.jpg",
+      "product_id": null,
+      "named_menu_dish": null,
+      "derivatives": [
+        {
+          "file": "thai-moment-480.webp",
+          "width": 480,
+          "height": 640,
+          "bytes": 56288,
+          "sha256": "8b877aba15f42f1df00919966bda3b2833b1b79684302b6de1f2b5f1e980ec1c"
+        },
+        {
+          "file": "thai-moment-960.webp",
+          "width": 960,
+          "height": 1280,
+          "bytes": 166226,
+          "sha256": "a45670e93a3d1d5204b29091cfb42ac5a6bea12d29309e6a4e087282f05a1b06"
+        }
+      ]
+    }
+  ]
+}
