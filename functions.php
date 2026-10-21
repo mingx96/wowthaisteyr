@@ -28,11 +28,14 @@ require_once get_template_directory() . '/inc/ui.php';
 // 2. Enqueue Styles & Scripts
 function wowthai_enqueue_scripts() {
     $theme_uri = get_template_directory_uri();
-    $version = '1.5.3';
+    $version = '1.5.4';
 
     // Fonts & Base Styles
     wp_enqueue_style('wowthai-fonts', $theme_uri . '/assets/css/fonts.css', [], $version);
     wp_enqueue_style('wowthai-main', $theme_uri . '/assets/css/styles.css', ['wowthai-fonts'], $version);
+    if (is_front_page()) {
+        wp_enqueue_style('wowthai-homepage', $theme_uri . '/assets/css/homepage.css', ['wowthai-main'], $version);
+    }
     wp_enqueue_style('wowthai-checkout', $theme_uri . '/assets/css/checkout.css', ['wowthai-main'], $version);
 
     // Front-end interactive app
@@ -583,17 +586,24 @@ add_action('woocommerce_order_details_after_order_table', 'wowthai_display_picku
 add_action('woocommerce_email_after_order_table', 'wowthai_display_pickup_time_on_order', 10, 1);
 
 // 13. Query Menu Data Helper for Templates
-function wowthai_get_menu_structure() {
-    $restaurant_cats = [
-        'Mittagsmenü', 'VORSPEISEN', 'SUPPEN', 'HAUPTSPEISEN',
-        'VIETNAMESISCHE SPEZIALITÄTEN', 'SPEZIALITÄT DES HAUSES',
-        'NACHSPEISEN', 'EXTRAS'
+function wowthai_menu_category_groups(): array {
+    return [
+        'restaurant' => [
+            'Mittagsmenü', 'VORSPEISEN', 'SUPPEN', 'HAUPTSPEISEN',
+            'VIETNAMESISCHE SPEZIALITÄTEN', 'SPEZIALITÄT DES HAUSES',
+            'NACHSPEISEN', 'EXTRAS'
+        ],
+        'sushi' => [
+            'Vorspeise Sushi', 'Vorpseise Sushi', 'Set', 'Maki &amp; Sashimi', 'Maki & Sashimi',
+            'Special Rolls', 'Bowl'
+        ],
     ];
+}
 
-    $sushi_cats = [
-        'Vorspeise Sushi', 'Vorpseise Sushi', 'Set', 'Maki &amp; Sashimi', 'Maki & Sashimi',
-        'Special Rolls', 'Bowl'
-    ];
+function wowthai_get_menu_structure() {
+    $category_groups = wowthai_menu_category_groups();
+    $restaurant_cats = $category_groups['restaurant'];
+    $sushi_cats = $category_groups['sushi'];
 
     $output = [
         'restaurant' => [],
@@ -638,6 +648,42 @@ function wowthai_get_menu_structure() {
     return $output;
 }
 
+/** Map one managed product identically for menu and homepage consumers. */
+function wowthai_get_menu_product($id) {
+    $has_variants = get_post_meta($id, '_wowthai_has_variants', true) === 'yes';
+    $variants = get_post_meta($id, '_wowthai_variants', true);
+    $labels = get_post_meta($id, '_wowthai_labels', true) ?: [];
+    $img_url = get_post_meta($id, '_wowthai_image_url', true);
+    $price = get_post_meta($id, '_price', true);
+
+    $formatted_price = '€' . number_format(floatval($price), 2, ',', '.');
+    if ($has_variants && !empty($variants)) {
+        $min_p = min(array_map(function($v) { return floatval($v['price']); }, $variants));
+        $formatted_price = 'ab €' . number_format($min_p, 2, ',', '.');
+    }
+
+    $raw_title = get_the_title($id);
+    $raw_desc  = get_the_content(null, false, $id);
+    $title     = function_exists('wowthai_normalize_menu_text') ? wowthai_normalize_menu_text($raw_title) : $raw_title;
+    $desc      = function_exists('wowthai_normalize_menu_text') ? wowthai_normalize_menu_text($raw_desc, $title, true) : wp_strip_all_tags($raw_desc);
+
+    $spice = function_exists('wowthai_get_dish_spice_level') ? wowthai_get_dish_spice_level($title, $desc, $labels) : ['level' => 0, 'icons' => '', 'pill' => ''];
+
+    return [
+        'id' => $id,
+        'title' => $title,
+        'description' => $desc,
+        'price' => $price,
+        'formatted_price' => $formatted_price,
+        'has_variants' => $has_variants,
+        'variants' => $variants ?: [],
+        'modifier_groups' => wowthai_get_modifier_groups($id),
+        'labels' => $labels,
+        'image_url' => $img_url,
+        'spice' => $spice,
+    ];
+}
+
 function wowthai_get_products_in_cat($term_id) {
     $args = [
         'post_type' => 'product',
@@ -660,39 +706,7 @@ function wowthai_get_products_in_cat($term_id) {
     if ($query->have_posts()) {
         while ($query->have_posts()) {
             $query->the_post();
-            $id = get_the_ID();
-            $has_variants = get_post_meta($id, '_wowthai_has_variants', true) === 'yes';
-            $variants = get_post_meta($id, '_wowthai_variants', true);
-            $labels = get_post_meta($id, '_wowthai_labels', true) ?: [];
-            $img_url = get_post_meta($id, '_wowthai_image_url', true);
-            $price = get_post_meta($id, '_price', true);
-
-            $formatted_price = '€' . number_format(floatval($price), 2, ',', '.');
-            if ($has_variants && !empty($variants)) {
-                $min_p = min(array_map(function($v) { return floatval($v['price']); }, $variants));
-                $formatted_price = 'ab €' . number_format($min_p, 2, ',', '.');
-            }
-
-            $raw_title = get_the_title();
-            $raw_desc  = get_the_content();
-            $title     = function_exists('wowthai_normalize_menu_text') ? wowthai_normalize_menu_text($raw_title) : $raw_title;
-            $desc      = function_exists('wowthai_normalize_menu_text') ? wowthai_normalize_menu_text($raw_desc, $title, true) : wp_strip_all_tags($raw_desc);
-
-            $spice = function_exists('wowthai_get_dish_spice_level') ? wowthai_get_dish_spice_level($title, $desc, $labels) : ['level' => 0, 'icons' => '', 'pill' => ''];
-
-            $products[] = [
-                'id' => $id,
-                'title' => $title,
-                'description' => $desc,
-                'price' => $price,
-                'formatted_price' => $formatted_price,
-                'has_variants' => $has_variants,
-                'variants' => $variants ?: [],
-                'modifier_groups' => wowthai_get_modifier_groups($id),
-                'labels' => $labels,
-                'image_url' => $img_url,
-                'spice' => $spice,
-            ];
+            $products[] = wowthai_get_menu_product(get_the_ID());
         }
         wp_reset_postdata();
     }
@@ -704,6 +718,7 @@ require_once get_template_directory() . '/inc/hours.php';
 require_once get_template_directory() . '/inc/pickup.php';
 require_once get_template_directory() . '/inc/hours-api.php';
 require_once get_template_directory() . '/inc/menu-normalizer.php';
+require_once get_template_directory() . '/inc/homepage.php';
 
 // 14. Restaurant Stammdaten, Öffnungszeiten & Google Schema.org
 require_once get_template_directory() . '/inc/restaurant-info.php';

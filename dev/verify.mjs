@@ -148,7 +148,7 @@ function recordGate(id, name, issues, warnOnly = false) {
                 issues.push(`PHP syntax error in ${rel}: ${err.message}`);
             }
         }
-        for (const testName of ['hours.test.php', 'hours-schedule.test.php', 'hours-api.test.php', 'menu-description.test.php', 'portal-read-model.test.php']) {
+        for (const testName of ['hours.test.php', 'hours-schedule.test.php', 'hours-api.test.php', 'menu-description.test.php', 'portal-read-model.test.php', 'homepage.test.php']) {
             const testFile = path.join(ROOT, 'dev', 'tests', testName);
             if (!fs.existsSync(testFile)) continue;
             try {
@@ -271,7 +271,8 @@ function recordGate(id, name, issues, warnOnly = false) {
     if (!frontPage.includes('hero-seo-badge')) {
         issues.push('front-page.php is missing hero-seo-badge in H1 heading');
     }
-    if (frontPage.includes('alt=""')) {
+    const heroAlt = frontPage.match(/<img class="hero-photo"[\s\S]*?\balt="([^"]*)"/u);
+    if (!heroAlt || !heroAlt[1].trim()) {
         issues.push('front-page.php has empty hero alt attribute');
     }
     const funcPhp = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
