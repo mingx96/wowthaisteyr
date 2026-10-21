@@ -241,6 +241,7 @@ try:
       assert detail.evaluate('(el)=>el.scrollWidth<=el.clientWidth'), 'details must fit narrow screens'
       detail.get_by_role('button',name='Schließen',exact=True).click()
       expect(detail).not_to_be_visible()
+      expect(card.get_by_role('button',name='Details',exact=True)).to_be_focused()
       assert flags['posts']==0, 'opening and closing reservation details must not write'
       # Poll preserves an operator's keyboard focus and scrolled column.
       action=page.locator('.btn-res-action[data-action="confirmed"]').first
