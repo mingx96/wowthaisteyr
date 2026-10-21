@@ -900,6 +900,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Homepage discovery links reveal a dish without activating its order control.
+  const revealDishAnchor = () => {
+    const match = /^#gericht-([1-9]\d*)$/.exec(window.location.hash);
+    if (!match) return;
+    const article = document.getElementById(`gericht-${match[1]}`);
+    if (!article?.classList.contains('dish-card')) return;
+    const menuType = article.closest('.menu-section')?.dataset.menuType;
+    if (menuType) {
+      document.querySelector(`.menu-tab[data-menu="${menuType}"]`)?.click();
+    }
+    // A user may follow an anchor after setting a search/filter on this page.
+    dishResetBtn?.click();
+    article.scrollIntoView({ block: 'center', behavior: 'instant' });
+    article.focus({ preventScroll: true });
+  };
+  window.addEventListener('hashchange', revealDishAnchor);
+  revealDishAnchor();
+
   // Open the correct selector when a WooCommerce product link lands on the menu.
   const requestedDish = new URLSearchParams(window.location.search).get('dish');
   if (requestedDish && /^\d+$/.test(requestedDish)) {

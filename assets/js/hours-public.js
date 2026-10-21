@@ -11,6 +11,16 @@
     let sequence = 0;
     let revision = '';
     let selectedTime = times?.value || '';
+    const homeStatus = document.querySelector('[data-wowthai-home-status]');
+    const homeLabel = document.querySelector('[data-wowthai-home-label]');
+    const homeHours = document.querySelector('[data-wowthai-today-hours]');
+    const homeFeedback = document.querySelector('[data-wowthai-home-feedback]');
+    let homeFreshDate = '';
+    if (homeStatus) homeStatus.hidden = false;
+    const homeText = (node, value) => {
+      // Avoid repeating unchanged announcements during periodic refreshes.
+      if (node && node.textContent !== value) node.textContent = value;
+    };
     const today = () => {
       const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vienna', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
       const part = type => parts.find(item => item.type === type).value;
@@ -22,6 +32,14 @@
       if (status) status.textContent = message;
     };
     const hydrateRows = data => {
+      if (homeStatus) {
+        if (!Array.isArray(data.ranges) || !data.ranges.every(range => Array.isArray(range) && range.length === 2 && range.every(value => typeof value === 'string' && /^\d{2}:\d{2}$/.test(value))) || typeof data.opening_status.is_open !== 'boolean') throw new Error('availability');
+        homeStatus.dataset.state = data.opening_status.is_open ? 'open' : 'closed';
+        homeText(homeLabel, data.opening_status.status_label);
+        homeText(homeHours, data.ranges.length ? `${data.ranges.map(range => range.join(' – ')).join(' · ')} Uhr` : 'Heute geschlossen');
+        homeText(homeFeedback, data.opening_status.status_detail);
+        homeFreshDate = data.date;
+      }
       document.querySelectorAll('[data-wowthai-hours-rows]').forEach(container => {
         const oldRows = [...container.querySelectorAll('[data-wowthai-hours-row]')];
         const template = oldRows[0];
@@ -87,10 +105,14 @@
       const date = dateInput?.value || currentDay;
       if (times) { selectedTime = times.value || selectedTime; times.replaceChildren(); }
       bookingState('Verfügbare Zeiten werden geladen …', true);
+      // Only the homepage has a periodic status read. Bound its pending state
+      // without changing reservation requests or clearing guests' selections.
+      const controller = homeStatus ? new AbortController() : null;
+      const timeout = controller ? window.setTimeout(() => controller.abort(), 10000) : null;
       try {
         const url = new URL(endpoint, window.location.origin);
         url.searchParams.set('date', date);
-        const response = await fetch(url, { cache: 'no-store', credentials: 'same-origin', headers: { 'Cache-Control': 'no-cache' } });
+        const response = await fetch(url, { cache: 'no-store', credentials: 'same-origin', headers: { 'Cache-Control': 'no-cache' }, ...(controller ? { signal: controller.signal } : {}) });
         if (!response.ok) throw new Error('availability');
         const data = await response.json();
         if (requestId !== sequence || (dateInput && dateInput.value !== date)) return;
@@ -113,13 +135,27 @@
       } catch (_) {
         if (requestId !== sequence) return;
         document.querySelectorAll('[data-wowthai-hours-rows]').forEach(node => { node.dataset.hoursFresh = 'false'; });
+        if (homeStatus) {
+          const sameDay = homeFreshDate === currentDay;
+          homeStatus.dataset.state = sameDay ? 'stale' : 'error';
+          homeText(homeLabel, 'Zeiten nicht bestätigt');
+          if (!sameDay) homeText(homeHours, 'Heute bitte telefonisch erfragen.');
+          homeText(homeFeedback, sameDay
+            ? 'Zuletzt geladene Zeiten. Bitte Änderungen telefonisch prüfen.'
+            : 'Zeiten konnten nicht geladen werden. Bitte telefonisch prüfen.');
+        }
         bookingState('Zeiten konnten nicht geladen werden. Bitte erneut versuchen oder anrufen.', true);
+      } finally {
+        if (timeout !== null) window.clearTimeout(timeout);
       }
     };
     dateInput?.addEventListener('change', refresh);
     window.addEventListener('focus', refresh);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
     document.addEventListener('wowthai:hours-saved', refresh);
+    // Visible pages must also update across kitchen boundaries and midnight.
+    // refresh() skips hidden tabs; focus/visibility handles the return to them.
+    if (homeStatus) window.setInterval(refresh, 60000);
     refresh();
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

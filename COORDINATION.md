@@ -1,5 +1,21 @@
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
+## Homepage discovery and visit planning — 2026-10-21T19:18:56Z
+
+- Task ID `notion:3fe9ccae-c10f-81f4-b321-fb6e7839d67d`; execution owner Codex in the assigned continuation. Owner/scope was recorded in the existing task and read back at 19:00:56Z; lifecycle is in progress. Allowed scope is isolated public-theme code, tests, documentation and a reviewable PR. Merge, deployment and production data writes are not authorized by this checkpoint.
+- Base/main `e777628fe0e7f14b281327649de97e7242468bd9`; isolated branch `feat/homepage-discovery-20261021`, HEAD still base while the scoped 1.5.4 changes are uncommitted. No overlapping open PR was found at start; PR is pending. Prior machine worktrees are unavailable here, so their WIP remains unknown and untouched.
+- Changes: menu-managed dish discovery with optional associated images; shared menu mapper and bounded eligible-product selection; practical visit/contact/parking section; canonical navigation and current-day kitchen hours; compact homepage footer; responsive WebP versions of the existing Hero. Read-only menu anchors reveal and focus a dish without invoking ordering controls. Preserve Playfair Display/DM Sans, equal 48px Hero actions, reservation layout and operations behavior.
+- Final local evidence on this WIP: native PHP 8.3.6/Node `node dev/verify.mjs` G1–G11 PASS; `php dev/tests/homepage.test.php` 76/76 PASS; `python dev/tests/{homepage,public-design,hours-public,portal}.browser.py` all PASS using Playwright 1.62.0/Chromium 151 and synthetic APIs. Public viewports include 320/390/768/1440px; the portal also covers a short landscape viewport. Homepage regressions prove click-free dish navigation, foreground closing/midnight refresh, ten-second timeout, same-day stale feedback, new-day fallback, recovery and no-JavaScript weekly-plan access. Independent re-review found no remaining blockers after restoring WordPress protected-content semantics and adding bounded homepage polling. Unchanged live-region text no longer gets rewritten by each poll.
+- Visual/asset evidence: actual-template 390px and 1440px before/after review with self-hosted Playfair Display/DM Sans found no clipping, horizontal overflow or console error. Hero variants are 40,452 and 88,666 bytes versus the existing 292,131-byte JPEG; actual source selection was verified at DPR1 and DPR2. Local timing is experimental on a shared host, not a production speed claim.
+- Limits: the inspected media catalog contains logos/placeholder, with no verified set of dish photographs. Missing photos remain absent, never inferred from the Hero. Browser fixtures are not live WordPress/database or production Core Web Vitals evidence. No production transaction, database synchronization or release occurred. The main publish workflow uploads an artifact; runtime delivery requires separate observation.
+- Next: commit the reviewed tree and open its PR, verify CI for the published head, then update this checkpoint and the same Notion task to awaiting review. No merge or live release is included in that step.
+
+## Historical checkpoints
+
+The entries below preserve earlier observations and permissions at their stated
+times. Their pending/next steps are historical unless reverified in the active
+checkpoint above; they do not authorize a new merge, deployment or data write.
+
 ## Public font rollback — 2026-10-20T20:18:00Z
 
 - Same Notion task `3fe9ccae-c10f-81f4-b321-fb6e7839d67d`; user found Chonburi visually unbalanced and explicitly requested the previous typography. Branch `fix/restore-public-fonts-20261020` from merged main `331c872`; theme version 1.5.3.

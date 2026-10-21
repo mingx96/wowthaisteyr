@@ -36,7 +36,7 @@ for (const file of ['assets/css/styles.css', 'assets/css/checkout.css', 'assets/
   assert.doesNotMatch(read(file), /Chonburi/u, `${file} must not reference the rejected display font`);
 }
 
-assert.match(read('functions.php'), /\$version\s*=\s*['"]1\.5\.3['"]/u, 'theme asset version must be 1.5.3');
-assert.match(read('style.css'), /Version:\s*1\.5\.3/u, 'theme header version must be 1.5.3');
+assert.match(read('functions.php'), /\$version\s*=\s*['"]1\.5\.4['"]/u, 'theme asset version must be 1.5.4');
+assert.match(read('style.css'), /Version:\s*1\.5\.4/u, 'theme header version must be 1.5.4');
 
-console.log('PASS public design static contract: restored local Playfair/DM Sans system, shared SVG arrows, form-first source, version 1.5.3');
+console.log('PASS public design static contract: local Playfair/DM Sans system, shared SVG arrows, form-first source, version 1.5.4');

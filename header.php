@@ -6,6 +6,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 $wow_info      = function_exists('wowthai_get_restaurant_data') ? wowthai_get_restaurant_data() : [];
+$wow_hd        = function_exists('wowthai_hours_display') ? wowthai_hours_display() : [];
 $wow_tel       = $wow_info['phone_tel'] ?? '+43725274973';
 $wow_ph        = $wow_info['phone'] ?? '+43 7252 74973';
 $theme_uri     = get_template_directory_uri();
@@ -46,7 +47,7 @@ $og_image   = $seo_meta['og_image'] ?? ($theme_uri . '/assets/img/hero.jpg');
   <link rel="manifest" href="<?php echo esc_url($theme_uri . '/assets/pwa/manifest.json'); ?>">
   <link rel="apple-touch-icon" href="<?php echo esc_url($theme_uri . '/assets/img/logo-sm.png'); ?>">
   <?php if (is_front_page()): ?>
-  <link rel="preload" as="image" href="<?php echo esc_url($theme_uri . '/assets/img/hero.jpg'); ?>" fetchpriority="high">
+  <link rel="preload" as="image" type="image/webp" href="<?php echo esc_url($theme_uri . '/assets/img/hero-1151.webp'); ?>" imagesrcset="<?php echo esc_url($theme_uri . '/assets/img/hero-640.webp'); ?> 640w, <?php echo esc_url($theme_uri . '/assets/img/hero-1151.webp'); ?> 1151w" imagesizes="100vw" fetchpriority="high">
   <?php endif; ?>
   <?php wp_head(); ?>
   <?php if (!get_option('site_icon')): ?>
@@ -116,7 +117,13 @@ $og_image   = $seo_meta['og_image'] ?? ($theme_uri . '/assets/img/hero.jpg');
       </a>
     </nav>
     <div class="mobile-nav-footer">
-      <p>Öffnungszeiten: Di–So 11:00–21:00<br>Montags Ruhetag</p> <?php // hours-ok ?>
+      <strong>Küchenzeiten</strong>
+      <div data-wowthai-hours-rows>
+        <?php foreach (($wow_hd['rows'] ?? []) as $row): ?>
+          <p data-wowthai-hours-row><?php echo esc_html($row['days'] . ': ' . $row['hours']); ?></p>
+        <?php endforeach; ?>
+      </div>
+      <p><?php echo esc_html($wow_hd['sushi_note'] ?? 'Montags Sushi-Ruhetag'); ?></p>
     </div>
   </div>
 </div>

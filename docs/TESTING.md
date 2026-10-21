@@ -8,7 +8,7 @@ Run from the repository root:
 node dev/verify.mjs
 ```
 
-The script checks gates G1–G11 and runs JavaScript syntax checks, PHP lint, and the hours, menu-description and portal read-model PHP suites when PHP is installed. The GitHub Actions workflow installs Node 20 and PHP 8.2 to ensure those checks execute.
+The script checks gates G1–G11 and runs JavaScript syntax checks, PHP lint, and the hours, menu-description, homepage and portal read-model PHP suites when PHP is installed. The GitHub Actions workflow installs Node 20 and PHP 8.2 to ensure those checks execute.
 
 For a local theme package, `node dev/build.mjs` runs verification first and writes a ZIP beside the repository. It does not upload or deploy anything.
 
@@ -22,6 +22,40 @@ removal, and preservation of default rich-text and fallback behavior. Its
 standalone bootstrap supplies a minimal WordPress tag-stripping shim; it is not
 a full WordPress/WooCommerce integration test. Cards, modal text, search, and
 menu schema consume the same description produced by the menu data builder.
+
+## Homepage discovery and visit planning (1.5.4)
+
+`php dev/tests/homepage.test.php` exercises the real shared menu mapper,
+homepage selector and conditional stylesheet enqueue with WordPress/WooCommerce
+boundary doubles. It verifies managed title/description/price/image propagation,
+variant price ranges, protected-content semantics, product eligibility, menu category membership, strict ID
+validation, deduplication and a six-product lookup bound. Missing or ineligible
+products are omitted; absent photos stay absent. The default selection can be
+changed with `wowthai_homepage_product_ids`; it contains product IDs only, with
+all display data read through the menu mapper. It does not write products or
+prove a live catalog/database integration.
+
+`python dev/tests/homepage.browser.py` renders the actual header, front page,
+footer and menu templates through a CLI-only fixture and local server. It
+checks 320/390/768/1440px layouts, reduced motion, keyboard focus, 44px touch
+targets, the existing 48px Hero CTAs, canonical navigation hours, fresh/closed/
+failed-refresh hours, empty menus and optional image dimensions/lazy loading.
+An advancing browser clock verifies foreground closing/midnight refresh,
+ten-second request timeout, recovery and withholding yesterday's ranges on a
+failed new-day read. A no-JavaScript variant verifies the usable weekly plan.
+Read-only `#gericht-ID` links must reveal and focus the correct Restaurant or
+Sushi card without adding an item, issuing a write or making an external
+request. These links are separate from the existing `?dish=` ordering entry.
+Set `HOMEPAGE_TEST_ARTIFACTS` to choose the screenshot folder (default:
+`/tmp/wowthai-homepage-artifacts`). CI runs this suite and uploads its images.
+
+All availability and catalog responses in these browser checks are fixtures.
+The image-bearing variant uses a synthetic image association solely to test
+layout; it is not a proposed product photo. The normal fixture represents the
+no-photo fallback. Screenshots, local asset sizes and synthetic timing are not
+production Core Web Vitals, real restaurant photographs or end-to-end checkout
+evidence. No live form submission, database synchronization or theme deployment
+is part of these commands.
 
 ## Reporting
 

@@ -69,8 +69,7 @@ try:
             page.wait_for_load_state('networkidle')
 
             expect(page.locator('.hero-actions .action-icon')).to_have_count(2)
-            expect(page.locator('.quick-card .action-icon')).to_have_count(3)
-            expect(page.locator('.site-footer .action-icon')).to_have_count(2)
+            expect(page.locator('.home-reservation .action-icon')).to_have_count(1)
             assert page.locator('.action-icon:not([aria-hidden="true"])').count() == 0
             assert page.locator('body').inner_text().find('↗') == -1
             assert page.locator('body').inner_text().find('→') == -1

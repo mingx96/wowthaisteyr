@@ -109,7 +109,7 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
             $spice_pill  = !empty($p['spice']['pill']) ? $p['spice']['pill'] : '';
             $is_m4_dish  = function_exists('wowthai_product_is_mittagsmenu_m4') ? wowthai_product_is_mittagsmenu_m4($p['id'], $p['title']) : false;
           ?>
-            <article class="dish-card" 
+            <article class="dish-card" id="gericht-<?php echo esc_attr($p['id']); ?>" tabindex="-1"
               data-dish-title="<?php echo esc_attr(mb_strtolower($p['title'])); ?>"
               data-dish-search="<?php echo esc_attr($filter_meta); ?>"
               data-dish-labels="<?php echo esc_attr(mb_strtolower($labels_text)); ?>">
@@ -183,7 +183,7 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
             $filter_meta = mb_strtolower($p['title'] . ' ' . ($p['description'] ?? '') . ' ' . $labels_text);
             $spice_pill = !empty($p['spice']['pill']) ? $p['spice']['pill'] : '';
           ?>
-            <article class="dish-card"
+            <article class="dish-card" id="gericht-<?php echo esc_attr($p['id']); ?>" tabindex="-1"
               data-dish-title="<?php echo esc_attr(mb_strtolower($p['title'])); ?>"
               data-dish-search="<?php echo esc_attr($filter_meta); ?>"
               data-dish-labels="<?php echo esc_attr(mb_strtolower($labels_text)); ?>">

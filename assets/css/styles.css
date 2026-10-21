@@ -1216,3 +1216,9 @@ body.mobile-nav-locked {
   }
 }
 
+/* Read-only dish anchors and shared canonical schedule in the mobile menu. */
+.dish-card[id^="gericht-"] { scroll-margin-block: 110px 24px; }
+.dish-card[id^="gericht-"]:focus { outline: 2px solid #f0d38b; outline-offset: 4px; }
+.mobile-nav-footer [data-wowthai-hours-row] { margin: 8px 0; line-height: 1.6; }
+.mobile-nav-footer strong { color: #e5c783; }
+

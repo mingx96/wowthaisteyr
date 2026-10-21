@@ -84,8 +84,10 @@ try:
       assert not errors,errors
       page.goto(f'http://127.0.0.1:{server.server_port}/home')
       expect(page.locator('[data-wowthai-hours-rows]').first).to_contain_text('12:00 – 15:00')
-      assert page.locator('[data-wowthai-hours-static]').count()==2
-      assert page.locator('[data-wowthai-hours-static]').first.is_visible()
+      expect(page.locator('[data-wowthai-home-status]')).to_have_attribute('data-state','open')
+      page.locator('.home-weekly summary').click()
+      expect(page.locator('.home-sushi-note')).to_be_visible()
+      expect(page.locator('.home-sushi-note')).to_contain_text('Montags Sushi-Ruhetag')
       assert not errors,errors
       # The actual checkout template/controls and real closure-local refresh must reject old responses.
       page.add_init_script('''(() => {
@@ -144,5 +146,5 @@ try:
       page.unroute_all(behavior='wait')
       page.close()
     browser.close()
-  print('PASS public hours actual templates: 320/390-short/768/1440; date races, errors, closure, focus, rows/static/schema, cart/checkout response races and focus/error recovery, preserved input')
+  print('PASS public hours actual templates: 320/390-short/768/1440; date races, errors, closure, focus, rows/weekly note/schema, cart/checkout response races and focus/error recovery, preserved input')
 finally:server.shutdown()
