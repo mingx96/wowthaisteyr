@@ -346,6 +346,7 @@ try:
       cancelled_detail=page.get_by_role('dialog',name='Reservierung #901',exact=True)
       expect(cancelled_detail).to_contain_text('Storniert')
       cancelled_detail.get_by_role('button',name='Schließen',exact=True).click()
+      expect(disclosure.locator('.wto-res-card').first.get_by_role('button',name='Details',exact=True)).to_be_focused()
       assert page.locator('#wto-res-list').evaluate('(el)=>el.scrollHeight<=el.clientHeight+1 || ["auto","scroll"].includes(getComputedStyle(el).overflowY)'), 'overflowing history requires a user-scrollable outer list'
       # Both the outer list and inner history scrollport must let the final card enter view.
       page.locator('#wto-res-list').evaluate('(el)=>el.scrollTop=el.scrollHeight')
