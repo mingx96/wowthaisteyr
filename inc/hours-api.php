@@ -35,7 +35,7 @@ function wowthai_hours_api_date($value) {
 
 /** Hash raw canonical options, including absent vs saved default. Reads never seed. */
 function wowthai_hours_api_revision(): string {
-    return hash('sha256', wp_json_encode([get_option('wowthai_weekly_hours', null), get_option('wowthai_special_days', [])]));
+    return hash('sha256', wp_json_encode([get_option('wowthai_weekly_hours', null), get_option('wowthai_special_days', []), get_option('wowthai_lunch_service', null)]));
 }
 
 function wowthai_hours_api_schedule() {
@@ -43,16 +43,22 @@ function wowthai_hours_api_schedule() {
     if (is_wp_error($weekly)) return wowthai_hours_api_error('hours_invalid_storage', 'Gespeicherter Wochenplan ist ungültig.', 503);
     $exceptions = get_option('wowthai_special_days', []);
     if (!is_array($exceptions)) return wowthai_hours_api_error('hours_invalid_storage', 'Gespeicherte Sondertage sind ungültig.', 503);
-    return ['weekly' => $weekly, 'exceptions' => $exceptions, 'revision' => wowthai_hours_api_revision(), 'can_edit' => wowthai_hours_api_can_edit(), 'timezone' => 'Europe/Vienna'];
+    $lunch = wowthai_lunch_validate(get_option('wowthai_lunch_service', wowthai_lunch_config()));
+    if (is_wp_error($lunch)) return wowthai_hours_api_error('hours_invalid_storage', 'Gespeichertes Mittagsmenü ist ungültig.', 503);
+    return ['lunch' => $lunch, 'weekly' => $weekly, 'exceptions' => $exceptions, 'revision' => wowthai_hours_api_revision(), 'can_edit' => wowthai_hours_api_can_edit(), 'timezone' => 'Europe/Vienna'];
 }
 
 /** Pure availability for live or normalized draft config; generic pickup never reads a cart. */
-function wowthai_hours_api_for_date(DateTimeImmutable $date, array $weekly, array $exceptions, string $revision): array {
+function wowthai_hours_api_for_date(DateTimeImmutable $date, array $weekly, array $exceptions, string $revision, ?array $lunch = null): array {
     $now = wowthai_now();
-    return ['date' => $date->format('Y-m-d'), 'timezone' => 'Europe/Vienna',
+    $lunch = $lunch ?? wowthai_lunch_config();
+    $pickup = wowthai_pickup_slots_for_date($date, $now, false, false, ['weekly'=>$weekly,'exceptions'=>$exceptions]);
+    $valid_lunch_window = wowthai_hours_datetime_for_local_time($date,$lunch['range'][0]) && wowthai_hours_datetime_for_local_time($date,$lunch['range'][1]);
+    $lunch_slots = $valid_lunch_window ? array_values(array_filter($pickup, static fn($hm)=>in_array((int)$date->format('N'),$lunch['days'],true) && $hm >= $lunch['range'][0] && $hm <= $lunch['range'][1])) : [];
+    return ['lunch_slots'=>$lunch_slots, 'mittags_note'=>wowthai_lunch_note($lunch), 'mittags_m4_note'=>wowthai_lunch_note($lunch,true), 'date' => $date->format('Y-m-d'), 'timezone' => 'Europe/Vienna',
         'ranges' => wowthai_hours_ranges_for_config($date, $weekly, $exceptions),
         'reservation_slots' => wowthai_reservation_slots($date, $now, $weekly, $exceptions),
-        'pickup_slots' => wowthai_pickup_slots_for_date($date, $now, false, false, ['weekly' => $weekly, 'exceptions' => $exceptions]),
+        'pickup_slots' => $pickup,
         'display_rows' => wowthai_hours_grouped_rows($weekly), 'opening_status' => wowthai_compute_opening_status($now, $weekly, $exceptions), 'revision' => $revision,
         // The same public projection also rehydrates cached Restaurant JSON-LD.
         'schema_opening_hours' => wowthai_schema_opening_hours($weekly)];
@@ -77,7 +83,10 @@ function wowthai_hours_api_availability($request) {
 function wowthai_hours_api_draft(array $body, array $schedule) {
     $kind = $body['kind'] ?? '';
     $weekly = $schedule['weekly']; $exceptions = $schedule['exceptions'];
-    if ($kind === 'weekly') {
+    if ($kind === 'lunch') {
+        $resource = wowthai_lunch_validate($body['lunch'] ?? null);
+        if (is_wp_error($resource)) return $resource;
+    } elseif ($kind === 'weekly') {
         $weekly = wowthai_hours_validate_weekly($body['weekly'] ?? null);
         if (is_wp_error($weekly)) return wowthai_hours_api_error('hours_weekly', 'Bitte einen gültigen Wochenplan eingeben.');
         $resource = $weekly;
@@ -102,7 +111,7 @@ function wowthai_hours_api_draft(array $body, array $schedule) {
         }
         ksort($exceptions); $resource = $exceptions;
     } else return wowthai_hours_api_error('hours_kind', 'Ungültiger Planbereich.');
-    return ['kind' => $kind, 'weekly' => $weekly, 'exceptions' => $exceptions, 'resource' => $resource];
+    return ['kind' => $kind, 'weekly' => $weekly, 'exceptions' => $exceptions, 'resource' => $resource, 'lunch' => $kind === 'lunch' ? $resource : ($schedule['lunch'] ?? wowthai_lunch_config())];
 }
 
 /** Parse explicit service metadata only. Never substitute an order's creation date. */
@@ -124,6 +133,7 @@ function wowthai_hours_api_parse_service(string $label, string $legacy_date = ''
 /** Existing service commitments compare against cutoffs, never a moving now+lead time. */
 function wowthai_hours_api_service_fits(string $kind, array $service, array $draft): bool {
     $date = wowthai_hours_api_date($service[0]);
+    if (($draft['kind'] ?? '') === 'lunch' && (!in_array((int)$date->format('N'),$draft['lunch']['days'],true) || $service[1] < $draft['lunch']['range'][0] || $service[1] > $draft['lunch']['range'][1])) return false;
     $ranges = wowthai_hours_ranges_for_config($date, $draft['weekly'], $draft['exceptions']);
     $instant = wowthai_hours_datetime_for_local_time($date, $service[1]);
     foreach ($ranges as $index => [$start, $end]) {
@@ -143,7 +153,9 @@ function wowthai_hours_api_impact(array $draft): array {
         $row = ['kind'=>$kind, 'id'=>(int)$id, 'date'=>$service[0] ?? '', 'time'=>$service[1] ?? '', 'status'=>$status, 'unknown'=>$service === null];
         // Bind all relevant records, including a previously fitting record that changes after preview.
         $signature[] = [$row, $version];
-        if ($service === null || !wowthai_hours_api_service_fits($kind, $service, $draft)) $conflicts[] = $row;
+        // Lunch membership of historical items cannot be inferred from mutable products.
+        // Require review of all active orders, without altering any transaction.
+        if ($service === null || ($draft['kind'] ?? '') === 'lunch' || !wowthai_hours_api_service_fits($kind, $service, $draft)) $conflicts[] = $row;
     };
     for ($page = 1; ; $page++) {
         $batch = wc_get_orders(['type'=>'shop_order', 'status'=>['pending','on-hold','processing'], 'limit'=>100, 'page'=>$page, 'paginate'=>false, 'orderby'=>'ID', 'order'=>'ASC']);
@@ -156,7 +168,7 @@ function wowthai_hours_api_impact(array $draft): array {
         }
         if (count($batch) < 100) break;
     }
-    for ($page = 1; ; $page++) {
+    for ($page = 1; ($draft['kind'] ?? '') !== 'lunch'; $page++) {
         $query = new WP_Query(['post_type'=>'tischanfrage','post_status'=>'publish','posts_per_page'=>100,'paged'=>$page,'orderby'=>'ID','order'=>'ASC','no_found_rows'=>true]);
         foreach ($query->posts as $post) {
             $status = (string)get_post_meta($post->ID, '_res_status', true) ?: 'pending';
@@ -186,7 +198,7 @@ function wowthai_hours_api_preview($request) {
     $draft = wowthai_hours_api_draft($body, $schedule); if (is_wp_error($draft)) return $draft;
     $date = wowthai_hours_api_date($body['preview_date'] ?? wowthai_now()->format('Y-m-d')); if (is_wp_error($date)) return $date;
     try { $impact = wowthai_hours_api_impact($draft); } catch (Throwable $e) { return wowthai_hours_api_error('hours_dependencies', 'Terminprüfung derzeit nicht verfügbar.', 503); }
-    return ['revision'=>$schedule['revision'], 'confirmation_token'=>wowthai_hours_api_token($draft, $schedule['revision'], $impact['signature'], wowthai_now()->getTimestamp()+600), 'conflicts'=>$impact['conflicts'], 'preview'=>wowthai_hours_api_for_date($date, $draft['weekly'], $draft['exceptions'], $schedule['revision'])];
+    return ['revision'=>$schedule['revision'], 'confirmation_token'=>wowthai_hours_api_token($draft, $schedule['revision'], $impact['signature'], wowthai_now()->getTimestamp()+600), 'conflicts'=>$impact['conflicts'], 'preview'=>wowthai_hours_api_for_date($date, $draft['weekly'], $draft['exceptions'], $schedule['revision'], $draft['lunch'])];
 }
 
 /** Connection-scoped lock cannot be stolen by an expired transient lease. */
@@ -196,7 +208,7 @@ function wowthai_hours_api_lock_name(): string {
 }
 
 function wowthai_hours_api_refresh_options(): void {
-    foreach (['wowthai_weekly_hours','wowthai_special_days','alloptions','notoptions'] as $key) wp_cache_delete($key, 'options');
+    foreach (['wowthai_weekly_hours','wowthai_special_days','wowthai_lunch_service','alloptions','notoptions'] as $key) wp_cache_delete($key, 'options');
 }
 
 function wowthai_hours_api_save($request, string $kind) {
@@ -216,7 +228,7 @@ function wowthai_hours_api_save($request, string $kind) {
         $now = wowthai_now()->getTimestamp();
         if (!ctype_digit($expires) || (int)$expires < $now || (int)$expires > $now+600 || !hash_equals(wowthai_hours_api_token($draft,$schedule['revision'],$impact['signature'],(int)$expires), $token)) return wowthai_hours_api_error('stale_preview', 'Vorschau ist abgelaufen oder Termine wurden geändert. Bitte erneut prüfen.', 409);
         if ($impact['conflicts'] && ($body['acknowledge_conflicts'] ?? false) !== true) return wowthai_hours_api_error('hours_acknowledgement_required', 'Betroffene Termine bitte ausdrücklich bestätigen.');
-        $option = $kind === 'weekly' ? 'wowthai_weekly_hours' : 'wowthai_special_days';
+        $option = $kind === 'lunch' ? 'wowthai_lunch_service' : ($kind === 'weekly' ? 'wowthai_weekly_hours' : 'wowthai_special_days');
         $stored = get_option($option, null);
         if ($stored !== $draft['resource'] && !update_option($option, $draft['resource'], false)) return wowthai_hours_api_error('hours_storage_failed', 'Plan konnte nicht gespeichert werden.', 503);
         wowthai_hours_api_refresh_options();
@@ -248,7 +260,7 @@ add_action('rest_api_init', static function () {
     register_rest_route('wowthai-hours/v1', '/schedule', ['methods'=>'GET','permission_callback'=>'wowthai_hours_api_read_permission','callback'=>static fn()=>wowthai_hours_api_response(wowthai_hours_api_schedule())]);
     register_rest_route('wowthai-hours/v1', '/availability', ['methods'=>'GET','permission_callback'=>'__return_true','callback'=>static fn($r)=>wowthai_hours_api_response(wowthai_hours_api_availability($r))]);
     register_rest_route('wowthai-hours/v1', '/schedule/preview', ['methods'=>'POST','permission_callback'=>'wowthai_hours_api_preview_permission','callback'=>static fn($r)=>wowthai_hours_api_response(wowthai_hours_api_preview($r))]);
-    foreach (['weekly','exceptions'] as $kind) register_rest_route('wowthai-hours/v1', '/schedule/'.$kind, ['methods'=>'PUT','permission_callback'=>'wowthai_hours_api_write_permission','callback'=>static fn($r)=>wowthai_hours_api_response(wowthai_hours_api_save($r,$kind))]);
+    foreach (['weekly','exceptions','lunch'] as $kind) register_rest_route('wowthai-hours/v1', '/schedule/'.$kind, ['methods'=>'PUT','permission_callback'=>'wowthai_hours_api_write_permission','callback'=>static fn($r)=>wowthai_hours_api_response(wowthai_hours_api_save($r,$kind))]);
 });
 // Include errors too: a cached failed availability response must never become authoritative.
 add_filter('rest_post_dispatch', static function ($response, $server, $request) {

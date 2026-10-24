@@ -37,7 +37,7 @@ try:
         if r.request.method!='GET' and '/wowthai-hours/v1/' not in path: flags['posts']+=1
         if '/wowthai-hours/v1/schedule' in path:
           assert r.request.headers.get('x-wp-nonce')=='fixture-only', 'schedule requests require the actual REST nonce header'
-          schedule={'weekly':{str(i):([['11:00','14:00']] if i!=1 else []) for i in range(1,8)},'exceptions':{'2026-10-24':{'closed':True,'reason':'Fixture closure'},'2026-10-25':{'closed':False,'ranges':[['12:00','15:00']],'reason':'Fixture custom'}},'revision':flags['hours_revision'],'can_edit':flags['can_edit'],'timezone':'Europe/Vienna'}
+          schedule={'lunch':{'days':[1,2,3,4,5],'range':['11:00','14:30']},'weekly':{str(i):([['11:00','14:00']] if i!=1 else []) for i in range(1,8)},'exceptions':{'2026-10-24':{'closed':True,'reason':'Fixture closure'},'2026-10-25':{'closed':False,'ranges':[['12:00','15:00']],'reason':'Fixture custom'}},'revision':flags['hours_revision'],'can_edit':flags['can_edit'],'timezone':'Europe/Vienna'}
           if flags['hours_fail']:
             r.fulfill(status=503,content_type='application/json',body=json.dumps({'message':'Fixture schedule unavailable'})); return
           if r.request.method=='GET': data=schedule
@@ -380,6 +380,28 @@ try:
       assert hashlib.sha256((ROOT/'assets/js/portal-hours.js').read_bytes()).hexdigest()[:12] in page.locator('script[src*="portal-hours.js"]').get_attribute('src')
       assert page.locator('#wto-hours-start').evaluate('(input)=>getComputedStyle(input).colorScheme')=='dark', 'native calendar controls must use the dark scheme'
       assert page.locator('[data-time="start"]').first.evaluate('(input)=>getComputedStyle(input).colorScheme')=='dark', 'native time controls must use the dark scheme'
+      page.locator('#wto-hours-tab-lunch').click()
+      expect(page.locator('#wto-hours-lunch-days input:checked')).to_have_count(5)
+      expect(page.locator('#wto-hours-lunch-start')).to_have_value('11:00')
+      page.locator('#wto-hours-lunch-days input[value="5"]').uncheck()
+      page.locator('#wto-hours-lunch-start').fill('12:00')
+      page.locator('#wto-hours-lunch-end').fill('13:30')
+      flags['conflicts']=False
+      page.locator('#wto-hours-check').click()
+      expect(page.locator('#wto-hours-save')).to_be_enabled()
+      assert flags['hours_posts'][-1]['body']['lunch']=={'days':[1,2,3,4],'range':['12:00','13:30']}
+      page.locator('#wto-hours-save').click()
+      expect(page.locator('#wto-hours-message')).to_contain_text('gespeichert')
+      assert flags['hours_posts'][-1]['path'].endswith('/schedule/lunch')
+      page.locator('#wto-hours-tab-lunch').click()
+      page.locator('#wto-hours-lunch-end').fill('11:00')
+      before=len(flags['hours_posts']); page.locator('#wto-hours-check').click()
+      expect(page.locator('#wto-hours-message')).to_contain_text('gültige Mittagszeit')
+      assert len(flags['hours_posts'])==before
+      page.locator('#wto-hours-lunch-end').fill('13:30')
+      flags['conflicts']=True
+      page.locator('#wto-hours-tab-weekly').click()
+      initial_hours_revision=flags['hours_revision']
       # Reproduce the live report: changing Von beyond the old Bis value must
       # keep the date range valid and make the two-step save flow obvious.
       expect(page.locator('#wto-hours-save')).not_to_be_visible()
@@ -464,6 +486,7 @@ try:
       page.locator('#wto-hours-save').click()
       expect(page.locator('#wto-hours-save')).to_be_disabled()
       expect(page.locator('#wto-hours-weekly-fields')).to_have_attribute('disabled','')
+      expect(page.locator('#wto-hours-lunch-fields')).to_have_attribute('disabled','')
       sent=len(flags['hours_posts'])
       page.locator('#wto-hours-save').dispatch_event('click')
       assert len(flags['hours_posts'])==sent, 'in-flight save must not be sent twice'
@@ -478,7 +501,7 @@ try:
         expect(page.locator('#wto-hours-message')).to_contain_text('gespeichert')
         page.wait_for_function('window.savedEvents===1')
       assert flags['summary_reads']>reads, 'successful save immediately refreshes staff kitchen status'
-      assert flags['hours_posts'][-1]['body']['revision']=='r1'
+      assert flags['hours_posts'][-1]['body']['revision']==initial_hours_revision
       page.clock.resume()
       flags['save_hold']=False; flags['hours_revision']='saved-weekly'
       # Existing exceptions remain visible; selecting one only prefills a draft.
@@ -519,6 +542,7 @@ try:
       menu_click('[data-tab="hours"]')
       expect(page.locator('#wto-hours-permission')).to_contain_text('Nur Lesezugriff')
       expect(page.locator('#wto-hours-weekly-fields')).to_have_attribute('disabled','')
+      expect(page.locator('#wto-hours-lunch-fields')).to_have_attribute('disabled','')
       expect(page.locator('#wto-hours-save')).not_to_be_visible()
       expect(page.locator('#wto-hours-check')).to_be_disabled()
       page.locator('#wto-hours-tab-preview').click()
@@ -539,6 +563,7 @@ try:
       page.reload()
       expect(page.locator('#wto-hours-message')).to_contain_text('unavailable')
       expect(page.locator('#wto-hours-weekly-fields')).to_have_attribute('disabled','')
+      expect(page.locator('#wto-hours-lunch-fields')).to_have_attribute('disabled','')
       expect(page.locator('#wto-hours-save')).not_to_be_visible()
       assert flags['posts']==0, 'only synthetic hours writes are allowed; no order/booking mutation'
       before=len(flags['hours_posts']); reads=flags['summary_reads']

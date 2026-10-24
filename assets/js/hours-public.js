@@ -32,6 +32,8 @@
       if (status) status.textContent = message;
     };
     const hydrateRows = data => {
+      if (typeof data.mittags_m4_note === 'string') document.querySelectorAll('[data-wowthai-lunch-m4-note]').forEach(el=>{el.textContent=data.mittags_m4_note;});
+      if (typeof data.mittags_note === 'string') document.querySelectorAll('[data-wowthai-lunch-note]').forEach(el=>{el.textContent=data.mittags_note;});
       if (homeStatus) {
         if (!Array.isArray(data.ranges) || !data.ranges.every(range => Array.isArray(range) && range.length === 2 && range.every(value => typeof value === 'string' && /^\d{2}:\d{2}$/.test(value))) || typeof data.opening_status.is_open !== 'boolean') throw new Error('availability');
         homeStatus.dataset.state = data.opening_status.is_open ? 'open' : 'closed';

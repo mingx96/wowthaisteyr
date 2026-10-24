@@ -430,6 +430,7 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
           <div class="wto-hours-tabs" role="tablist" aria-label="Öffnungszeiten bearbeiten">
             <button type="button" id="wto-hours-tab-weekly" role="tab" aria-controls="wto-hours-weekly" aria-selected="true" data-hours-tab="weekly">Wochenplan</button>
             <button type="button" id="wto-hours-tab-exceptions" role="tab" aria-controls="wto-hours-exceptions" aria-selected="false" tabindex="-1" data-hours-tab="exceptions">Sondertage</button>
+            <button type="button" id="wto-hours-tab-lunch" role="tab" aria-controls="wto-hours-lunch" aria-selected="false" tabindex="-1" data-hours-tab="lunch">Mittagsmenü</button>
             <button type="button" id="wto-hours-tab-preview" role="tab" aria-controls="wto-hours-preview" aria-selected="false" tabindex="-1" data-hours-tab="preview">Vorschau</button>
           </div>
           <div id="wto-hours-weekly" role="tabpanel" aria-labelledby="wto-hours-tab-weekly">
@@ -446,6 +447,14 @@ $is_open      = function_exists('wowthai_is_open') ? wowthai_is_open() : null;
               <div id="wto-hours-exception-ranges" hidden><div id="wto-hours-custom-ranges"></div><button type="button" id="wto-hours-add-custom" class="wto-btn btn-secondary">Zeitfenster hinzufügen</button></div>
             </fieldset>
             <details class="wto-hours-existing"><summary>Gespeicherte Sondertage · alle Daten</summary><ul id="wto-hours-existing"></ul></details>
+          </div>
+          <div id="wto-hours-lunch" role="tabpanel" aria-labelledby="wto-hours-tab-lunch" hidden>
+            <fieldset id="wto-hours-lunch-fields" disabled><legend>Mittagsmenü</legend>
+              <p>Serviertage und Zeitfenster wählen. Keine Tage ausgewählt: Mittagsmenü deaktiviert. Es gelten zusätzlich die Küchenzeiten und Sondertage. M4 bleibt auf Dienstag bis Freitag begrenzt.</p>
+              <div id="wto-hours-lunch-days" class="wto-lunch-days"></div>
+              <div class="wto-hours-fields"><label>Von<input type="time" id="wto-hours-lunch-start" required></label><label>Bis<input type="time" id="wto-hours-lunch-end" required></label></div>
+              <p>Vor dem Speichern werden vorsorglich alle aktiven Bestellungen zur Prüfung angezeigt. Bestehende Bestellungen bleiben unverändert.</p>
+            </fieldset>
           </div>
           <div id="wto-hours-preview" role="tabpanel" aria-labelledby="wto-hours-tab-preview" hidden>
             <div class="wto-hours-fields"><label>Datum (Wien)<input id="wto-hours-preview-date" type="date" required></label><button type="button" id="wto-hours-published" class="wto-btn btn-secondary">Veröffentlichte Zeiten anzeigen</button></div>

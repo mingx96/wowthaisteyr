@@ -81,5 +81,50 @@ $near=['weekly'=>$week,'exceptions'=>[]];check('existing service ignores ordinar
 check('booking respects closing offset',!wowthai_hours_api_service_fits('reservation',[$date,'13:45'],$near));
 check('first split pickup uses 15-minute cutoff',wowthai_hours_api_service_fits('order',[$date,'13:45'],['weekly'=>array_fill(1,7,[['11:00','14:00'],['17:00','21:00']]),'exceptions'=>[]]));
 check('single pickup window uses 30-minute cutoff',!wowthai_hours_api_service_fits('order',[$date,'13:45'],$near));
+// Lunch settings share the revision, preview and write boundary.
+if (!function_exists('wowthai_lunch_config')) { check('editable lunch settings exist', false); }
+else {
+    $GLOBALS['options']=[]; $GLOBALS['orders']=[]; $GLOBALS['bookings']=[];
+    $s=wowthai_hours_api_schedule();
+    check('lunch default weekdays',$s['lunch']['days']===[1,2,3,4,5]);
+    $l=['days'=>[6], 'range'=>['12:00','13:00']];
+    $d=['kind'=>'lunch','revision'=>$s['revision'],'lunch'=>$l,'preview_date'=>$today->modify('next Saturday')->format('Y-m-d')];
+    $p=wowthai_hours_api_preview(new Request($d));
+    check('lunch preview returns token',!is_wp_error($p)&&isset($p['confirmation_token']));
+    check('lunch draft preview uses draft slots',in_array('12:00',$p['preview']['lunch_slots'],true));
+    check('lunch preview no mutation',get_option('wowthai_lunch_service',null)===null);
+    $saved=wowthai_hours_api_save(new Request($d+['confirmation_token'=>$p['confirmation_token']]),'lunch');
+    check('lunch saved separately',!is_wp_error($saved)&&array_keys($GLOBALS['options'])===['wowthai_lunch_service']);
+    check('lunch saved revision changes',$saved['revision']!==$s['revision']);
+    check('saved lunch enables Saturday',wowthai_mittagsmenu_available(new DateTimeImmutable('2026-10-24 12:15',wowthai_timezone())));
+    check('saved lunch excludes weekdays',!wowthai_mittagsmenu_available(new DateTimeImmutable('2026-10-23 12:15',wowthai_timezone())));
+    check('M4 still unavailable Saturday',!wowthai_mittagsmenu_m4_available(new DateTimeImmutable('2026-10-24 12:15',wowthai_timezone())));
+    check('pickup uses saved lunch slots',wowthai_pickup_slots_for_date(new DateTimeImmutable('2026-10-24',wowthai_timezone()),new DateTimeImmutable('2026-10-23',wowthai_timezone()),true,false)===['12:00','12:15','12:30','12:45','13:00']);
+    check('new lunch end enforced',!wowthai_is_slot_valid_for_mittagsmenu(new DateTimeImmutable('2026-10-24',wowthai_timezone()),'13:15'));
+    $draft=$d; $draft['revision']=$saved['revision'];
+    $p=wowthai_hours_api_preview(new Request($draft));
+    $req=$draft+['confirmation_token'=>$p['confirmation_token']];
+    $GLOBALS['caps']=['edit_shop_orders'];
+    check('lunch staff denied',is_wp_error(wowthai_hours_api_save(new Request($req),'lunch')));
+    $GLOBALS['caps']=['manage_woocommerce'];
+    check('lunch invalid nonce denied',is_wp_error(wowthai_hours_api_save(new Request($req,''),'lunch')));
+    $GLOBALS['options']['wowthai_lunch_service']=['days'=>[],'range'=>['11:00','14:30']];
+    check('concurrent lunch rejects stale revision',wowthai_hours_api_save(new Request($req),'lunch')->code==='stale_schedule');
+    $GLOBALS['orders']=[new Order(44,['_wowthai_pickup_date'=>$today->modify('+1 day')->format('Y-m-d'),'_wowthai_pickup_time'=>'12:00'])];
+    $draft['revision']=wowthai_hours_api_revision();
+    $p=wowthai_hours_api_preview(new Request($draft));
+    check('lunch lists active orders conservatively',count($p['conflicts'])===1);
+    check('lunch impact requires acknowledgement',wowthai_hours_api_save(new Request($draft+['confirmation_token'=>$p['confirmation_token']]),'lunch')->code==='hours_acknowledgement_required');
+    $GLOBALS['orders']=[]; $GLOBALS['caps']=['manage_options'];
+    foreach ([['days'=>[8],'range'=>['12:00','13:00']],['days'=>['6'],'range'=>['12:00','13:00']],['days'=>[6,6],'range'=>['12:00','13:00']],['days'=>[6],'range'=>['13:00','12:00']]] as $invalid) {
+        check('invalid lunch rejected',is_wp_error(wowthai_lunch_validate($invalid)));
+    }
+    $GLOBALS['options']['wowthai_lunch_service']=['days'=>[],'range'=>['11:00','14:30']];
+    check('disabled lunch stays disabled',!wowthai_mittagsmenu_available(new DateTimeImmutable('2026-10-24 12:15',wowthai_timezone())));
+    $GLOBALS['options']['wowthai_lunch_service']='bad';
+    check('bad lunch fails closed',wowthai_lunch_config()['days']===[]);
+    check('bad lunch exposed to staff',is_wp_error(wowthai_hours_api_schedule()));
+    $GLOBALS['options']=[];
+}
 $GLOBALS['options']['wowthai_weekly_hours']='corrupt';check('staff corruption exposed',is_wp_error(wowthai_hours_api_schedule()));
 echo "$passed passed, $failed failed\n";exit($failed?1:0);
