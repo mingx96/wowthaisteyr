@@ -55,7 +55,8 @@ function wowthai_hours_api_for_date(DateTimeImmutable $date, array $weekly, arra
     $pickup = wowthai_pickup_slots_for_date($date, $now, false, false, ['weekly'=>$weekly,'exceptions'=>$exceptions]);
     $valid_lunch_window = wowthai_hours_datetime_for_local_time($date,$lunch['range'][0]) && wowthai_hours_datetime_for_local_time($date,$lunch['range'][1]);
     $lunch_slots = $valid_lunch_window ? array_values(array_filter($pickup, static fn($hm)=>in_array((int)$date->format('N'),$lunch['days'],true) && $hm >= $lunch['range'][0] && $hm <= $lunch['range'][1])) : [];
-    return ['lunch_slots'=>$lunch_slots, 'mittags_note'=>wowthai_lunch_note($lunch), 'mittags_m4_note'=>wowthai_lunch_note($lunch,true), 'date' => $date->format('Y-m-d'), 'timezone' => 'Europe/Vienna',
+    $lunch_day = wowthai_lunch_available_on_date($date,$lunch,$weekly,$exceptions);
+    return ['lunch_available_on_date'=>$lunch_day, 'm4_available_on_date'=>$lunch_day && in_array((int)$date->format('N'),WOWTHAI_MITTAGSMENU_M4_DAYS,true), 'lunch_slots'=>$lunch_slots, 'mittags_note'=>wowthai_lunch_note($lunch), 'mittags_m4_note'=>wowthai_lunch_note($lunch,true), 'date' => $date->format('Y-m-d'), 'timezone' => 'Europe/Vienna',
         'ranges' => wowthai_hours_ranges_for_config($date, $weekly, $exceptions),
         'reservation_slots' => wowthai_reservation_slots($date, $now, $weekly, $exceptions),
         'pickup_slots' => $pickup,

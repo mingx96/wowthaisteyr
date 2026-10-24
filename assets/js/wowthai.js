@@ -358,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn) return;
     e.preventDefault();
 
-    if (btn.disabled) return;
+    if (btn.disabled || btn.hidden) return;
     const productId = btn.dataset.productId;
     const hasVariants = btn.dataset.hasVariants === 'yes';
     const hasModifiers = btn.dataset.hasModifiers === 'yes';

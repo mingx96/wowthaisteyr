@@ -9,7 +9,7 @@ $opening_status = function_exists('wowthai_get_opening_status') ? wowthai_get_op
 $hours_display = function_exists('wowthai_hours_display') ? wowthai_hours_display() : [];
 $allergens = function_exists('wowthai_get_allergen_list') ? wowthai_get_allergen_list() : [];
 $is_sushi_day = function_exists('wowthai_is_sushi_available_on_day') ? wowthai_is_sushi_available_on_day() : true;
-$is_mittags_now = function_exists('wowthai_mittagsmenu_available') ? wowthai_mittagsmenu_available() : false;
+$is_lunch_day = wowthai_lunch_available_on_date(wowthai_now());
 $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowthai_mittagsmenu_m4_available_on_dow() : true;
 ?>
 
@@ -94,9 +94,7 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
             <?php if ($is_mittag_sec && !empty($hours_display['mittags_note'])): ?>
               <p class="mittag-hours-badge" style="margin:6px 0 0 0;font-size:12px;color:#e5c478;font-weight:600;">
                 🕒 Mittagsmenü-Zeiten: <span data-wowthai-lunch-note><?php echo esc_html($hours_display['mittags_note']); ?></span>
-                <?php if (!$is_mittags_now): ?>
-                  <span style="color:#c4bcad;font-weight:400;"> · Vorbestellung für das Mittagsfenster möglich</span>
-                <?php endif; ?>
+
               </p>
             <?php endif; ?>
           </div>
@@ -108,8 +106,11 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
             $filter_meta = mb_strtolower($p['title'] . ' ' . ($p['description'] ?? '') . ' ' . $labels_text);
             $spice_pill  = !empty($p['spice']['pill']) ? $p['spice']['pill'] : '';
             $is_m4_dish  = function_exists('wowthai_product_is_mittagsmenu_m4') ? wowthai_product_is_mittagsmenu_m4($p['id'], $p['title']) : false;
+            $is_lunch_dish = $is_mittag_sec || $is_m4_dish;
+            $lunch_locked = $is_lunch_dish && (!$is_lunch_day || ($is_m4_dish && !$is_m4_day));
           ?>
             <article class="dish-card" id="gericht-<?php echo esc_attr($p['id']); ?>" tabindex="-1"
+              <?php if ($is_lunch_dish): ?>data-lunch-kind="<?php echo $is_m4_dish ? 'm4' : 'regular'; ?>"<?php endif; ?>
               data-dish-title="<?php echo esc_attr(mb_strtolower($p['title'])); ?>"
               data-dish-search="<?php echo esc_attr($filter_meta); ?>"
               data-dish-labels="<?php echo esc_attr(mb_strtolower($labels_text)); ?>">
@@ -137,12 +138,8 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
                 </div>
               <?php endif; ?>
               <div class="dish-actions">
-                <?php if ($is_m4_dish && !$is_m4_day): ?>
-                  <button type="button" class="dish-control disabled" disabled style="opacity:0.65;cursor:not-allowed;background:#2b2620;color:#d4a359;border:1px solid rgba(212,163,89,0.3);" title="Mittagsmenü M4 (Sushi) wird nur Dienstag bis Freitag serviert">
-                    🍣 Nur Di – Fr verfügbar
-                  </button>
-                <?php else: ?>
-                  <button type="button" class="dish-control"
+                <?php if ($is_lunch_dish): ?><span data-lunch-unavailable<?php if (!$lunch_locked) echo ' hidden'; ?> class="dish-meta">Heute nicht verfügbar · siehe Mittagsmenü-Zeiten</span><?php endif; ?>
+                  <button type="button" class="dish-control"<?php if ($lunch_locked) echo ' hidden disabled'; ?>
                     data-product-id="<?php echo esc_attr($p['id']); ?>"
                     data-modifier-groups="<?php echo esc_attr(wp_json_encode($p['modifier_groups'])); ?>"
                     data-has-modifiers="<?php echo !empty($p['modifier_groups']) ? 'yes' : 'no'; ?>"
@@ -152,7 +149,7 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
                     data-variants="<?php echo esc_attr(json_encode($p['variants'])); ?>">
                     <?php echo ($p['has_variants'] || !empty($p['modifier_groups'])) ? 'Auswählen' : 'In den Warenkorb +'; ?>
                   </button>
-                <?php endif; ?>
+
               </div>
             </article>
           <?php endforeach; ?>
