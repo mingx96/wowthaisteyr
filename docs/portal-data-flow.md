@@ -78,3 +78,7 @@ revert to code which ignores the saved schedule.
 
 See [TESTING.md](TESTING.md) for the opt-in test commands. Task lifecycle and
 Business OS audit priorities remain in the existing private project tracker.
+
+## Mittagsmenü configuration
+
+`wowthai_lunch_service` stores `{days: [ISO weekdays], range: [HH:MM, HH:MM]}` independently of restaurant opening hours. `/schedule/lunch` reuses the manager-only nonce/revision/lock/signed-preview save path. Revisions bind all three schedule options. Preview lists all active orders conservatively for acknowledgement; bookings and transaction data are never changed. Lunch/M4 slots intersect the effective kitchen schedule and date exceptions. M4 additionally retains Tuesday–Friday. Reads/deployments never seed the option.

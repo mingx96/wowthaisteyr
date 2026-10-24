@@ -1952,3 +1952,5 @@ dialog.wto-modal::backdrop {
 .wto-hours-conflict-table th, .wto-hours-conflict-table td { text-align: left; vertical-align: top; padding: 10px 6px; border-bottom: 1px solid var(--wto-line); overflow-wrap: anywhere; }
 
 .wto-hours-shell input:is([type=date], [type=time]) { color-scheme: dark; }
+
+.wto-lunch-days {display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.wto-lunch-days label {display:flex;align-items:center;gap:8px;min-height:44px;padding:8px;border:1px solid var(--wto-line);border-radius:6px}.wto-hours-tabs {flex-wrap:wrap}.wto-hours-tabs button {flex:1 1 110px}

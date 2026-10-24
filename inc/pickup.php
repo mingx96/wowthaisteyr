@@ -154,7 +154,7 @@ function wowthai_pickup_dates($now = null, $has_sushi = false, $has_mittagsmenu 
         if ($has_sushi && !wowthai_sushi_available($date)) {
             continue;
         }
-        if ($has_mittagsmenu && !in_array($dow, WOWTHAI_MITTAGSMENU_DAYS, true)) {
+        if ($has_mittagsmenu && !in_array($dow, wowthai_lunch_config()['days'], true)) {
             continue;
         }
         if ($has_m4 && !in_array($dow, WOWTHAI_MITTAGSMENU_M4_DAYS, true)) {

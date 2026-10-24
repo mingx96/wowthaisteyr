@@ -93,7 +93,7 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
             <h2><?php echo esc_html($sec['name']); ?></h2>
             <?php if ($is_mittag_sec && !empty($hours_display['mittags_note'])): ?>
               <p class="mittag-hours-badge" style="margin:6px 0 0 0;font-size:12px;color:#e5c478;font-weight:600;">
-                🕒 Mittagsmenü-Zeiten: <?php echo esc_html($hours_display['mittags_note']); ?>
+                🕒 Mittagsmenü-Zeiten: <span data-wowthai-lunch-note><?php echo esc_html($hours_display['mittags_note']); ?></span>
                 <?php if (!$is_mittags_now): ?>
                   <span style="color:#c4bcad;font-weight:400;"> · Vorbestellung für das Mittagsfenster möglich</span>
                 <?php endif; ?>
@@ -129,7 +129,7 @@ $is_m4_day = function_exists('wowthai_mittagsmenu_m4_available_on_dow') ? wowtha
               <?php if (!empty($p['labels']) || $is_m4_dish): ?>
                 <div class="dish-labels">
                   <?php if ($is_m4_dish && !empty($hours_display['mittags_m4_note'])): ?>
-                    <span class="dish-label" style="background:rgba(212,163,89,0.18);color:#e5c478;border:1px solid rgba(212,163,89,0.45);font-weight:700;">🍣 Nur <?php echo esc_html($hours_display['mittags_m4_note']); ?></span>
+                    <span class="dish-label" style="background:rgba(212,163,89,0.18);color:#e5c478;border:1px solid rgba(212,163,89,0.45);font-weight:700;">🍣 Nur <span data-wowthai-lunch-m4-note><?php echo esc_html($hours_display['mittags_m4_note']); ?></span></span>
                   <?php endif; ?>
                   <?php foreach ($p['labels'] as $lbl): ?>
                     <span class="dish-label"><?php echo esc_html($lbl); ?></span>

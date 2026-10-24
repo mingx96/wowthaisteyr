@@ -16,6 +16,34 @@ const WOWTHAI_MITTAGSMENU_RANGE           = ['11:00', '14:30'];
 const WOWTHAI_ENFORCE_MITTAGSMENU_HOURS   = true;
 const WOWTHAI_LAST_RESERVATION_OFFSET_MIN = 30; // Letzte Reservierung 30 Min. vor Küchenschluss
 
+/** Validate one same-day lunch window; an empty day list disables the menu. */
+function wowthai_lunch_validate($value) {
+    if (!is_array($value) || !isset($value['days'], $value['range']) || !is_array($value['days']) || array_values($value['days']) !== $value['days']) return new WP_Error('lunch_invalid', 'Bitte gültige Mittagsmenü-Tage und Zeiten wählen.');
+    foreach ($value['days'] as $day) if (!is_int($day) || $day < 1 || $day > 7) return new WP_Error('lunch_days', 'Ungültiger Wochentag.');
+    if (count(array_unique($value['days'])) !== count($value['days'])) return new WP_Error('lunch_days', 'Wochentage dürfen nicht doppelt sein.');
+    $ranges = wowthai_hours_validate_ranges([$value['range']]);
+    if (is_wp_error($ranges)) return $ranges;
+    $days = $value['days']; sort($days);
+    return ['days'=>$days, 'range'=>$ranges[0]];
+}
+
+function wowthai_lunch_config(): array {
+    $raw = get_option('wowthai_lunch_service', null);
+    if ($raw === null) return ['days'=>WOWTHAI_MITTAGSMENU_DAYS, 'range'=>WOWTHAI_MITTAGSMENU_RANGE];
+    $config = wowthai_lunch_validate($raw);
+    return is_wp_error($config) ? ['days'=>[], 'range'=>WOWTHAI_MITTAGSMENU_RANGE] : $config;
+}
+
+function wowthai_lunch_note(?array $config = null, bool $m4 = false): string {
+    $config = $config ?? wowthai_lunch_config();
+    if ($m4) $config['days'] = array_values(array_intersect($config['days'], WOWTHAI_MITTAGSMENU_M4_DAYS));
+    if (!$config['days']) return 'Derzeit nicht verfügbar';
+    $names = [1=>'Mo',2=>'Di',3=>'Mi',4=>'Do',5=>'Fr',6=>'Sa',7=>'So'];
+    $days = $config['days'];
+    $label = count($days) > 1 && $days === range(min($days),max($days)) ? $names[min($days)].' – '.$names[max($days)] : implode(', ', array_map(static fn($d)=>$names[$d],$days));
+    return $label.' · '.implode(' – ', $config['range']).' Uhr innerhalb der Küchenzeiten'.($m4 ? '' : ' (M4 Sushi: Di – Fr)');
+}
+
 /**
  * Verbindliche Restaurant-Zeitzone (Steyr, Österreich).
  */
@@ -208,7 +236,7 @@ function wowthai_sushi_available_on_dow(?int $day_of_week = null): bool {
 }
 
 /**
- * Prüft, ob zum Zeitpunkt $at das Mittagsmenü verfügbar ist (Mo–Fr im Mittagsfenster).
+ * Prüft, ob zum Zeitpunkt $at das Mittagsmenü verfügbar ist (konfigurierte Tage und Mittagszeit).
  */
 function wowthai_mittagsmenu_available(?DateTimeImmutable $at = null): bool {
     $at = ($at ?? wowthai_now())->setTimezone(wowthai_timezone());
@@ -216,12 +244,13 @@ function wowthai_mittagsmenu_available(?DateTimeImmutable $at = null): bool {
         return false;
     }
     $dow = (int) $at->format('N');
-    if (!in_array($dow, WOWTHAI_MITTAGSMENU_DAYS, true)) {
+    if (!in_array($dow, wowthai_lunch_config()['days'], true)) {
         return false;
     }
-    [$start_hm, $end_hm] = WOWTHAI_MITTAGSMENU_RANGE;
-    $start = wowthai_datetime_at_hm($at, $start_hm);
-    $end   = wowthai_datetime_at_hm($at, $end_hm);
+    [$start_hm, $end_hm] = wowthai_lunch_config()['range'];
+    $start = wowthai_hours_datetime_for_local_time($at, $start_hm);
+    $end = wowthai_hours_datetime_for_local_time($at, $end_hm);
+    if (!$start || !$end) return false;
     return ($at >= $start && $at < $end);
 }
 
@@ -236,7 +265,7 @@ function wowthai_mittagsmenu_m4_available_on_dow(?int $day_of_week = null): bool
         }
         $day_of_week = (int) $now->format('N');
     }
-    return in_array((int) $day_of_week, WOWTHAI_MITTAGSMENU_M4_DAYS, true);
+    return in_array((int) $day_of_week, WOWTHAI_MITTAGSMENU_M4_DAYS, true) && in_array((int)$day_of_week, wowthai_lunch_config()['days'], true);
 }
 
 /**
@@ -260,16 +289,17 @@ function wowthai_is_slot_valid_for_mittagsmenu(DateTimeImmutable $date, string $
     }
     $date = $date->setTimezone(wowthai_timezone());
     $dow = (int) $date->format('N');
-    if (!in_array($dow, WOWTHAI_MITTAGSMENU_DAYS, true)) {
+    if (!in_array($dow, wowthai_lunch_config()['days'], true)) {
         return false;
     }
     if (!preg_match('/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/D', $slot_hm)) {
         return false;
     }
-    [$start_hm, $end_hm] = WOWTHAI_MITTAGSMENU_RANGE;
-    $slot_dt  = wowthai_datetime_at_hm($date, $slot_hm);
-    $start_dt = wowthai_datetime_at_hm($date, $start_hm);
-    $end_dt   = wowthai_datetime_at_hm($date, $end_hm);
+    [$start_hm, $end_hm] = wowthai_lunch_config()['range'];
+    $slot_dt = wowthai_hours_datetime_for_local_time($date, $slot_hm);
+    $start_dt = wowthai_hours_datetime_for_local_time($date, $start_hm);
+    $end_dt = wowthai_hours_datetime_for_local_time($date, $end_hm);
+    if (!$slot_dt || !$start_dt || !$end_dt) return false;
     if ($slot_dt < $start_dt || $slot_dt > $end_dt) {
         return false;
     }
@@ -352,7 +382,6 @@ function wowthai_hours_display(): array {
     $mosa_short = $format_ranges($mosa_ranges, ' · ');
     $mosa_amp   = $format_ranges($mosa_ranges, ' & ');
     $sun_short  = $format_ranges($sun_ranges, ' · ');
-    [$lunch_start, $lunch_end] = WOWTHAI_MITTAGSMENU_RANGE;
 
     return [
         'mosa_days'        => 'Mo – Sa',
@@ -365,8 +394,8 @@ function wowthai_hours_display(): array {
         'sun_hours_short'  => $sun_short . ($sun_ranges ? ' Uhr' : ''),
         'sushi_note'       => 'Montags Sushi-Ruhetag · Küchenzeiten laut Wochenplan',
         'sushi_note_short' => 'Sushi: Montags Ruhetag · Küchenzeiten laut Wochenplan',
-        'mittags_note'     => 'Mo – Fr · ' . $lunch_start . ' – ' . $lunch_end . ' Uhr innerhalb der Küchenzeiten (M4 Sushi: Di – Fr)',
-        'mittags_m4_note'  => 'Di – Fr · ' . $lunch_start . ' – ' . $lunch_end . ' Uhr innerhalb der Küchenzeiten',
+        'mittags_note'     => wowthai_lunch_note(),
+        'mittags_m4_note'  => wowthai_lunch_note(null, true),
         'rows'             => wowthai_hours_grouped_rows($schedule),
     ];
 }

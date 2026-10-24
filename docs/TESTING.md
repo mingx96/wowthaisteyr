@@ -187,3 +187,9 @@ records and restores schedule options. Never run it against production or
 import/synchronize the restaurant database. Fixture evidence does not verify
 production advisory-lock support, platform CDN invalidation or authenticated
 staff runtime behavior.
+
+## Editable Mittagsmenü (1.5.6)
+
+`hours-api.test.php` verifies the canonical lunch option, weekday/window validation, disabled state, no-seeding reads, draft slots, manager/nonce enforcement, stale revisions, separate resource persistence, conservative active-order acknowledgement and pickup-slot readback. Lunch uses the existing signed preview and site-scoped lock. All active future/unknown-time orders are intentionally listed for manual review; their historical menu membership is not inferred from mutable product categories. Bookings are unaffected. These are in-memory WordPress fixtures, not a production save test.
+
+`portal.browser.py` covers the lunch tab, selected weekdays and times, exact preview/PUT payloads, invalid windows without an API request, shared inflight protection and readonly fieldsets across the existing five viewports. Public availability hydrates both lunch notes in cached menu HTML; server checkout remains authoritative. No saved lunch option means the existing Mo–Fr default; an empty day list explicitly disables lunch.

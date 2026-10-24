@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return data;
   }
   function controls() {
+    $('lunch-fields').disabled = !editable || saving;
     $('weekly-fields').disabled = !editable || saving;
     $('exception-fields').disabled = !editable || saving;
     root.querySelectorAll('[data-day]').forEach(row => {
@@ -124,6 +125,9 @@ document.addEventListener('DOMContentLoaded', () => {
           const ranges = data.weekly[String(i+1)] || [];
           return `<div class="wto-hours-day" data-day="${i+1}"><div class="wto-hours-day-title"><strong>${day}</strong><label><input type="checkbox" data-closed ${ranges.length ? '' : 'checked'}> Geschlossen</label></div><div data-ranges>${(ranges.length ? ranges : [['','']]).map(r => rangeHTML(r, day)).join('')}</div><button type="button" data-add class="wto-btn btn-secondary">Zeitfenster hinzufügen<span class="wto-sr-only"> ${day}</span></button></div>`;
         }).join('');
+        const lunch = data.lunch || {days:[],range:['','']};
+        $('lunch-days').innerHTML = days.map((day,i)=>`<label><input type="checkbox" value="${i+1}" ${lunch.days.includes(i+1) ? 'checked' : ''}> ${day}</label>`).join('');
+        $('lunch-start').value = lunch.range[0]; $('lunch-end').value = lunch.range[1];
         $('start').value = $('end').value = $('preview-date').value = today;
         syncExceptionStart();
         $('custom-ranges').innerHTML = rangeHTML(['',''], 'Sondertag');
@@ -150,7 +154,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function draft() {
     const body = {kind, revision:schedule.revision, preview_date:$('preview-date').value};
     if (!validDate(body.preview_date)) throw new Error('Bitte ein gültiges Vorschaudatum wählen.');
-    if (kind === 'weekly') {
+    if (kind === 'lunch') {
+      const start = $('lunch-start').value, end = $('lunch-end').value;
+      if (!start || !end || start >= end) throw new Error('Bitte eine gültige Mittagszeit mit Von vor Bis eingeben.');
+      body.lunch = {days:[...$('lunch-days').querySelectorAll('input:checked')].map(el=>Number(el.value)),range:[start,end]};
+    } else if (kind === 'weekly') {
       body.weekly = {};
       root.querySelectorAll('[data-day]').forEach(row => { body.weekly[row.dataset.day] = row.querySelector('[data-closed]').checked ? [] : ranges(row.querySelector('[data-ranges]')); });
     } else {
@@ -164,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function result(data, source) {
     $('preview-source').textContent = source + ' · ' + data.date + ' · Europe/Vienna';
-    $('result').innerHTML = `<dl><dt>Küche</dt><dd>${data.ranges?.length ? data.ranges.map(r => esc(r.join('–'))).join(', ') : 'Geschlossen'}</dd><dt>Reservierungen</dt><dd>${esc((data.reservation_slots || []).join(', ') || 'Keine Zeiten')}</dd><dt>Abholung (allgemein)</dt><dd>${esc((data.pickup_slots || []).join(', ') || 'Keine Zeiten')}</dd></dl>`;
+    $('result').innerHTML = `<dl><dt>Küche</dt><dd>${data.ranges?.length ? data.ranges.map(r => esc(r.join('–'))).join(', ') : 'Geschlossen'}</dd><dt>Reservierungen</dt><dd>${esc((data.reservation_slots || []).join(', ') || 'Keine Zeiten')}</dd><dt>Abholung (allgemein)</dt><dd>${esc((data.pickup_slots || []).join(', ') || 'Keine Zeiten')}</dd><dt>Mittagsmenü</dt><dd>${esc(data.mittags_note || '')}</dd><dt>Abholung Mittagsmenü</dt><dd>${esc((data.lunch_slots || []).join(', ') || 'Keine Zeiten')}</dd></dl>`;
   }
   $('check').addEventListener('click', async () => {
     if (!editable || saving || stale) return;
@@ -175,8 +183,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (current !== generation) return;
       if (!data.confirmation_token || !Array.isArray(data.conflicts)) throw new Error('Prüfung unvollständig. Bitte erneut prüfen.');
       token = data.confirmation_token; conflicts = data.conflicts;
-      result(data.preview, kind === 'weekly' ? 'Entwurf Wochenplan' : 'Entwurf Sondertage');
-      $('conflicts').innerHTML = conflicts.length ? `<h2>Betroffene Vorgänge (${conflicts.length})</h2><p>Unbekannte Zeiten manuell prüfen. Es wird kein Vorgang storniert.</p><table class="wto-hours-conflict-table"><thead><tr><th scope="col">Vorgang</th><th scope="col">Datum / Zeit</th><th scope="col">Status</th></tr></thead><tbody>${conflicts.map(c => `<tr><td>${c.kind === 'order' ? 'Bestellung' : 'Reservierung'} #${esc(c.id)}</td><td>${esc(c.date || 'Datum unbekannt')} · ${esc(c.time || 'Zeit unbekannt')}</td><td>${esc(c.status)}${c.unknown ? ' · Manuell prüfen' : ''}</td></tr>`).join('')}</tbody></table>` : '<p>Keine betroffenen Vorgänge gefunden.</p>';
+      result(data.preview, kind === 'lunch' ? 'Entwurf Mittagsmenü' : (kind === 'weekly' ? 'Entwurf Wochenplan' : 'Entwurf Sondertage'));
+      $('conflicts').innerHTML = conflicts.length ? `<h2>${kind === 'lunch' ? 'Aktive Bestellungen prüfen' : 'Betroffene Vorgänge'} (${conflicts.length})</h2><p>Unbekannte Zeiten manuell prüfen. Es wird kein Vorgang storniert.</p><table class="wto-hours-conflict-table"><thead><tr><th scope="col">Vorgang</th><th scope="col">Datum / Zeit</th><th scope="col">Status</th></tr></thead><tbody>${conflicts.map(c => `<tr><td>${c.kind === 'order' ? 'Bestellung' : 'Reservierung'} #${esc(c.id)}</td><td>${esc(c.date || 'Datum unbekannt')} · ${esc(c.time || 'Zeit unbekannt')}</td><td>${esc(c.status)}${c.unknown ? ' · Manuell prüfen' : ''}</td></tr>`).join('')}</tbody></table>` : '<p>Keine betroffenen Vorgänge gefunden.</p>';
       $('ack-label').hidden = !conflicts.length; tab('preview'); controls(); message('Entwurf geprüft. Vorschau gilt 10 Minuten; vor dem Speichern Angaben prüfen.');
     } catch (error) {
       if (current !== generation) return;

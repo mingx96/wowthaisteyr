@@ -1,3 +1,9 @@
+# Mittagsmenü settings — 2026-10-24
+
+- Task ID `notion:3fe9ccae-c10f-811c-aa0f-f561d4c47a8f`; owner Codex; user requests implementing staff settings, with prior release authorization. Branch `feat/lunch-settings-20261024`, base `0d7abd0`, version 1.5.6. Draft design PR18 stays untouched.
+- New Mittagsmenü tab: days, one same-day window, empty days disables. Managers save, staff view only. Canonical option `wowthai_lunch_service`; fallback Mo–Fr, no option seeding. Existing preview, signed token, revision, nonce, lock and readback reused; all active orders shown conservatively for acknowledgement, no transaction writes. M4 intersects Tuesday–Friday and configured lunch/kitchen hours. Public notes hydrate from no-store availability.
+- API fixtures cover saved configuration/pickup, strict validation, revision/permissions/nonce, disabled/corrupt state and active-order warning. Browser covers real controls/payloads/readonly at five widths. Full verification/PR/CI/runtime results follow in the existing Notion task; production authenticated saving remains NOT RUN. No database synchronization.
+
 # Lunch weekdays — 2026-10-24
 
 - Task ID `notion:3fe9ccae-c10f-811c-aa0f-f561d4c47a8f`; owner Codex in this chat. User explicitly requests disabling Mittagsmenü on Saturday/Sunday in production. Branch `fix/lunch-weekdays-20261024`, base `6b76152`, theme 1.5.5. Separate draft design PR18 is out of scope.
