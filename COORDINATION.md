@@ -1,3 +1,9 @@
+# Lunch weekdays — 2026-10-24
+
+- Task ID `notion:3fe9ccae-c10f-811c-aa0f-f561d4c47a8f`; owner Codex in this chat. User explicitly requests disabling Mittagsmenü on Saturday/Sunday in production. Branch `fix/lunch-weekdays-20261024`, base `6b76152`, theme 1.5.5. Separate draft design PR18 is out of scope.
+- Canonical lunch days change from Monday–Saturday to Monday–Friday; Sunday was already excluded. Public note updated; M4 stays Tuesday–Friday and restaurant opening hours stay unchanged. Existing pickup dates/slot validation consume the same canonical rule. No product, order, booking or database writes.
+- Hours regression first reported 97 pass/3 fail, then 100/100 pass after rule update; G1–G11 pass. PR/CI and runtime verification pending. WordPress connector has no theme-file deployment operation; browser connection tools are unavailable in this session. Do not infer deployment from artifact workflow.
+
 # COORDINATION & HANDOVER PROTOCOL (WOW THAI STEYR)
 
 ## Homepage discovery and visit planning — 2026-10-21T19:33:34Z

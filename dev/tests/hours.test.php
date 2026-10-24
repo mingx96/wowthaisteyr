@@ -59,8 +59,8 @@ $cases = [
     ['2026-10-20 18:00:00', true,  true,  false, false, 'Tuesday 18:00 open, sushi available, dinner (no lunch, no M4)'],
     // Friday (2026-10-23 is Friday): M4 active at lunch
     ['2026-10-23 12:30:00', true,  true,  true,  true,  'Friday 12:30 open, sushi available, lunch & M4 available'],
-    // Saturday (2026-10-24 is Saturday): regular lunch yes, M4 no (M4 only Di-Fr)
-    ['2026-10-24 12:00:00', true,  true,  true,  false, 'Saturday 12:00 open, sushi available, regular lunch yes, M4 NO'],
+    // Saturday (2026-10-24 is Saturday): no regular lunch or M4
+    ['2026-10-24 12:00:00', true,  true,  false, false, 'Saturday 12:00 open, sushi available, no lunch or M4'],
     ['2026-10-24 20:59:00', true,  true,  false, false, 'Saturday 20:59 open'],
     ['2026-10-24 21:00:00', false, true,  false, false, 'Saturday 21:00 closed'],
     // Sunday (2026-10-25 is Sunday): 11:30-19:00, no lunch, no M4
@@ -94,7 +94,9 @@ assert_eq('Monday 11:30 valid for regular Mittagsmenü', wowthai_is_slot_valid_f
 assert_eq('Monday 11:30 INVALID for Mittagsmenü M4', wowthai_is_slot_valid_for_mittagsmenu_m4($mon, '11:30'), false);
 assert_eq('Tuesday 11:30 valid for Mittagsmenü M4', wowthai_is_slot_valid_for_mittagsmenu_m4($tue, '11:30'), true);
 assert_eq('Tuesday 18:00 INVALID for Mittagsmenü M4', wowthai_is_slot_valid_for_mittagsmenu_m4($tue, '18:00'), false);
-assert_eq('Saturday 12:00 valid for regular Mittagsmenü', wowthai_is_slot_valid_for_mittagsmenu($sat, '12:00'), true);
+assert_eq('Saturday 12:00 INVALID for regular Mittagsmenü', wowthai_is_slot_valid_for_mittagsmenu($sat, '12:00'), false);
+assert_eq('Sunday 12:00 INVALID for regular Mittagsmenü', wowthai_is_slot_valid_for_mittagsmenu(new DateTimeImmutable('2026-10-25', $tz), '12:00'), false);
+assert_eq('Lunch display states weekdays only', strpos(wowthai_hours_display()['mittags_note'], 'Mo – Fr') === 0, true);
 assert_eq('Saturday 12:00 INVALID for Mittagsmenü M4', wowthai_is_slot_valid_for_mittagsmenu_m4($sat, '12:00'), false);
 
 $sunDstFall = new DateTimeImmutable('2026-10-25 02:30:00', $tz);
