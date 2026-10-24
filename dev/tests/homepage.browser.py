@@ -19,7 +19,7 @@ ARTIFACTS = Path(os.environ.get('HOMEPAGE_TEST_ARTIFACTS', '/tmp/wowthai-homepag
 ARTIFACTS.mkdir(parents=True, exist_ok=True)
 fixtures = {
     name: subprocess.check_output(['php', str(ROOT / 'dev/tests/homepage-fixture.php'), name], text=True)
-    for name in ['home', 'home-empty', 'home-images', 'menu']
+    for name in ['home', 'home-empty', 'home-images', 'menu', 'menu-lunch']
 }
 for name, html in fixtures.items():
     assert 'Fatal error' not in html and 'Warning:' not in html, (name, html[:1000])
@@ -79,7 +79,7 @@ try:
                         request_route.fulfill(status=503, body='Unavailable')
                     else:
                         day = parse_qs(urlparse(request.url).query)['date'][0]
-                        request_route.fulfill(content_type='application/json', body=json.dumps(availability(day, state['mode'] == 'closed')))
+                        request_route.fulfill(content_type='application/json', body=json.dumps({**availability(day, state['mode'] == 'closed'),'lunch_available_on_date':state.get('lunch',False),'m4_available_on_date':state.get('m4',False)}))
                 elif '/ajax' in request.url:
                     request_route.fulfill(content_type='application/json', body=json.dumps({'success': True, 'data': {'items': [], 'count': 0, 'total': '€0,00'}}))
                 else:
@@ -137,6 +137,23 @@ try:
             page.goto(origin + '/menu/#gericht-43')
             expect(page.locator('#gericht-43')).to_be_visible()
             assert page.locator('#cart-count').inner_text() == '0'
+            page.goto(origin + '/menu-lunch')
+            expect(page.locator('#gericht-1 .dish-control')).to_be_hidden()
+            expect(page.locator('#gericht-4 .dish-control')).to_be_hidden()
+            expect(page.locator('#gericht-43 .dish-control')).to_be_visible()
+            state['lunch']=True
+            page.evaluate("window.dispatchEvent(new Event('focus'))")
+            expect(page.locator('#gericht-1 .dish-control')).to_be_visible()
+            expect(page.locator('#gericht-4 .dish-control')).to_be_hidden()
+            state['m4']=True
+            page.evaluate("window.dispatchEvent(new Event('focus'))")
+            expect(page.locator('#gericht-4 .dish-control')).to_be_visible()
+            state['lunch']=False; state['m4']=False
+            page.evaluate("window.dispatchEvent(new Event('focus'))")
+            expect(page.locator('#gericht-1 .dish-control')).to_be_hidden()
+            expect(page.locator('#gericht-4 .dish-control')).to_be_hidden()
+            page.locator('#gericht-1 .dish-control').dispatch_event('click')
+            assert not writes, 'hidden lunch controls must never create a transaction'
             assert not writes, writes
             assert not outgoing, outgoing
             assert not errors, errors

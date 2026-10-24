@@ -34,6 +34,16 @@ function wowthai_lunch_config(): array {
     return is_wp_error($config) ? ['days'=>[], 'range'=>WOWTHAI_MITTAGSMENU_RANGE] : $config;
 }
 
+/** Day-level selection: weekday preorders remain possible outside lunch hours. */
+function wowthai_lunch_available_on_date(DateTimeImmutable $date, ?array $lunch = null, ?array $weekly = null, ?array $exceptions = null): bool {
+    $date = $date->setTimezone(wowthai_timezone());
+    $lunch = $lunch ?? wowthai_lunch_config();
+    $ranges = $weekly === null ? wowthai_hours_ranges_for_date($date) : wowthai_hours_ranges_for_config($date,$weekly,$exceptions ?? []);
+    if (!in_array((int)$date->format('N'),$lunch['days'],true) || !wowthai_hours_datetime_for_local_time($date,$lunch['range'][0]) || !wowthai_hours_datetime_for_local_time($date,$lunch['range'][1])) return false;
+    foreach ($ranges as [$start,$end]) if (max($start,$lunch['range'][0]) < min($end,$lunch['range'][1])) return true;
+    return false;
+}
+
 function wowthai_lunch_note(?array $config = null, bool $m4 = false): string {
     $config = $config ?? wowthai_lunch_config();
     if ($m4) $config['days'] = array_values(array_intersect($config['days'], WOWTHAI_MITTAGSMENU_M4_DAYS));

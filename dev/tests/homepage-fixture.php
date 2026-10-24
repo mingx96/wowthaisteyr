@@ -6,7 +6,7 @@ $GLOBALS['fixture_page'] = $argv[1] ?? 'home';
 function add_action(...$args) {}
 function add_filter(...$args) {}
 function apply_filters($tag, $value) { return $value; }
-function get_option($key, $default = false) { return $default; }
+function get_option($key, $default = false) { if ($key==='wowthai_lunch_service' && $GLOBALS['fixture_page']==='menu-lunch') return ['days'=>[], 'range'=>['11:00','14:30']]; return $default; }
 function is_wp_error($value) { return false; }
 function home_url($path = '') { return $path; }
 function admin_url($path = '') { return '/admin/' . $path; }
@@ -59,8 +59,14 @@ function fixture_dishes() {
 function wowthai_get_homepage_dishes() {
     return $GLOBALS['fixture_page'] === 'home-empty' ? [] : fixture_dishes();
 }
+function wowthai_product_is_mittagsmenu_m4($id, $title='') {return str_contains($title,'M4');}
 function wowthai_get_menu_structure() {
     $dishes = fixture_dishes();
+    if ($GLOBALS['fixture_page']==='menu-lunch') {
+      $m1=$dishes[0]; $m1['id']=1; $m1['title']='M1 Lunch';
+      $m4=$dishes[1]; $m4['id']=4; $m4['title']='M4 Sushi Lunch';
+      return ['restaurant'=>[['name'=>'Mittagsmenü','slug'=>'mittag','products'=>[$m1,$m4]],['name'=>'Hauptspeisen','slug'=>'hauptspeisen','products'=>[$dishes[1]]]],'sushi'=>[]];
+    }
     return [
         'restaurant' => [['name' => 'Hauptspeisen', 'slug' => 'hauptspeisen', 'products' => [$dishes[0], $dishes[1]]]],
         'sushi' => [['name' => 'Special Rolls', 'slug' => 'special-rolls', 'products' => [$dishes[2]]]],

@@ -32,6 +32,14 @@
       if (status) status.textContent = message;
     };
     const hydrateRows = data => {
+      if (typeof data.lunch_available_on_date === 'boolean' && typeof data.m4_available_on_date === 'boolean') {
+        document.querySelectorAll('[data-lunch-kind]').forEach(card => {
+          const allowed = data.lunch_available_on_date && (card.dataset.lunchKind !== 'm4' || data.m4_available_on_date);
+          const button = card.querySelector('.dish-control'), notice = card.querySelector('[data-lunch-unavailable]');
+          if (button) { button.hidden = !allowed; button.disabled = !allowed; }
+          if (notice) notice.hidden = allowed;
+        });
+      }
       if (typeof data.mittags_m4_note === 'string') document.querySelectorAll('[data-wowthai-lunch-m4-note]').forEach(el=>{el.textContent=data.mittags_m4_note;});
       if (typeof data.mittags_note === 'string') document.querySelectorAll('[data-wowthai-lunch-note]').forEach(el=>{el.textContent=data.mittags_note;});
       if (homeStatus) {

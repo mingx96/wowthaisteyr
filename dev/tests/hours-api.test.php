@@ -87,6 +87,10 @@ else {
     $GLOBALS['options']=[]; $GLOBALS['orders']=[]; $GLOBALS['bookings']=[];
     $s=wowthai_hours_api_schedule();
     check('lunch default weekdays',$s['lunch']['days']===[1,2,3,4,5]);
+    check('Saturday lunch selection locked',!wowthai_lunch_available_on_date(new DateTimeImmutable('2026-10-24',wowthai_timezone())));
+    check('weekday preorders independent of current hour',wowthai_lunch_available_on_date(new DateTimeImmutable('2026-10-26 21:30',wowthai_timezone())));
+    check('kitchen closure locks lunch selection',!wowthai_lunch_available_on_date(new DateTimeImmutable('2026-10-26',wowthai_timezone()),null,array_fill(1,7,[]),[]));
+
     $l=['days'=>[6], 'range'=>['12:00','13:00']];
     $d=['kind'=>'lunch','revision'=>$s['revision'],'lunch'=>$l,'preview_date'=>$today->modify('next Saturday')->format('Y-m-d')];
     $p=wowthai_hours_api_preview(new Request($d));

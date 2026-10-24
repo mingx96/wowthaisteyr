@@ -1,3 +1,9 @@
+# Locked lunch choices — 2026-10-24
+
+- Task ID `notion:3fe9ccae-c10f-811c-aa0f-f561d4c47a8f`; owner Codex; user requests hiding Mittagsmenü choices on locked days. Branch `fix/locked-lunch-selection-20261024`, base `e8b36fb`, version 1.5.7; design PR18 untouched.
+- Keep dish/price, hide and disable select controls for unavailable serving days, replace with a short notice. M4 additionally follows its own weekday constraint; weekday preorders remain possible outside the current lunch hour. Remove the misleading blanket preorder hint. API day flags rehydrate cached/newly opened menus; hidden controls cannot dispatch cart actions. No product/database/transaction changes.
+- Added actual-template browser regression first failed on visible weekend selection, then passed at 320/390/768/1440, including lock→unlock→M4→relock and zero transaction writes. Hours/API and full CI/runtime evidence follow in the existing task.
+
 # Mittagsmenü settings — 2026-10-24
 
 - Task ID `notion:3fe9ccae-c10f-811c-aa0f-f561d4c47a8f`; owner Codex; user requests implementing staff settings, with prior release authorization. Branch `feat/lunch-settings-20261024`, base `0d7abd0`, version 1.5.6. Draft design PR18 stays untouched.
